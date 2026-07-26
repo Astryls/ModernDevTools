@@ -17,6 +17,9 @@ namespace ModernDevTools
             for (int i = 0; i < n; i++)
             {
                 KnownIssueDef def = matches[i].def;
+                // On a benign, no-fault line show only the reassuring card - never a real-issue diagnosis
+                // that happened to co-match some substring.
+                if (ctx.Benign && !def.benign) continue;
                 ctx.AddDiagnosis(new ErrorDiagnosis
                 {
                     Title = def.label.NullOrEmpty() ? def.defName : def.LabelCap.ToString(),
@@ -24,8 +27,9 @@ namespace ModernDevTools
                     Fix = def.fix,
                     Url = def.url,
                     Source = def.defName,
-                    Score = n - i,
-                    Ignorable = def.ignorable
+                    Score = n - i + (def.benign ? 1000 : 0),
+                    Ignorable = def.ignorable,
+                    Benign = def.benign
                 });
 
                 Regex attr = matches[i].attributeRegex;

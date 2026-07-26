@@ -360,7 +360,11 @@ namespace ModernDevTools
 
             // Likely source
             y = Section(w, y, "MDT_SectionSource".Translate());
-            if (a != null && a.AnyCulprit)
+            if (a != null && a.Benign)
+            {
+                y = DrawWrapped(w, y, "MDT_BenignNoSource".Translate(), Palette.TextDim);
+            }
+            else if (a != null && a.AnyCulprit)
             {
                 int rank = 0;
                 foreach (AttributedMod m in a.Culprits)
@@ -399,8 +403,8 @@ namespace ModernDevTools
                 }
             }
 
-            // Report to the community bug/fix database
-            if (msg.type != LogMessageType.Message)
+            // Report to the community bug/fix database (never for a normal, no-fault engine line)
+            if (msg.type != LogMessageType.Message && !(a != null && a.Benign))
             {
                 y = Section(w, y, "MDT_SectionReport".Translate());
                 y = DrawReportSection(w, y, msg, a);
@@ -463,8 +467,8 @@ namespace ModernDevTools
             Text.Font = GameFont.Small;
             Text.WordWrap = false;
 
-            string badge = imp.Known ? "MDT_Known".Translate() : "MDT_Unknown".Translate();
-            Color badgeCol = imp.Known ? Palette.Accent : Palette.TextDim;
+            string badge = imp.Benign ? "MDT_Benign".Translate() : (imp.Known ? "MDT_Known".Translate() : "MDT_Unknown".Translate());
+            Color badgeCol = imp.Benign ? Palette.Good : (imp.Known ? Palette.Accent : Palette.TextDim);
             float badgeW = Text.CalcSize(badge).x + 8f;
             Text.Anchor = TextAnchor.MiddleRight;
             GUI.color = badgeCol;
@@ -552,7 +556,7 @@ namespace ModernDevTools
             float blockH = 8f + titleH + (descH > 0 ? 4f + descH : 0f) + (fixH > 0 ? 6f + fixH : 0f) + (urlH > 0 ? 4f + urlH : 0f) + 8f;
             Rect card = new Rect(0f, y, w, blockH);
             Palette.DrawCard(card);
-            Palette.StateStrip(card, Palette.Accent, 3f);
+            Palette.StateStrip(card, d.Benign ? Palette.Good : Palette.Accent, 3f);
 
             float cy = card.y + 8f;
             float cx = card.x + 10f;

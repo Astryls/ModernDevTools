@@ -68,6 +68,16 @@ namespace ModernDevTools
                 + "HugsLib, and errors like it can hurt both TPS and FPS. See the stack trace for the mod.");
         }
 
+        [DebugAction(Category, "Log benign vanilla line (no-concern demo)", allowedGameStates = Anywhere, displayPriority = 894)]
+        private static void LogBenignDemo()
+        {
+            // Deliberately NOT prefixed: this mimics vanilla's harmless "Initializing new game with mods:"
+            // dump verbatim (a real Log.Message that lists packageIds) so the benign library recognizes it.
+            // The inspector should tag it "No concern" and, crucially, leave "Likely source" empty - the
+            // listed mods must NOT be implicated just because their packageIds appear in the text.
+            Log.Message("Initializing new game with mods:\n  - brrainz.harmony\n  - Ludeon.RimWorld\n  - Ludeon.RimWorld.Royalty\n  - astryl.ModernDevTools\n  - modmixer.bridge");
+        }
+
         [DebugAction(Category, "Throw test exception", allowedGameStates = Anywhere, displayPriority = 897)]
         private static void ThrowTestException()
         {

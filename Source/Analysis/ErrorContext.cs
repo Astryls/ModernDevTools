@@ -34,6 +34,7 @@ namespace ModernDevTools
         public string Source;   // which module produced it (also the ignore key when Ignorable)
         public float Score;
         public bool Ignorable;  // harmless class the player can mute
+        public bool Benign;     // normal, no-fault engine output (rendered as "No concern", green strip)
     }
 
     /// <summary>
@@ -49,6 +50,11 @@ namespace ModernDevTools
         public string[] Frames;
         public string ExceptionType;
         public InstalledModIndex Mods;
+
+        /// <summary>Set once, before the module pipeline runs, when the line is recognized as normal,
+        /// no-fault engine output (see KnownIssueDef.benign). While true, all attribution is suppressed
+        /// so a benign line that merely lists packageIds does not implicate those mods.</summary>
+        public bool Benign;
 
         private readonly Dictionary<string, AttributedMod> _attr =
             new Dictionary<string, AttributedMod>(StringComparer.OrdinalIgnoreCase);
@@ -97,6 +103,7 @@ namespace ModernDevTools
 
         private void Merge(string key, string name, string packageId, SourceKind kind, float weight, string reason, int frameIndex, bool active, bool installed, string url)
         {
+            if (Benign) return; // no-fault engine line: never implicate anyone
             if (!_attr.TryGetValue(key, out AttributedMod am))
             {
                 am = new AttributedMod { Name = name, PackageId = packageId, Kind = kind, Active = active, Installed = installed };

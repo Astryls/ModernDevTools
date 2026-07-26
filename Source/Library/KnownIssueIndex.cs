@@ -109,6 +109,29 @@ namespace ModernDevTools
             return false;
         }
 
+        /// <summary>Fast pre-pass: is this the text of a known benign, no-fault engine line? Text-only
+        /// (regex / keyword / exception-type), so it can run before the module pipeline to set the
+        /// suppression flag. Benign entries are a tiny slice of the library.</summary>
+        public static bool HasBenignMatch(ErrorContext ctx)
+        {
+            EnsureBuilt();
+            try
+            {
+                string text = ctx.Text ?? "";
+                string textLower = text.ToLowerInvariant();
+                string exType = ctx.ExceptionType?.ToLowerInvariant();
+                foreach (Compiled c in _all)
+                {
+                    if (!c.def.benign) continue;
+                    if (c.regexes.Length > 0 && c.regexes.Any(rx => rx.IsMatch(text))) return true;
+                    if (c.keywordsLower.Length > 0 && c.keywordsLower.Any(k => k.Length > 0 && textLower.Contains(k))) return true;
+                    if (c.exTypesLower.Length > 0 && exType != null && c.exTypesLower.Contains(exType)) return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
         public static List<KnownIssueMatch> Match(ErrorContext ctx)
         {
             EnsureBuilt();

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!--
+    Benign log library. Normal, no-fault lines that RimWorld itself prints during a healthy startup,
+    new game, or load. New players often mistake these for problems because they show up in the debug
+    log next to real errors. Each entry is marked benign=true, so the inspector presents it as "No
+    concern": a calm explanation, no mod attribution (even when the line lists packageIds), and no
+    report card.
+
+    Matching is text-only (keyword / regex on the message). Keep patterns anchored and specific so they
+    only ever catch the exact vanilla line - a benign entry must never swallow a real error. Strings are
+    verified against the decompiled Verse/RimWorld source. Any mod can ship its own benign entries the
+    same way (ModernDevTools.KnownIssueDef with <benign>true</benign>).
+  -->
+
+  <!-- Verse.Root.CheckGlobalInit -> RimWorld.VersionControl.LogVersionNumber: "RimWorld 1.6.4871 rev591" -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_BenignVersionBanner</defName>
+    <label>the game version banner</label>
+    <description>This is the version line RimWorld prints at startup so the log records exactly which build you are on. It is purely informational.</description>
+    <benign>true</benign>
+    <priority>2</priority>
+    <regexes>
+      <li>^RimWorld \d+\.\d+(\.\d+)?( rev\d+)?</li>
+    </regexes>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- Verse.Root.CheckGlobalInit: "Command line arguments: ..." -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_BenignCommandLine</defName>
+    <label>the command-line arguments line</label>
+    <description>RimWorld records the launch options it was started with (for example a custom save-data folder set by a mod manager or launcher). It is a normal startup note, not a problem.</description>
+    <benign>true</benign>
+    <priority>2</priority>
+    <regexes>
+      <li>^Command line arguments:</li>
+    </regexes>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- Verse.GenFilePaths: "Save data folder overridden to <path>" -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_BenignSaveDataFolder</defName>
+    <label>save-data folder was redirected</label>
+    <description>You launched with a custom save-data folder, so RimWorld is reading and writing its configs and saves there instead of the default location. A mod manager, a launcher, or a test tool does this on purpose. Nothing is wrong.</description>
+    <benign>true</benign>
+    <priority>2</priority>
+    <regexes>
+      <li>^Save data folder overridden to </li>
+    </regexes>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- Verse.Game.InitNewGame: "Initializing new game with mods:\n - a\n - b ..." -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_BenignNewGameMods</defName>
+    <label>the active mod list for a new game</label>
+    <description>When you start a new game, RimWorld lists the mods that are loaded so the log has a record of them. The packageIds after it are just that list; none of them are being blamed for anything.</description>
+    <benign>true</benign>
+    <priority>2</priority>
+    <regexes>
+      <li>^Initializing new game with mods:</li>
+    </regexes>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- Verse.SavedGameLoaderNow: "Loading game from file <file> with mods:\n ..." -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_BenignLoadGameMods</defName>
+    <label>the active mod list for a loaded save</label>
+    <description>When you load a save, RimWorld lists the mods it is loading with so the log has a record of them. The packageIds after it are just that list; none of them are being blamed for anything.</description>
+    <benign>true</benign>
+    <priority>2</priority>
+    <regexes>
+      <li>^Loading game from file .+ with mods:</li>
+    </regexes>
+  </ModernDevTools.KnownIssueDef>
+
+</Defs>

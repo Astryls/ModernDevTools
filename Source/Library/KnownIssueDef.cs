@@ -23,6 +23,12 @@ namespace ModernDevTools
         public int priority = 0;           // ties broken toward higher priority
         public bool ignorable = false;     // a harmless class the player can mute from the inspector
 
+        /// <summary>Normal, no-fault engine output (the version banner, the "Initializing new game with
+        /// mods" list, etc.). A benign match is presented as "No concern": the inspector shows the calm
+        /// explanation, suppresses mod attribution (so merely listing packageIds does not implicate them),
+        /// and hides the report card. Reserve this for genuine vanilla lines that blame nobody.</summary>
+        public bool benign = false;
+
         /// <summary>Optional: a regex whose first capture group is a mod name or packageId to blame.
         /// When this entry matches, that mod is added to the error's attribution, letting a data entry
         /// both explain the problem AND point at the culprit.</summary>

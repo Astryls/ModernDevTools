@@ -108,6 +108,8 @@
   <MDT_ImpactBoth>affects TPS and FPS</MDT_ImpactBoth>
   <MDT_Known>Known issue</MDT_Known>
   <MDT_Unknown>Not in library</MDT_Unknown>
+  <MDT_Benign>No concern</MDT_Benign>
+  <MDT_BenignNoSource>This is a normal RimWorld message. No mod is implicated - it is safe to ignore.</MDT_BenignNoSource>
 
   <!-- Version mismatch -->
   <MDT_VerTitle>mod may not support your game version</MDT_VerTitle>

@@ -15,6 +15,10 @@ namespace ModernDevTools
 
         public IEnumerable<AttributedMod> Culprits => Mods.Where(m => m.Kind == SourceKind.Mod);
         public bool AnyCulprit => Mods.Any(m => m.Kind == SourceKind.Mod);
+
+        /// <summary>Normal, no-fault engine output (version banner, mod-list dumps, ...). Decided once,
+        /// before the pipeline runs; when true the inspector shows "No concern" and hides attribution.</summary>
+        public bool Benign => Context != null && Context.Benign;
     }
 
     /// <summary>
@@ -46,6 +50,12 @@ namespace ModernDevTools
                 Mods = InstalledModIndex.Instance,
                 ExceptionType = FrameParser.ExtractExceptionType(msg.text)
             };
+
+            // Recognize normal, no-fault engine lines up front (never an error-level entry). While the
+            // flag is set, ErrorContext.Merge suppresses all attribution, so a benign line that merely
+            // lists packageIds cannot implicate those mods, and dependent diagnoses fall away with it.
+            try { ctx.Benign = msg.type != LogMessageType.Error && KnownIssueIndex.HasBenignMatch(ctx); }
+            catch { }
 
             foreach (ErrorModule module in ErrorModuleRegistry.Modules)
             {

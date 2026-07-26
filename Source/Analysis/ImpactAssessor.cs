@@ -11,6 +11,7 @@ namespace ModernDevTools
         public ImpactLevel Level;
         public string PerfNote;   // localized one-liner about performance/frequency
         public bool Known;        // recognized by the library (and later, community databases)
+        public bool Benign;       // normal, no-fault engine output - shown as "No concern"
     }
 
     /// <summary>
@@ -38,7 +39,11 @@ namespace ModernDevTools
 
         public static ImpactResult Assess(LogMessage msg, LogAnalysis a)
         {
-            var r = new ImpactResult { Known = a?.Diagnoses != null && a.Diagnoses.Count > 0 };
+            var r = new ImpactResult
+            {
+                Known = a?.Diagnoses != null && a.Diagnoses.Count > 0,
+                Benign = a != null && a.Benign
+            };
             try
             {
                 string trace = msg.StackTrace ?? "";
@@ -58,6 +63,7 @@ namespace ModernDevTools
                 else r.Level = ImpactLevel.Info;
 
                 r.PerfNote = BuildPerfNote(reps, tick, frame, spam, err);
+                if (r.Benign) r.Level = ImpactLevel.Info; // a normal line is never "critical", whatever its frames
             }
             catch
             {
