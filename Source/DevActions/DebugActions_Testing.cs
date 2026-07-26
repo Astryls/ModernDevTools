@@ -23,7 +23,10 @@ namespace ModernDevTools
     {
         private const string Category = "Modern Dev Tools";
         private const string Prefix = "[Modern Dev Tools test] ";
-        private const AllowedGameStates Anywhere = AllowedGameStates.Entry | AllowedGameStates.Playing;
+        // Shown in every game state. Note: the flags are AND-combined in IsAllowedInCurrentGameState, so
+        // Entry | Playing means "in Entry AND Playing at once" = never - use Invalid (no restriction) for
+        // "anywhere". These actions were previously invisible in the list and only usable via the palette.
+        private const AllowedGameStates Anywhere = AllowedGameStates.Invalid;
 
         static DebugActions_Testing()
         {
