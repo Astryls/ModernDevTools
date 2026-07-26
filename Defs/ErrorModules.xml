@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!--
+    Built-in analysis modules. Order matters: stack-trace runs first (it records the namespaces the
+    library module later matches on), then message attribution, then the knowledge library. Third-party
+    mods add their own ModernDevTools.ErrorModuleDef here (or register a module in C# via the API), and
+    can gate it on requiresPackageId / requiresAnyPackageId / requiresDlc so it only loads when relevant.
+  -->
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_StackTrace</defName>
+    <label>stack trace attribution</label>
+    <description>Blames the mods whose code appears in the error's stack trace, and notes vanilla, Harmony and Unity frames.</description>
+    <workerClass>ModernDevTools.Module_StackTrace</workerClass>
+    <order>10</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_MessageMentions</defName>
+    <label>message attribution</label>
+    <description>Blames the mods named in the message text, including load-time warnings whose stack trace is pure vanilla (dependency and packageId validation, file paths).</description>
+    <workerClass>ModernDevTools.Module_MessageMentions</workerClass>
+    <order>20</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_LogPrefix</defName>
+    <label>log prefix attribution</label>
+    <description>Blames the mod that stamped its own name on the log line, e.g. "[Giddy-Up] ..." or "[Map Preview] ...". Matches the bracket tag to a single active installed mod; ambiguous or non-mod tags are ignored.</description>
+    <workerClass>ModernDevTools.Module_LogPrefix</workerClass>
+    <order>22</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_VersionMismatch</defName>
+    <label>version mismatch</label>
+    <description>Flags a mod that does not list support for your RimWorld version, a common cause of errors. Local, no internet.</description>
+    <workerClass>ModernDevTools.Module_VersionMismatch</workerClass>
+    <order>25</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_ModIssues</defName>
+    <label>mod-shipped known issues</label>
+    <description>Explains errors using known-issue files that mods ship inside their own folder (ModernDevTools/known-issues.json), same format as the community database. Local, always on.</description>
+    <workerClass>ModernDevTools.Module_ModIssues</workerClass>
+    <order>35</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_AboutIncompat</defName>
+    <label>declared incompatibilities</label>
+    <description>Flags when two active mods declare each other incompatible in their own About.xml, a common cause of errors the community databases may not list. Local, always on.</description>
+    <workerClass>ModernDevTools.Module_AboutIncompat</workerClass>
+    <order>48</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_Community</defName>
+    <label>community databases</label>
+    <description>Uses the opt-in community databases to suggest replacements for outdated mods and flag known incompatibilities. Enable community data in the Modules window.</description>
+    <workerClass>ModernDevTools.Module_Community</workerClass>
+    <order>40</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_CommunityBugs</defName>
+    <label>community bug database</label>
+    <description>Matches errors against the community bug and fix database (our own contributor-editable JSON on GitHub). Enable community data in the Modules window.</description>
+    <workerClass>ModernDevTools.Module_CommunityBugs</workerClass>
+    <order>45</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_KnownIssues</defName>
+    <label>knowledge library</label>
+    <description>Explains the error in plain language, and suggests a fix, using the shipped and third-party knowledge library.</description>
+    <workerClass>ModernDevTools.Module_KnownIssues</workerClass>
+    <order>30</order>
+  </ModernDevTools.ErrorModuleDef>
+
+</Defs>

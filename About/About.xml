@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ModMetaData>
+  <name>Modern Dev Tools</name>
+  <packageId>astryl.ModernDevTools</packageId>
+  <author>astryl</author>
+  <url>https://github.com/Astryls/ModernDevTools</url>
+  <description>[h1]◆ Modern Dev Tools ◆[/h1]
+A modern overhaul of RimWorld's developer tools, dressed in the flat, dark Modern UI style. It replaces the debug log, the debug actions window, and the dev palette with clean, readable windows, and adds real error triage on top: every error is traced back to the mod that likely caused it and explained in plain language. Standalone, with Harmony as the only requirement, and safe to add or remove at any time.
+
+[h1]✦ A cleaner debug log[/h1]
+[list]
+[*][b]Readable at a glance[/b]: a colored severity strip on every line, message, warning, and error filters with live counts, and a search box.
+[*][b]Everything has a home[/b]: full stack traces, copy message, copy trace, copy all, and a shareable report, plus the vanilla auto-open, pause on error, and open on warnings toggles, all preserved.
+[*][b]Ignore the noise[/b]: mute a harmless class of warnings, like a mod with a missing download link, with one click. Fully reversible, and the header shows how many are hidden.
+[/list]
+
+[h1]✦ Find the mod behind the error[/h1]
+[list]
+[*][b]From the stack and the message[/b]: it resolves stack frames to the mod that owns them, and reads the message text too, so even load-time warnings whose trace is pure vanilla still name the real mod.
+[*][b]Clickable links[/b]: each likely source links straight to the mod's Workshop or GitHub page, and tells you whether it is active, inactive, or not installed.
+[/list]
+
+[h1]✦ Understand every error[/h1]
+[list]
+[*][b]Impact at a glance[/b]: a snip shows the severity and whether the error hurts your simulation speed (TPS) or rendering (FPS), and whether it is a known issue.
+[*][b]Plain-language fixes[/b]: a shipped library of about thirty entries explains the common errors and how to fix them, from null references and version mismatches to patch failures and load-order conflicts.
+[*][b]Version aware[/b]: it flags a mod that does not support your RimWorld version, using the mod's own data, no internet needed.
+[/list]
+
+[h1]✦ Community knowledge (opt-in)[/h1]
+[list]
+[*][b]Known incompatibilities and replacements[/b]: turn on community data to check the RimSort community rules and the Use This Instead database, so an outdated mod suggests its updated replacement and known conflicts are flagged.
+[*][b]A community bug database anyone can edit[/b]: a simple shared list of bugs and their fixes on GitHub. When it recognizes your error, you get a community-written fix and credit. Found a fix yourself? Add it with a pull request, no coding required.
+[*]All opt-in, fetched in the background, and cached for offline use.
+[/list]
+
+[h1]✦ A modern dev actions window[/h1]
+[list]
+[*][b]Three tabs, one clean window[/b]: Actions, Output, and Settings, in the same dark style, opened from the same buttons and hotkeys.
+[*][b]Works with every mod[/b]: it reuses the vanilla action tree, so debug actions added by other mods show up automatically, and pinning to the dev palette still works.
+[*][b]Spawn with icons[/b]: spawn menus become a searchable icon grid. Pick a thing, then click the map.
+[*][b]A reskinned dev palette[/b] for your pinned actions, and hardening so one broken mod action cannot break the menu.
+[/list]
+
+[h1]✦ Save safety[/h1]
+[list]
+[*][b]Updated-mod warnings[/b]: updated or removed mods are a top cause of save errors. Load a save and the log lights up a warning listing every mod that changed since the save was made.
+[/list]
+
+[h1]✦ Experimental hardening[/h1]
+Two optional safety nets, off by default and clearly labeled experimental. RimWorld draws its windows and world map with no safety net, so one broken mod element can freeze the screen.
+[list]
+[*][b]Close UI-breaking windows[/b]: isolate a window that keeps erroring so it cannot freeze the rest of the interface, and close a persistently broken one with a notice.
+[*][b]Recover broken world and map UI[/b]: catch a throw in the world map or in-game UI so a mod hitting a missing faction after a modlist change does not drop you into a blank world map.
+[/list]
+
+[h1]✦ For mod authors[/h1]
+Every part of the analysis is a module. Add your own attribution or fixes in XML, or in C# through a small public API. Ship your own known-issue entries so the log explains [i]your[/i] mod's errors in plain language, and helps players understand the root cause before they open a bug report. The known-issue XML and the community database use the same matching model, so you learn it once. Every module is sandboxed, so nothing you add can break the log.
+A full step-by-step guide with copy-paste examples ships with the mod at [b]Documentation/RootCauseAnalysis.md[/b] (also on GitHub), and the in-game Modules window links to it.
+
+[h1]✦ Requirements[/h1]
+[list]
+[*][url=https://steamcommunity.com/workshop/filedetails/?id=2009463077]Harmony[/url]
+[/list]
+
+[h1]✦ Open source[/h1]
+Modern Dev Tools is an open source project, released under the MIT license. The full source lives on GitHub, and bug reports, fixes, and pull requests are welcome, both for the mod and for the community bug database.
+[list]
+[*][url=https://github.com/Astryls/ModernDevTools]Source on GitHub[/url]
+[/list]
+
+[hr][/hr]
+[i]Built for RimWorld 1.6. Turn a wall of red text into a clear answer.[/i]
+
+[h3] My Quality Commitment:[/h3]
+[list]
+[*] [b]Fully Tested:[/b] Every feature and line of code has been thoroughly tested in-game to ensure it functions as intended and integrates smoothly.
+[*] [b]Active Support:[/b] I am fully committed to maintaining this mod. If you encounter any bugs, compatibility issues, or unintended behavior, please report them in the comments or a dedicated discussion thread.
+[*] [b]No Abandonware:[/b] I will actively patch, refine, and update this mod to keep it working and up to standard.
+[*] [b]No Coffee:[/b] I will never ask for donations for AI created / assisted mods. I share these in the hopes they spark joy for someone, making AI generated content and then begging for money that could go to artists and people more deserving is NOT responsible AI usage.
+[/list]</description>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+  </loadAfter>
+</ModMetaData>

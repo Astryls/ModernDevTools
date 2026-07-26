@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!--
+    Curated knowledge library. Each entry is matched against a selected error by exception type,
+    message keywords/regex, implicated namespaces, or implicated mod packageIds. attributeRegex (when
+    present) captures a mod name/packageId to blame. Any mod can ship its own ModernDevTools.KnownIssueDef
+    entries the same way. Text is plain, sentence case, ASCII.
+  -->
+
+  <!-- ===== Load-time mod metadata warnings (the common "Mod X ..." spam) ===== -->
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_DepMissingUrl</defName>
+    <label>mod dependency has no download link</label>
+    <description>A mod lists another mod as a dependency but did not add a download or Workshop link for it. This is harmless. The game still runs and nothing is broken.</description>
+    <fix>Nothing to fix in your game. If you made the named mod, add a steamWorkshopUrl and/or downloadUrl to that dependency in its About.xml. Otherwise you can safely ignore this.</fix>
+    <priority>1</priority>
+    <ignorable>true</ignorable>
+    <keywords>
+      <li>needs to have &lt;downloadurl&gt;</li>
+    </keywords>
+    <regexes>
+      <li>dependency \(.*\) needs to have</li>
+    </regexes>
+    <attributeRegex>^Mod (.+?) dependency</attributeRegex>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_PackageIdFormat</defName>
+    <label>mod has an invalid packageId</label>
+    <description>A mod's packageId is not in the expected author.modname format (letters, numbers and dots). The game still loads it, but a malformed packageId can confuse dependency and load-order checks.</description>
+    <fix>An authoring issue in the named mod. If it is yours, set a valid packageId like yourname.modname in About.xml. Otherwise report it to the author; it is usually safe to ignore.</fix>
+    <priority>1</priority>
+    <ignorable>true</ignorable>
+    <keywords>
+      <li>is not in valid format</li>
+    </keywords>
+    <attributeRegex>^Mod (.+?) &lt;packageId&gt;</attributeRegex>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_ModMetaWarning</defName>
+    <label>mod dependency metadata is incomplete</label>
+    <description>A mod's About.xml has a dependency entry that is incomplete: a missing packageId, an invalid packageId, or an empty display name. Harmless to play, but the dependency may not resolve correctly.</description>
+    <fix>An authoring issue in the named mod. If it is yours, fill in the dependency's packageId and displayName. Otherwise ignore it or report it to the author.</fix>
+    <priority>1</priority>
+    <ignorable>true</ignorable>
+    <keywords>
+      <li>has a dependency</li>
+    </keywords>
+    <attributeRegex>^Mod (.+?) has a dependency</attributeRegex>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- ===== Exceptions ===== -->
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_NullReference</defName>
+    <label>null reference exception</label>
+    <description>A piece of code tried to use something that did not exist (a null value). This is the most common error type and usually means a mod ran into a situation its author did not expect.</description>
+    <fix>Check the likely source above. If it names a mod, that mod probably needs an update or is conflicting with another. Disable it to confirm, then send the author the full stack trace.</fix>
+    <exceptionTypes>
+      <li>NullReferenceException</li>
+    </exceptionTypes>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_MissingMember</defName>
+    <label>missing method or member</label>
+    <description>Code called a method or field that does not exist in the version that is loaded. This almost always means two mods expect different versions of the same code, or a mod was built against a different game or library version than you have.</description>
+    <fix>Make sure the game, the named mod, and Harmony are all up to date. If the trace mentions another mod's type, a version mismatch between those two mods is the likely cause. Update or remove the older one.</fix>
+    <priority>1</priority>
+    <exceptionTypes>
+      <li>MissingMethodException</li>
+      <li>MissingFieldException</li>
+      <li>MissingMemberException</li>
+    </exceptionTypes>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_TypeLoad</defName>
+    <label>a mod failed to load its code</label>
+    <description>A mod's assembly could not be loaded fully. Every feature from that mod is disabled and its defs may fail to load, which often cascades into many more errors.</description>
+    <fix>This usually means a missing dependency or a version conflict. Confirm the named mod's required mods are installed and active, that load order is correct, and that Harmony is present and up to date.</fix>
+    <priority>2</priority>
+    <exceptionTypes>
+      <li>TypeLoadException</li>
+      <li>ReflectionTypeLoadException</li>
+      <li>TypeInitializationException</li>
+      <li>BadImageFormatException</li>
+    </exceptionTypes>
+    <keywords>
+      <li>could not load type</li>
+      <li>getting types in assembly</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_MissingTexture</defName>
+    <label>missing texture</label>
+    <description>The game tried to load an image that is not there. The item, pawn, or UI element that needs it will show a pink and black placeholder.</description>
+    <fix>The named mod is missing a texture or points at the wrong path. If you renamed or moved files, undo that; otherwise reinstall the mod. If it only happens with another mod active, a patch is pointing at a texture that does not exist.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>could not load texture</li>
+    </keywords>
+    <regexes>
+      <li>Could not load .*Texture</li>
+    </regexes>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_MissingAudio</defName>
+    <label>missing sound</label>
+    <description>The game tried to load a sound file that is not present. The sound simply will not play.</description>
+    <fix>The named mod is missing an audio file or references the wrong path. Reinstall the mod, or report the missing path to its author.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>could not load audioclip</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- ===== Def and XML data problems ===== -->
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_CrossRef</defName>
+    <label>unresolved def reference</label>
+    <description>A def refers to another def by name that does not exist. The referring content is broken or missing until the reference resolves.</description>
+    <fix>A required mod is probably missing or loads after the mod that needs it. Confirm all dependencies of the named mod are installed and active, and fix load order so the mod providing the referenced def loads first.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>could not resolve cross-reference</li>
+      <li>could not find def named</li>
+      <li>cross-reference</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_UnknownType</defName>
+    <label>unknown type in XML</label>
+    <description>A def or patch names a C# class that is not loaded, so RimWorld cannot build that def and the content it defines will not appear.</description>
+    <fix>The mod that provides that class is missing or failed to load, or a soft dependency is not installed. Install the required mod. If the class belongs to the named mod itself, its code did not load, so look for an earlier assembly load error.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>could not find type named</li>
+      <li>is not a def type</li>
+      <li>found no type named</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_UnknownField</defName>
+    <label>unknown XML field</label>
+    <description>A def or patch sets a field that does not exist on that type, so the value is ignored and the intended effect is missing.</description>
+    <fix>A bug in the named mod's XML, often from a game update that renamed or removed the field, or a patch aimed at the wrong type. Update the mod or report it to the author.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>doesn't correspond to any field</li>
+      <li>corresponds to a field but</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_DuplicateDef</defName>
+    <label>duplicate defName</label>
+    <description>Two defs share the same name, so RimWorld keeps only one and the other is silently overridden. This can make a mod behave as if a feature is missing.</description>
+    <fix>Two mods define the same thing, or a patch adds a def that already exists. This is usually a mod conflict; report both mod names to the authors, or remove one.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>was defined twice</li>
+      <li>already have a def</li>
+      <li>received two defs</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_XmlError</defName>
+    <label>XML error in a mod</label>
+    <description>A mod's XML is malformed or uses a field the game does not recognise, so the affected def or patch is skipped.</description>
+    <fix>This is a bug in the named mod's data files. If you edited any XML, revert it. Otherwise report the exact message to the mod author; there is nothing to fix on your end.</fix>
+    <keywords>
+      <li>config error</li>
+      <li>unknown field</li>
+      <li>could not parse</li>
+      <li>xmlnodewriter</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_MissingTranslation</defName>
+    <label>missing translation key</label>
+    <description>A mod asked for a translated piece of text by a key that is not defined in the current language, so the game shows the raw key or an English fallback.</description>
+    <fix>Harmless. The named mod is missing a translation entry for your language. Report the key to the author, or set your language to English for that text.</fix>
+    <ignorable>true</ignorable>
+    <keywords>
+      <li>tried to get translated string</li>
+      <li>missing translation</li>
+      <li>could not find translation</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- ===== Patches, load order and save/load ===== -->
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_PatchFailed</defName>
+    <label>a patch could not apply</label>
+    <description>A mod's XML patch did not apply, usually because its target no longer exists or another mod changed it first, so the patched change did not happen.</description>
+    <fix>Often a load-order or compatibility issue between the named mod and another. Update the mod, adjust load order, or report the patch failure to the author.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>patch operation</li>
+      <li>failed to find a node</li>
+      <li>xpath</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_LoadReference</defName>
+    <label>could not load a saved reference</label>
+    <description>While loading, the game could not find something it referenced by name. In a save this usually means a mod that was present before is now missing or changed.</description>
+    <fix>If this happened loading a save, a mod was removed or updated since the save was made. Re-add the missing mod, or accept that the referenced content is gone. At startup it points to a missing dependency or a load-order problem.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>could not load reference to</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_HarmonyConflict</defName>
+    <label>possible Harmony patch conflict</label>
+    <description>The error passes through Harmony, the library mods use to change game behaviour. When two mods change the same method in incompatible ways, one can break the other.</description>
+    <fix>Look at the likely source above for the mods involved. Disable them one at a time to find the pair that conflicts, then report it to both authors with this stack trace.</fix>
+    <keywords>
+      <li>wrapper dynamic-method</li>
+    </keywords>
+    <namespaces>
+      <li>HarmonyLib</li>
+    </namespaces>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_ExceptionFillingWindow</defName>
+    <label>a UI window threw an error</label>
+    <description>A window's draw code threw an exception, so RimWorld closed or skipped the window. A UI panel may vanish or misbehave.</description>
+    <fix>Usually a mod's UI code. Check the likely source and stack trace for the mod, then update or disable it and report the trace to the author.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>exception filling window</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_RootOnGUI</defName>
+    <label>an on-screen draw hook threw an error</label>
+    <description>A per-frame draw hook threw at the top level, so RimWorld aborted the rest of that frame's UI. Symptoms are often several unrelated UI elements flickering or not updating at once.</description>
+    <fix>A mod drawing to the screen has a bug. Use the stack trace to find it, disable it to confirm, and report the trace. If attribution points only at vanilla, a mod's global draw hook is still the likely cause.</fix>
+    <priority>2</priority>
+    <keywords>
+      <li>root level exception in ongui</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- ===== Pawn AI, jobs and world state ===== -->
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_Reservation</defName>
+    <label>a pawn could not reserve its target</label>
+    <description>A pawn failed to claim (reserve) the thing it wanted to work on, so the job was cancelled. A burst of these can leave pawns standing idle. With mods that move pawns between maps, it usually means a job aimed at something on a different map.</description>
+    <fix>If it repeats, the mod driving that job has a targeting bug. Note what the pawns were trying to do, find the mod in the likely source or trace, and report it. A one-off is usually harmless.</fix>
+    <keywords>
+      <li>could not reserve</li>
+      <li>no existing reserver</li>
+      <li>trymakepretoilreservations returned false</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_JobLoop</defName>
+    <label>a pawn is stuck starting jobs</label>
+    <description>A pawn started many jobs in a single tick, which RimWorld stops to avoid a freeze. The pawn's AI is caught in a loop, usually from a mod job or work giver that never completes.</description>
+    <fix>Find the mod behind the job (likely source or trace) and report it. As a workaround, drafting and undrafting the pawn, or removing the mod, breaks the loop.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>jobs in one tick</li>
+      <li>jobs in 10 ticks</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_JobException</defName>
+    <label>a job or tick threw an error</label>
+    <description>Code running a pawn's job, or a per-tick update, threw an exception. The pawn may drop the job, freeze, or repeat the error every tick.</description>
+    <fix>A bug in the mod that owns the job or comp. Use the likely source and trace to find it, then report it or disable it.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>exception ticking</li>
+      <li>error in jobdriver</li>
+      <li>jobdriver threw</li>
+      <li>exception in job</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_SpawnState</defName>
+    <label>spawn or despawn state error</label>
+    <description>Something tried to spawn a thing that is already in the world, or despawn one that was not, so the world state is inconsistent for that object.</description>
+    <fix>Usually a mod mishandling spawning. Note the thing named and report it with the trace. A single occurrence is often recoverable.</fix>
+    <keywords>
+      <li>already spawned</li>
+      <li>tried to despawn</li>
+      <li>but it's unspawned</li>
+      <li>is not spawned</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- ===== Common .NET exceptions ===== -->
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_CollectionModified</defName>
+    <label>a list changed while it was being read</label>
+    <description>Code changed a collection while another piece of code was looping over it, which throws and aborts whatever was running.</description>
+    <fix>A threading or ordering bug in the named mod. Report the trace to the author; there is no user-side fix.</fix>
+    <exceptionTypes>
+      <li>InvalidOperationException</li>
+    </exceptionTypes>
+    <keywords>
+      <li>collection was modified</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_IndexRange</defName>
+    <label>index out of range</label>
+    <description>Code asked for an item past the end of a list or array, so the operation that needed it fails.</description>
+    <fix>A bug in the named mod, often exposed by another mod changing the data it expected. Report the trace, and try disabling recently added mods.</fix>
+    <exceptionTypes>
+      <li>IndexOutOfRangeException</li>
+      <li>ArgumentOutOfRangeException</li>
+    </exceptionTypes>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_InvalidCast</defName>
+    <label>invalid cast</label>
+    <description>Code treated an object as a type it is not. In modding this is often a Harmony patch on a generic method firing for the wrong type, which can spam every frame in a window.</description>
+    <fix>Look for the mod in the trace. If it repeats each frame inside a vanilla window, a mod's patch is the cause. Disable suspects one at a time and report the trace.</fix>
+    <priority>1</priority>
+    <exceptionTypes>
+      <li>InvalidCastException</li>
+    </exceptionTypes>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_KeyNotFound</defName>
+    <label>a lookup key was missing</label>
+    <description>Code looked up a key in a dictionary that did not contain it. This often means a mod's cache was built before all data was ready, or another mod removed something it expected.</description>
+    <fix>A bug or load-order issue in the named mod. Report the trace. Changing load order or updating the mod sometimes helps.</fix>
+    <exceptionTypes>
+      <li>KeyNotFoundException</li>
+    </exceptionTypes>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_Argument</defName>
+    <label>a bad value was passed to a method</label>
+    <description>A method was given an argument it does not accept (null, or out of the allowed range), so it throws instead of continuing.</description>
+    <fix>A bug in the named mod. Report the trace. If it started after adding a mod, that mod is the likely trigger.</fix>
+    <exceptionTypes>
+      <li>ArgumentNullException</li>
+      <li>ArgumentException</li>
+      <li>FormatException</li>
+    </exceptionTypes>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- ===== Content, quests and UI ===== -->
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_QuestGrammar</defName>
+    <label>a quest failed to build its text</label>
+    <description>A quest could not resolve its description text, usually because a mod quest part left a value unset. The quest may show placeholder text like ERR: or broken tags.</description>
+    <fix>A bug in the mod that adds that quest. Report it. Declining or ignoring the quest is safe; it will not break your colony.</fix>
+    <keywords>
+      <li>grammar unresolvable</li>
+      <li>questdescription</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_Incompatible</defName>
+    <label>mod compatibility or load-order warning</label>
+    <description>A mod declared it is incompatible with another, or that it should load before or after another mod, and that condition is not met.</description>
+    <fix>Follow the message: remove one of the two mods, or move the named mod earlier or later in your load order. A mod-list sorter can do this for you.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>incompatible with</li>
+      <li>should be loaded before</li>
+      <li>should be loaded after</li>
+      <li>must be loaded</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_DefInstantiate</defName>
+    <label>a def could not be built</label>
+    <description>RimWorld could not create or initialize a def, so the item, building, or feature it describes will be missing.</description>
+    <fix>Usually bad XML or a missing type in the named mod, or a patch conflict. Update the mod, check its dependencies, and report the message if it persists.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>could not instantiate or initialize a def</li>
+      <li>exception loading def</li>
+      <li>error loading def</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_GuiState</defName>
+    <label>a UI drawing bug</label>
+    <description>A mod's UI code left the text or GUI state wrong at the end of a frame, or mismatched its scroll or group calls. RimWorld reports it once per frame.</description>
+    <fix>A drawing bug in the named mod. It is usually cosmetic but can misalign other UI. Report the trace to the author.</fix>
+    <keywords>
+      <li>at end of frame</li>
+      <li>more calls to beginscrollview</li>
+      <li>mouse position stack</li>
+      <li>begingroup</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+</Defs>

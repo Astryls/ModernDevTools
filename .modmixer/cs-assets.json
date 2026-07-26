@@ -1,0 +1,8 @@
+{
+  "textures": [
+    "UI/DevTools/Pin",
+    "UI/DevTools/Chevron",
+    "UI/DevTools/Close"
+  ],
+  "audio": []
+}

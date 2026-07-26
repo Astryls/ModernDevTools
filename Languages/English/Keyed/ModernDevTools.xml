@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- Window chrome -->
+  <MDT_Title>Debug log</MDT_Title>
+  <MDT_Shown>{0} shown</MDT_Shown>
+  <MDT_EmptyList>No messages to show.</MDT_EmptyList>
+  <MDT_SelectHint>Select a message to inspect it.</MDT_SelectHint>
+  <MDT_SearchPlaceholder>Search log...</MDT_SearchPlaceholder>
+
+  <!-- Filters -->
+  <MDT_Errors>Errors</MDT_Errors>
+  <MDT_Warnings>Warnings</MDT_Warnings>
+  <MDT_Messages>Messages</MDT_Messages>
+
+  <!-- State toggles -->
+  <MDT_On>on</MDT_On>
+  <MDT_Off>off</MDT_Off>
+  <MDT_AutoOpen>Auto-open</MDT_AutoOpen>
+  <MDT_AutoOpenTip>Open this log automatically when an error is logged (development mode).</MDT_AutoOpenTip>
+  <MDT_PauseOnError>Pause on error</MDT_PauseOnError>
+  <MDT_PauseOnErrorTip>Pause the game whenever an error is logged.</MDT_PauseOnErrorTip>
+  <MDT_OpenOnWarnings>Open on warnings</MDT_OpenOnWarnings>
+  <MDT_OpenOnWarningsTip>Also open this log for warnings, not just errors.</MDT_OpenOnWarningsTip>
+
+  <!-- Actions -->
+  <MDT_Clear>Clear</MDT_Clear>
+  <MDT_ClearTip>Clear all log messages.</MDT_ClearTip>
+  <MDT_CopyAll>Copy all</MDT_CopyAll>
+  <MDT_CopyAllTip>Copy every message and stack trace to the clipboard.</MDT_CopyAllTip>
+  <MDT_CopyMessage>Copy message</MDT_CopyMessage>
+  <MDT_CopyTrace>Copy stack trace</MDT_CopyTrace>
+  <MDT_CopyReport>Copy report</MDT_CopyReport>
+  <MDT_Copied>Copied to clipboard.</MDT_Copied>
+  <MDT_Modules>Modules</MDT_Modules>
+  <MDT_ModulesTip>Manage analysis modules and ignored warnings.</MDT_ModulesTip>
+  <MDT_Ignore>Ignore</MDT_Ignore>
+  <MDT_IgnoreTip>Hide this harmless class of warnings from the log. Undo it from the Modules button.</MDT_IgnoreTip>
+  <MDT_HiddenSuffix>({0} hidden)</MDT_HiddenSuffix>
+  <MDT_OpenModPage>Open the mod's page</MDT_OpenModPage>
+
+  <!-- Message types -->
+  <MDT_TypeError>Error</MDT_TypeError>
+  <MDT_TypeWarning>Warning</MDT_TypeWarning>
+  <MDT_TypeMessage>Message</MDT_TypeMessage>
+
+  <!-- Inspector sections -->
+  <MDT_SectionSource>Likely source</MDT_SectionSource>
+  <MDT_SectionMeaning>What this means</MDT_SectionMeaning>
+  <MDT_SectionReport>Report to the community</MDT_SectionReport>
+  <MDT_SectionTrace>Stack trace</MDT_SectionTrace>
+  <MDT_FramesFmt>{0} frames</MDT_FramesFmt>
+  <MDT_NoCulprit>No mod is clearly implicated. This looks like vanilla code or a deep interaction between mods. Check the stack trace below.</MDT_NoCulprit>
+  <MDT_NoLibraryMatch>No library entry matched this error yet. Use the likely source above and the stack trace below to narrow it down.</MDT_NoLibraryMatch>
+  <MDT_FixLabel>Fix:</MDT_FixLabel>
+
+  <!-- Source names -->
+  <MDT_VanillaName>RimWorld (vanilla)</MDT_VanillaName>
+  <MDT_UnityName>Unity engine</MDT_UnityName>
+
+  <!-- Attribution reasons -->
+  <MDT_ReasonInStack>runs code in the stack trace</MDT_ReasonInStack>
+  <MDT_ReasonNamespaceOwned>owns a namespace in the stack trace</MDT_ReasonNamespaceOwned>
+  <MDT_ReasonHarmonyFrame>reached through a Harmony patch</MDT_ReasonHarmonyFrame>
+  <MDT_ReasonVanillaFrame>vanilla code in the stack trace</MDT_ReasonVanillaFrame>
+  <MDT_ReasonUnityFrame>engine code in the stack trace</MDT_ReasonUnityFrame>
+  <MDT_ReasonNamedProblem>named as the mod with the problem</MDT_ReasonNamedProblem>
+  <MDT_ReasonDependency>referenced as a dependency</MDT_ReasonDependency>
+  <MDT_ReasonPackageRef>its packageId is in the message</MDT_ReasonPackageRef>
+  <MDT_ReasonInPath>named in a file path</MDT_ReasonInPath>
+  <MDT_ReasonLogPrefix>stamped its name on the log message</MDT_ReasonLogPrefix>
+  <MDT_ReasonLogMention>named as a tag in the log message</MDT_ReasonLogMention>
+  <MDT_ReasonKnownPattern>identified by a known issue pattern</MDT_ReasonKnownPattern>
+
+  <!-- Source state tags -->
+  <MDT_StateActive>active</MDT_StateActive>
+  <MDT_StateInactive>installed, inactive</MDT_StateInactive>
+  <MDT_StateNotInstalled>not installed</MDT_StateNotInstalled>
+
+  <!-- Settings -->
+  <MDT_SettingsIntro>Analysis modules. Turn any of them on or off. Mod authors can add their own modules to expand attribution, diagnosis and reporting.</MDT_SettingsIntro>
+  <MDT_SettingsUnavailable>unavailable</MDT_SettingsUnavailable>
+
+  <!-- Modern dev actions window -->
+  <MDT_DevToolsTitle>Dev tools</MDT_DevToolsTitle>
+  <MDT_DevSearchPlaceholder>Search actions...</MDT_DevSearchPlaceholder>
+  <MDT_Back>Back</MDT_Back>
+  <MDT_EmptyNode>Nothing here.</MDT_EmptyNode>
+  <MDT_DevMenuError>Could not read the dev action list. See the debug log.</MDT_DevMenuError>
+  <MDT_SpawnHint>Pick a thing, then click the map to place it.</MDT_SpawnHint>
+  <MDT_PinTip>Pin to the dev palette for quick access.</MDT_PinTip>
+  <MDT_BrokenTip>This action errored earlier. See the debug log.</MDT_BrokenTip>
+  <MDT_ActionFailed>{0} failed, see the debug log.</MDT_ActionFailed>
+
+  <!-- Impact banner (severity + performance + known/unknown) -->
+  <MDT_Critical>Critical</MDT_Critical>
+  <MDT_High>High</MDT_High>
+  <MDT_Moderate>Moderate</MDT_Moderate>
+  <MDT_Low>Low</MDT_Low>
+  <MDT_Info>Info</MDT_Info>
+  <MDT_ImpactOneOff>one-off, no performance impact</MDT_ImpactOneOff>
+  <MDT_ImpactRepeats>repeats x{0}</MDT_ImpactRepeats>
+  <MDT_ImpactTps>affects simulation (TPS)</MDT_ImpactTps>
+  <MDT_ImpactFps>affects rendering (FPS)</MDT_ImpactFps>
+  <MDT_ImpactBoth>affects TPS and FPS</MDT_ImpactBoth>
+  <MDT_Known>Known issue</MDT_Known>
+  <MDT_Unknown>Not in library</MDT_Unknown>
+
+  <!-- Version mismatch -->
+  <MDT_VerTitle>mod may not support your game version</MDT_VerTitle>
+  <MDT_VerExplain>{0} lists support for {1}, but you are on RimWorld {2}. Version mismatches are a common source of errors.</MDT_VerExplain>
+  <MDT_VerFix>Update the mod, or look for a continued or updated version. If it plays fine, you can ignore this.</MDT_VerFix>
+  <MDT_VerUnspecified>no version</MDT_VerUnspecified>
+
+  <!-- Community: replacement + incompatibility -->
+  <MDT_ReplaceTitle>an updated replacement exists</MDT_ReplaceTitle>
+  <MDT_ReplaceExplain>{0} looks outdated. The community lists '{1}' as an updated version.</MDT_ReplaceExplain>
+  <MDT_ReplaceFix>Switch to {0}. The link above opens it on the Workshop.</MDT_ReplaceFix>
+  <MDT_IncompatTitle>known mod incompatibility</MDT_IncompatTitle>
+  <MDT_IncompatExplain>{0} is known to be incompatible with {1}, and both are active. This can cause errors.</MDT_IncompatExplain>
+  <MDT_IncompatFix>Remove one of the two mods, or check their pages for a compatibility patch.</MDT_IncompatFix>
+  <MDT_AboutIncompatTitle>declared mod incompatibility</MDT_AboutIncompatTitle>
+  <MDT_AboutIncompatExplain>{0} is marked as incompatible with {1} in a mod's own About.xml, and both are active. Incompatible mods are a common cause of errors like this.</MDT_AboutIncompatExplain>
+
+  <!-- Mod-shipped known issues -->
+  <MDT_ModShippedBy>Shipped by {0}.</MDT_ModShippedBy>
+
+  <!-- Community data controls -->
+  <MDT_SectionCommunity>Community data</MDT_SectionCommunity>
+  <MDT_CommEnable>Use community databases</MDT_CommEnable>
+  <MDT_CommUpdate>Update info</MDT_CommUpdate>
+  <MDT_CommUpdateTip>Download the latest community databases (updated-mod replacements and known incompatibilities). Opt-in, runs in the background, cached for offline use.</MDT_CommUpdateTip>
+  <MDT_CommUpdating>Updating...</MDT_CommUpdating>
+  <MDT_CommUpdated>Updated {0}</MDT_CommUpdated>
+  <MDT_CommError>Update failed: {0}</MDT_CommError>
+  <MDT_CommDisabled>Community data is off. Turn it on to check for known incompatibilities and updated replacements.</MDT_CommDisabled>
+  <MDT_CommCached>Using cached data.</MDT_CommCached>
+  <MDT_CommNoData>No data yet. Press Update info to download.</MDT_CommNoData>
+  <MDT_CommEnabledMsg>Community data enabled.</MDT_CommEnabledMsg>
+  <MDT_CommunityReportedBy>Reported by {0}.</MDT_CommunityReportedBy>
+
+  <!-- Community reporting (opens a pre-filled GitHub issue form) -->
+  <MDT_ReportBlurb>Help the community: report this error so it can be added to the known-issues database, or submit a fix if you already know one. Opens a pre-filled form on GitHub - you submit it under your own account.</MDT_ReportBlurb>
+  <MDT_ReportKnown>This error is already in the community database (see the fix above). If that fix did not work, add detail so it can be improved.</MDT_ReportKnown>
+  <MDT_ReportBtn>Report this error</MDT_ReportBtn>
+  <MDT_ReportAddDetail>Add detail</MDT_ReportAddDetail>
+  <MDT_ReportTip>Open a pre-filled bug report on GitHub. The exception, implicated mods and a signature are filled in for you, and the full report is copied to your clipboard to paste in.</MDT_ReportTip>
+  <MDT_SubmitFix>Submit a fix</MDT_SubmitFix>
+  <MDT_SubmitFixTip>Know the cause and fix? Open a structured fix-submission form. Accepted fixes are folded into the known-issues database and shown to everyone.</MDT_SubmitFixTip>
+  <MDT_ReportOpened>Bug report opened in your browser, pre-filled. The full report was also copied to your clipboard if you want to paste more detail.</MDT_ReportOpened>
+  <MDT_FixFormOpened>Fix-submission form opened in your browser.</MDT_FixFormOpened>
+
+  <!-- Report composer dialog (add info before pushing to GitHub) -->
+  <MDT_ReportDialogTitle>Report an error</MDT_ReportDialogTitle>
+  <MDT_FixDialogTitle>Submit a fix</MDT_FixDialogTitle>
+  <MDT_ReportInfo_Exception>Exception</MDT_ReportInfo_Exception>
+  <MDT_ReportInfo_Version>RimWorld</MDT_ReportInfo_Version>
+  <MDT_ReportInfo_Implicated>Implicated</MDT_ReportInfo_Implicated>
+  <MDT_ReportInfo_Signature>Signature</MDT_ReportInfo_Signature>
+  <MDT_ReportField_Summary>What were you doing when this happened? (what broke, what reproduces it)</MDT_ReportField_Summary>
+  <MDT_FixField_Explanation>Explanation - what is going wrong?</MDT_FixField_Explanation>
+  <MDT_FixField_Fix>How did you fix it? (or how should it be fixed?)</MDT_FixField_Fix>
+  <MDT_FixField_Credit>Credit (optional)</MDT_FixField_Credit>
+  <MDT_ReportTracePreview>Preview (this is exactly what gets copied / submitted)</MDT_ReportTracePreview>
+  <MDT_ReportCopy>Copy report</MDT_ReportCopy>
+  <MDT_ReportCopyTip>Copy the full report above to your clipboard. Paste it anywhere - a GitHub issue, a Discord message, a forum post.</MDT_ReportCopyTip>
+  <MDT_ReportOpenGitHub>Open on GitHub</MDT_ReportOpenGitHub>
+  <MDT_ReportOpenGitHubTip>Open a pre-filled issue on GitHub with everything above, and copy the full report to your clipboard. You submit it under your own account.</MDT_ReportOpenGitHubTip>
+
+  <!-- Report destinations: the culprit mod's own channel first, community as an "also" -->
+  <MDT_ReportToModGithub>Report to {0} (GitHub)</MDT_ReportToModGithub>
+  <MDT_ReportToModGithubTip>Open a pre-filled issue on {0}'s own GitHub - the mod that likely caused this, and the place a fix can actually be made. The report is also copied to your clipboard.</MDT_ReportToModGithubTip>
+  <MDT_ReportToModWorkshop>Report to {0} (Steam)</MDT_ReportToModWorkshop>
+  <MDT_ReportToModWorkshopTip>Open {0}'s Steam Workshop page. The report is copied to your clipboard - paste it into a comment there.</MDT_ReportToModWorkshopTip>
+  <MDT_ReportToModSite>Report to {0}</MDT_ReportToModSite>
+  <MDT_ReportToCommunity>Also report to community</MDT_ReportToCommunity>
+  <MDT_ReportToCommunityOnly>Report to community database</MDT_ReportToCommunityOnly>
+  <MDT_ReportToCommunityTip>Also add this to the Modern Dev Tools community known-issues database, so every user of this mod benefits from the fix.</MDT_ReportToCommunityTip>
+  <MDT_ReportSentToMod>Opening {0}'s issue tracker. The report was copied to your clipboard.</MDT_ReportSentToMod>
+  <MDT_ReportPasteToPage>Opening {0}'s page. The report was copied to your clipboard - paste it into a comment.</MDT_ReportPasteToPage>
+  <MDT_ReportClose>Close</MDT_ReportClose>
+  <MDT_ReportCopied>Report copied to clipboard.</MDT_ReportCopied>
+
+  <!-- Experimental window hardening -->
+  <MDT_Hardening>Experimental: close UI-breaking windows</MDT_Hardening>
+  <MDT_HardeningDesc>If a window keeps erroring (a black or frozen window), catch it so it cannot freeze the rest of the interface, then close it after a few seconds. Experimental: it changes vanilla behavior and is off by default.</MDT_HardeningDesc>
+  <MDT_WindowClosed>Closed a broken window: {0}</MDT_WindowClosed>
+  <MDT_MapHardening>Experimental: recover broken world and map UI</MDT_MapHardening>
+  <MDT_MapHardeningDesc>If the world map or in-map UI throws, often a mod hitting a missing faction or null data after your modlist changed, catch it so the rest of the interface still draws instead of loading into a blank or broken world map. Experimental: it changes vanilla behavior and is off by default.</MDT_MapHardeningDesc>
+  <MDT_SectionHardening>Experimental hardening</MDT_SectionHardening>
+  <MDT_HardeningShort>Close UI-breaking windows</MDT_HardeningShort>
+  <MDT_MapHardeningShort>Recover broken world/map UI</MDT_MapHardeningShort>
+
+  <!-- Updated-mod tracking -->
+  <MDT_ModsChangedBtn>Mods changed ({0})</MDT_ModsChangedBtn>
+  <MDT_ModsChangedTip>Mods have changed since this save was made, a common cause of save errors. Click for details.</MDT_ModsChangedTip>
+  <MDT_ModsChangedTitle>Mods changed since this save</MDT_ModsChangedTitle>
+  <MDT_ModsChangedIntro>These mods were updated, removed, or added since this save was created. Updated and removed mods are the usual cause of errors on an existing save.</MDT_ModsChangedIntro>
+  <MDT_ChangeUpdated>updated</MDT_ChangeUpdated>
+  <MDT_ChangeRemoved>removed</MDT_ChangeRemoved>
+  <MDT_ChangeAdded>added</MDT_ChangeAdded>
+
+  <!-- Update notes -->
+  <MDT_UpdateNotesTitle>What's new in Modern Dev Tools</MDT_UpdateNotesTitle>
+  <MDT_UpdateNotesVersion>Updated to version {0}</MDT_UpdateNotesVersion>
+  <MDT_UpdateNotesClose>Got it</MDT_UpdateNotesClose>
+  <MDT_UpdateNotesBody>Welcome to Modern Dev Tools, a modern overhaul of RimWorld's developer tools.\n\nNew in 1.1\n- The dev actions search now finds every action across the whole tab, including tools like Destroy, and the search box opens focused and restyled to match the suite.\n- Faster first open of the debug log after a startup error: the analysis warm-up now runs in the background instead of hitching the first time you open or close the log.\n\nDebug log\n- A cleaner, more readable log that traces each error back to the mod that likely caused it, with clickable links to the mod's page.\n- A shipped knowledge library explains common errors in plain language, and a severity snip shows whether an error hurts your TPS or FPS.\n- Ignore harmless warnings to keep the log clean.\n\nDev tools window\n- A modern, searchable 3-tab window (Actions, Output, Settings) that also lists actions added by other mods.\n- Spawn menus show a searchable icon grid; pin any action to the reskinned dev palette.\n\nExtensible\n- Mod authors can add their own analysis and knowledge entries in XML or C#.</MDT_UpdateNotesBody>
+
+  <!-- Dev palette -->
+  <MDT_DevPaletteTitle>Dev palette</MDT_DevPaletteTitle>
+  <MDT_DevPaletteEmpty>Pin actions from the dev tools window to add them here.</MDT_DevPaletteEmpty>
+  <MDT_Unpin>Unpin</MDT_Unpin>
+
+  <!-- Modules and filters window -->
+  <MDT_ModulesTitle>Modules and filters</MDT_ModulesTitle>
+  <MDT_SectionModules>Analysis modules</MDT_SectionModules>
+  <MDT_SectionIgnored>Ignored warnings</MDT_SectionIgnored>
+  <MDT_SectionExtend>Extend this mod</MDT_SectionExtend>
+  <MDT_NoIgnored>No warnings are being ignored. Open a warning and press Ignore to mute a harmless class of warnings.</MDT_NoIgnored>
+  <MDT_Remove>Remove</MDT_Remove>
+  <MDT_ClearIgnores>Clear all</MDT_ClearIgnores>
+  <MDT_ExtendHint>Add your own analysis: ship a ModernDevTools.ErrorModuleDef or a ModernDevTools.KnownIssueDef in XML, or call ModernDevToolsAPI.RegisterModule in C# with your own ErrorModule subclass. Full guide: Documentation/RootCauseAnalysis.md.</MDT_ExtendHint>
+  <MDT_TagBuiltIn>built-in</MDT_TagBuiltIn>
+  <MDT_TagRequires>requires {0}</MDT_TagRequires>
+  <MDT_TagUnavailable>unavailable</MDT_TagUnavailable>
+
+</LanguageData>
