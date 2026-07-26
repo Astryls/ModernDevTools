@@ -165,6 +165,52 @@ namespace ModernDevTools
             Widgets.DrawBoxSolid(knob, on ? BGD : TextDim);
         }
 
+        /// <summary>
+        /// Height a full-width settings toggle row needs: one label line plus an optional wrapped
+        /// dim description under it. Measure with the SAME width you will draw into so text never clips
+        /// (descriptions are measured with Text.CalcHeight, honoring the current DisableTinyText metrics).
+        /// </summary>
+        public static float ToggleRowHeight(string description, float width)
+        {
+            float h = 24f;
+            if (!description.NullOrEmpty())
+            {
+                Text.Font = GameFont.Small;
+                bool prevWrap = Text.WordWrap;
+                Text.WordWrap = true;
+                h += 4f + Text.CalcHeight(description, width);
+                Text.WordWrap = prevWrap;
+            }
+            return h;
+        }
+
+        /// <summary>
+        /// A full-width settings row in the suite language: sentence-case label on the left, an on/off
+        /// switch on the right, and an optional wrapped dim description beneath. The whole row is the
+        /// click target. Size the rect with <see cref="ToggleRowHeight"/> so nothing clips. Returns the
+        /// new value; the caller is responsible for persisting it.
+        /// </summary>
+        public static bool ToggleRow(Rect r, string label, bool value, string description = null)
+        {
+            if (Mouse.IsOver(r)) Widgets.DrawBoxSolid(r, new Color(1f, 1f, 1f, 0.04f));
+
+            LabelFit(new Rect(r.x, r.y, r.width - 48f, 24f), label, Stat);
+            DrawToggle(new Rect(r.xMax - 40f, r.y + 3f, 36f, 18f), value);
+
+            if (!description.NullOrEmpty())
+            {
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.WordWrap = true;
+                GUI.color = TextDim;
+                float dy = r.y + 28f;
+                Widgets.Label(new Rect(r.x, dy, r.width, r.yMax - dy), description);
+                GUI.color = Color.white;
+            }
+
+            return Widgets.ButtonInvisible(r) ? !value : value;
+        }
+
         /// <summary>Themed close button (an X drawn from two lines; no glyph). Returns true on click.</summary>
         public static bool CloseX(Rect r)
         {

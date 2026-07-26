@@ -5,6 +5,15 @@ using Verse;
 
 namespace ModernDevTools
 {
+    /// <summary>
+    /// Every user-facing setting. SETTINGS PARITY RULE: each toggle here is surfaced by the full
+    /// mod-settings page (<see cref="SettingsPage"/>), and anything the quick-access Dialog_Modules
+    /// window also exposes must have a matching control on that page. When you add a setting:
+    ///   1. add the field + Scribe line below,
+    ///   2. add a row to SettingsPage (a card row or a new DrawXCard),
+    ///   3. mirror it in Dialog_Modules if it belongs on the quick-access surface,
+    ///   4. add the Keyed strings (label + description).
+    /// </summary>
     public class ModernDevToolsSettings : ModSettings
     {
         public Dictionary<string, bool> moduleEnabled = new Dictionary<string, bool>();
@@ -41,7 +50,6 @@ namespace ModernDevTools
         public static ModernDevToolsMod Instance;
         public static ModernDevToolsSettings Settings;
         public static int IgnoreVersion;   // bumped when the ignore set changes (gates the list rebuild)
-        private Vector2 _scroll;
 
         public ModernDevToolsMod(ModContentPack content) : base(content)
         {
@@ -83,67 +91,6 @@ namespace ModernDevTools
 
         public override string SettingsCategory() => "Modern Dev Tools";
 
-        public override void DoSettingsWindowContents(Rect inRect)
-        {
-            var defs = DefDatabase<ErrorModuleDef>.AllDefsListForReading.OrderBy(d => d.order).ToList();
-
-            var top = new Listing_Standard();
-            top.Begin(new Rect(inRect.x, inRect.y, inRect.width, 158f));
-            Text.Font = GameFont.Small;
-            top.Label("MDT_SettingsIntro".Translate());
-            bool noMenuLog = Settings.dontAutoOpenAtMainMenu;
-            top.CheckboxLabeled("MDT_NoMainMenuLog".Translate(), ref noMenuLog, "MDT_NoMainMenuLogDesc".Translate());
-            Settings.dontAutoOpenAtMainMenu = noMenuLog;
-            bool harden = Settings.experimentalWindowHardening;
-            top.CheckboxLabeled("MDT_Hardening".Translate(), ref harden, "MDT_HardeningDesc".Translate());
-            Settings.experimentalWindowHardening = harden;
-            bool mapHarden = Settings.experimentalMapUiHardening;
-            top.CheckboxLabeled("MDT_MapHardening".Translate(), ref mapHarden, "MDT_MapHardeningDesc".Translate());
-            Settings.experimentalMapUiHardening = mapHarden;
-            top.End();
-
-            Rect listOut = new Rect(inRect.x, inRect.y + 162f, inRect.width, inRect.height - 162f);
-            float rowH = 56f;
-            Rect view = new Rect(0f, 0f, listOut.width - 16f, defs.Count * rowH + 4f);
-            Palette.BeginScroll(listOut, ref _scroll, view);
-            float y = 0f;
-            foreach (ErrorModuleDef def in defs)
-            {
-                Rect row = new Rect(0f, y, view.width, rowH - 4f);
-                bool avail = def.Available;
-                bool cur = IsModuleEnabled(def);
-
-                Rect checkR = new Rect(row.x, row.y, row.width, 24f);
-                Text.Font = GameFont.Small;
-                if (avail)
-                {
-                    bool now = cur;
-                    Widgets.CheckboxLabeled(checkR, def.label.CapitalizeFirst(), ref now);
-                    if (now != cur)
-                    {
-                        Settings.moduleEnabled[def.defName] = now;
-                        ErrorModuleRegistry.Invalidate();
-                        LogAnalysisCache.Clear();
-                    }
-                }
-                else
-                {
-                    GUI.color = new Color(0.62f, 0.65f, 0.70f);
-                    Widgets.Label(checkR, def.label.CapitalizeFirst() + "  (" + "MDT_SettingsUnavailable".Translate() + ")");
-                    GUI.color = Color.white;
-                }
-
-                if (!def.description.NullOrEmpty())
-                {
-                    Rect descR = new Rect(row.x + 24f, row.y + 24f, row.width - 24f, rowH - 28f);
-                    GUI.color = new Color(0.62f, 0.65f, 0.70f);
-                    Widgets.Label(descR, def.description);
-                    GUI.color = Color.white;
-                }
-                y += rowH;
-            }
-            Palette.EndScroll();
-            Text.Anchor = TextAnchor.UpperLeft;
-        }
+        public override void DoSettingsWindowContents(Rect inRect) => SettingsPage.Draw(inRect);
     }
 }

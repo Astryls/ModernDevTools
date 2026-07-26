@@ -9,6 +9,12 @@ namespace ModernDevTools
     /// Opened from the log window's Modules button. Left: every analysis module with an on/off toggle
     /// (built-in and third-party, unavailable ones dimmed). Right: the warnings the player has muted,
     /// with a Remove per entry, plus a short "extend this mod" surface for authors.
+    ///
+    /// SETTINGS PARITY RULE: this quick-access window and the full mod-settings page (SettingsPage)
+    /// are two distinct layouts that share the Palette styling. Every control exposed here must also
+    /// be reachable from the mod-settings page. When you add a control here, add a matching one to
+    /// SettingsPage (see the checklist on ModernDevToolsSettings). SourceTag/CommunityStatus are shared
+    /// with SettingsPage so the two surfaces can never drift on those.
     /// </summary>
     public class Dialog_Modules : Window
     {
@@ -204,7 +210,7 @@ namespace ModernDevTools
             GUI.color = Color.white;
         }
 
-        private static string CommunityStatus()
+        internal static string CommunityStatus()
         {
             var s = ModernDevToolsMod.Settings;
             if (s == null || !s.enableCommunityData) return "MDT_CommDisabled".Translate();
@@ -215,7 +221,7 @@ namespace ModernDevTools
             return "MDT_CommNoData".Translate();
         }
 
-        private static string SourceTag(ErrorModuleDef def, bool available)
+        internal static string SourceTag(ErrorModuleDef def, bool available)
         {
             if (!available)
             {
