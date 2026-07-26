@@ -29,10 +29,6 @@ namespace ModernDevTools
         private List<DebugActionNode> _searchResults;
         private bool _focusSearch;
         private int _openedFrame;   // frame the window opened / switched tabs; focus is deferred past it
-        private string _poolKey;               // (tab, current node) the searchable pool was built for
-        private List<IndexEntry> _pool;        // cached (node, lowercased label) pairs, filtered per keystroke
-
-        private struct IndexEntry { public DebugActionNode Node; public string LabelLower; }
 
         public Window_ModernDevActions(DebugTabMenuDef tab)
         {
@@ -151,6 +147,10 @@ namespace ModernDevTools
                 DrawCenter(body, "MDT_DevMenuError".Translate(), Palette.Warn);
                 return;
             }
+
+            // Advance the whole-tab search index a little each frame (once per frame, on Layout) so nested
+            // and mod-added actions become searchable without an up-front freeze.
+            if (Event.current.type == EventType.Layout) ActionSearchIndex.Step(_tab, _tabRoot);
 
             List<DebugActionNode> children = string.IsNullOrEmpty(_search)
                 ? DebugTree.Children(_node)
@@ -426,62 +426,18 @@ namespace ModernDevTools
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        /// <summary>Search the CURRENT level - the children of the node you are standing on (the tab root,
-        /// or a category you drilled into). Those children are already built (they are on screen), so the
-        /// searchable pool (node + pre-lowercased label) is built once, cheaply, and cached: at the tab
-        /// root that is ~a few dozen items (instant), inside a spawn grid it is a one-time label pass. Every
-        /// keystroke then filters cached strings. We deliberately do NOT walk the whole tab - probing every
-        /// category to do that builds the giant spawn grids' childGetters and stalled the first keystroke
-        /// for seconds. To reach an action inside a category, drill in, then search there.</summary>
+        /// <summary>Filter the whole-tab search index (ActionSearchIndex), which is built progressively in
+        /// the background of the render loop so nested and mod-added actions are findable without an up-front
+        /// freeze. Cached per (tab, search, index size) so it only re-filters on a keystroke or as the index
+        /// grows, not every frame.</summary>
         private List<DebugActionNode> SearchResults()
         {
-            List<IndexEntry> pool = Pool();   // also refreshes _poolKey for the current context
-            string key = _poolKey + "\u0001" + _search;
+            int count = ActionSearchIndex.Count(_tab);
+            string key = (_tab?.defName ?? "") + "\u0001" + _search + "\u0001" + count;
             if (key == _searchKey && _searchResults != null) return _searchResults;
             _searchKey = key;
-
-            string needle = (_search ?? "").ToLowerInvariant();
-            var results = new List<DebugActionNode>();
-            try
-            {
-                foreach (IndexEntry e in pool)
-                {
-                    if (e.LabelLower.IndexOf(needle, StringComparison.Ordinal) >= 0)
-                    {
-                        results.Add(e.Node);
-                        if (results.Count >= 400) break;
-                    }
-                }
-            }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] action search failed: " + e.Message, 0x2E19C33); }
-
-            _searchResults = results;
-            return results;
-        }
-
-        /// <summary>The cached searchable pool for the current level: the current node's own children,
-        /// pre-lowercased for cheap filtering. Those children are already materialized (they are being
-        /// drawn), so this is just a label pass - no tree walk, no building of deeper categories. Rebuilt
-        /// only when the tab or current node changes.</summary>
-        private List<IndexEntry> Pool()
-        {
-            string poolKey = (_tab?.defName ?? "") + "\u0001" + (_node == _tabRoot ? "*root*" : DebugTree.PathOf(_node));
-            if (poolKey == _poolKey && _pool != null) return _pool;
-            _poolKey = poolKey;
-
-            var list = new List<IndexEntry>();
-            try
-            {
-                foreach (DebugActionNode n in DebugTree.Children(_node))
-                {
-                    list.Add(new IndexEntry { Node = n, LabelLower = (DebugTree.Label(n) ?? "").ToLowerInvariant() });
-                    if (list.Count >= 8000) break;
-                }
-            }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] search index build failed: " + e.Message, 0x2E19C34); }
-
-            _pool = list;
-            return _pool;
+            _searchResults = ActionSearchIndex.Filter(_tab, _search);
+            return _searchResults;
         }
     }
 
