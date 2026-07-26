@@ -54,6 +54,17 @@ namespace ModernDevTools
             Log.Error(Prefix + "error. A plain Error-level entry with no exception - use it to check the impact banner and the 'Report this error' flow.");
         }
 
+        [DebugAction(Category, "Log error with jargon (glossary demo)", allowedGameStates = Anywhere, displayPriority = 896)]
+        private static void LogGlossaryDemo()
+        {
+            // Deliberately packed with modding jargon so the inspector's "Terms in this error" glossary
+            // card renders (it scans the message text + exception type + diagnoses for known terms).
+            Log.Error(Prefix + "glossary demo. A Harmony transpiler failed to apply its patch operation, "
+                + "so a def cross-reference could not resolve through its xpath and a null reference followed. "
+                + "Check your load order and the packageId; this can also surface as a TypeLoadException from "
+                + "HugsLib, and errors like it can hurt both TPS and FPS. See the stack trace for the mod.");
+        }
+
         [DebugAction(Category, "Throw test exception", allowedGameStates = Anywhere, displayPriority = 897)]
         private static void ThrowTestException()
         {
