@@ -38,7 +38,9 @@ namespace ModernDevTools
 
         private static Dictionary<string, string[]> Build()
         {
+            var _sw = Diag.Begin("HarmonyIndex.Build");
             var map = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            int _n = 0;
             try
             {
                 foreach (MethodBase method in Harmony.GetAllPatchedMethods())
@@ -50,6 +52,7 @@ namespace ModernDevTools
                     var owners = info?.Owners;
                     if (owners == null || owners.Count == 0) continue;
 
+                    _n++;
                     string type = method.DeclaringType.FullName;
                     if (type.NullOrEmpty()) continue;
                     string key = type + ":" + method.Name;
@@ -71,6 +74,7 @@ namespace ModernDevTools
                 kv.Value.CopyTo(arr);
                 result[kv.Key] = arr;
             }
+            Diag.End("HarmonyIndex.Build patchedMethods=" + _n + " keys=" + result.Count, _sw);
             return result;
         }
 

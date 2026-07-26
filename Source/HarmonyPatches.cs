@@ -131,7 +131,7 @@ namespace ModernDevTools
     {
         static bool Prefix()
         {
-            try { Window_ModernDevActions.OpenOrSwitch(DebugTabMenuDefOf.Actions); return false; }
+            try { Diag.Mark("toggle-actions-menu pressed"); Window_ModernDevActions.OpenOrSwitch(DebugTabMenuDefOf.Actions); Diag.Mark("toggle-actions-menu returned"); return false; }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] actions redirect failed: " + e, 0x2E19A23); return true; }
         }
     }

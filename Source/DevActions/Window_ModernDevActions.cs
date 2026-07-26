@@ -28,6 +28,7 @@ namespace ModernDevTools
         private string _searchKey;
         private List<DebugActionNode> _searchResults;
         private bool _focusSearch;
+        private int _openedFrame;   // frame the window opened / switched tabs; focus is deferred past it
 
         public Window_ModernDevActions(DebugTabMenuDef tab)
         {
@@ -62,13 +63,16 @@ namespace ModernDevTools
         private void GoToTab(DebugTabMenuDef tab)
         {
             _tab = tab;
+            var _sw = Diag.Begin("RootOf(" + (tab?.defName ?? "null") + ")");
             _tabRoot = DebugTree.RootOf(tab);
+            Diag.End("RootOf", _sw);
             _node = _tabRoot;
             _search = "";
             _scroll = Vector2.zero;
             _searchKey = null;
             _searchResults = null;
             _focusSearch = true;   // land the caret in the search box on open / tab switch
+            _openedFrame = Time.frameCount;   // ...but NOT this frame: the '/' hotkey that opened us would leak in
         }
 
         private void Navigate(DebugActionNode node)
@@ -88,10 +92,13 @@ namespace ModernDevTools
 
         public override void DoWindowContents(Rect inRect)
         {
+            var _sw = System.Diagnostics.Stopwatch.StartNew();
             try { DrawAll(inRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] dev window draw failed: " + e, 0x2E19C10); }
             finally
             {
+                _sw.Stop();
+                if (_sw.ElapsedMilliseconds > 150L) Diag.Mark("SLOW DoWindowContents " + _sw.ElapsedMilliseconds + " ms (search='" + _search + "' node=" + DebugTree.Label(_node) + ")");
                 GUI.color = Color.white;
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
@@ -186,8 +193,10 @@ namespace ModernDevTools
             string edited = Palette.SearchField(r, "MDT_DevFilter", _search ?? "", "MDT_DevSearchPlaceholder".Translate());
             if (edited != _search) _search = edited;
 
-            // Focus the field the first frame after opening / switching tabs, once it has been drawn.
-            if (_focusSearch)
+            // Focus the field the first frame STRICTLY AFTER opening / switching tabs. Deferring past the
+            // open frame is what stops the '/' dev hotkey (which opened this window) from being typed into
+            // the freshly focused search box - which otherwise searched "/", forcing a full-tree walk.
+            if (_focusSearch && Time.frameCount > _openedFrame)
             {
                 GUI.FocusControl("MDT_DevFilter");
                 _focusSearch = false;
@@ -429,6 +438,8 @@ namespace ModernDevTools
             if (key == _searchKey && _searchResults != null) return _searchResults;
             _searchKey = key;
 
+            var _sw = Diag.Begin("SearchResults tab=" + (_tab?.defName ?? "?") + " search='" + _search + "'");
+            int _visited = 0, _built = 0, guard = 0;
             var results = new List<DebugActionNode>();
             try
             {
@@ -436,25 +447,36 @@ namespace ModernDevTools
                 foreach (DebugActionNode c in DebugTree.Children(_tabRoot))
                     queue.Enqueue(new KeyValuePair<DebugActionNode, int>(c, 0));
 
-                int guard = 0;
+                // Hard time budget: building a category's children invokes its childGetter, and the spawn
+                // grids build tens of thousands of nodes. Without this a broad search froze for ~71 s.
+                var budget = System.Diagnostics.Stopwatch.StartNew();
+                bool overBudget = false;
                 while (queue.Count > 0 && results.Count < 400 && guard++ < 200000)
                 {
                     KeyValuePair<DebugActionNode, int> kv = queue.Dequeue();
                     DebugActionNode n = kv.Key;
+                    _visited++;
 
                     // Match this node's own label - leaf actions AND category/folder labels.
                     string label = DebugTree.Label(n);
                     if (!label.NullOrEmpty() && label.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0)
                         results.Add(n);
 
-                    // Descend breadth-first so nearer nodes are always checked first.
-                    if (kv.Value < 6 && DebugTree.IsCategory(n))
+                    // Descend breadth-first so nearer nodes are always checked first. Stop BUILDING new
+                    // children once the time budget is spent (checked before each build so at worst we
+                    // overrun by one category's build); already-queued nodes are still matched cheaply.
+                    if (!overBudget && (budget.ElapsedMilliseconds > 300L || _built > 20000)) overBudget = true;
+                    if (!overBudget && kv.Value < 6 && DebugTree.IsCategory(n))
                         foreach (DebugActionNode child in DebugTree.Children(n))
+                        {
+                            _built++;
                             queue.Enqueue(new KeyValuePair<DebugActionNode, int>(child, kv.Value + 1));
+                        }
                 }
             }
             catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] action search failed: " + e.Message, 0x2E19C33); }
 
+            Diag.End("SearchResults visited=" + _visited + " built=" + _built + " guard=" + guard + " results=" + results.Count, _sw);
             _searchResults = results;
             return results;
         }
