@@ -71,6 +71,26 @@ namespace ModernDevTools
             return result;
         }
 
+        /// <summary>Visible children that are ALREADY materialized - does NOT call TrySetupChildren, so a
+        /// lazy childGetter (the giant spawn/thing grids) is never invoked. This is what lets search index
+        /// the whole tab cheaply: every discrete action (vanilla and mod-added) is a flat, pre-built node,
+        /// while the grids stay collapsed and are searched in place once you drill in.</summary>
+        public static List<DebugActionNode> BuiltChildren(DebugActionNode node)
+        {
+            var result = new List<DebugActionNode>();
+            if (node == null) return result;
+            try
+            {
+                node.TrySort();
+                List<DebugActionNode> kids = node.children;
+                if (kids != null)
+                    foreach (DebugActionNode c in kids)
+                        if (IsVisible(c)) result.Add(c);
+            }
+            catch (Exception e) { MarkBroken(node, e, "reading its list"); }
+            return result;
+        }
+
         public static bool HasChildren(DebugActionNode node)
         {
             if (node == null) return false;

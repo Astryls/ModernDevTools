@@ -148,10 +148,6 @@ namespace ModernDevTools
                 return;
             }
 
-            // Advance the whole-tab search index a little each frame (once per frame, on Layout) so nested
-            // and mod-added actions become searchable without an up-front freeze.
-            if (Event.current.type == EventType.Layout) ActionSearchIndex.Step(_tab, _tabRoot);
-
             List<DebugActionNode> children = string.IsNullOrEmpty(_search)
                 ? DebugTree.Children(_node)
                 : SearchResults();
@@ -426,17 +422,19 @@ namespace ModernDevTools
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        /// <summary>Filter the whole-tab search index (ActionSearchIndex), which is built progressively in
-        /// the background of the render loop so nested and mod-added actions are findable without an up-front
-        /// freeze. Cached per (tab, search, index size) so it only re-filters on a keystroke or as the index
-        /// grows, not every frame.</summary>
+        /// <summary>Filter the search index for the current context: the whole tab at the root (a cheap flat
+        /// index of every discrete action, mod actions included, with the giant grids left collapsed), or the
+        /// current category's items once you drill into one (e.g. a spawn grid). The index is built once per
+        /// context and cached, so each keystroke is just a substring filter.</summary>
         private List<DebugActionNode> SearchResults()
         {
-            int count = ActionSearchIndex.Count(_tab);
-            string key = (_tab?.defName ?? "") + "\u0001" + _search + "\u0001" + count;
+            bool atRoot = AtRoot;
+            DebugActionNode root = atRoot ? _tabRoot : _node;
+            string ctx = (_tab?.defName ?? "") + "\u0001" + (atRoot ? "*root*" : DebugTree.PathOf(_node));
+            string key = ctx + "\u0001" + _search;
             if (key == _searchKey && _searchResults != null) return _searchResults;
             _searchKey = key;
-            _searchResults = ActionSearchIndex.Filter(_tab, _search);
+            _searchResults = ActionSearchIndex.Filter(ctx, root, _search);
             return _searchResults;
         }
     }

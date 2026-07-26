@@ -1,112 +1,33 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using LudeonTK;
-using RimWorld;
 using Verse;
 
 namespace ModernDevTools
 {
     /// <summary>
-    /// Whole-tab search index for the modern dev-actions window, built PROGRESSIVELY across render frames
-    /// (a small time budget per frame) rather than in one synchronous walk. This is what lets search find
-    /// actions nested inside categories - including mod-added ones like the "Modern Dev Tools" test actions -
-    /// without the up-front freeze a full-tree walk caused (building every category's children, including the
-    /// giant spawn/thing grids, stalled for tens of seconds).
+    /// Flat search index for the modern dev-actions window. It walks the tab with DebugTree.BuiltChildren,
+    /// which reads only ALREADY-materialized nodes and never fires a lazy childGetter - so the giant spawn/
+    /// thing grids are left collapsed (indexed as single drillable folders) while every discrete action,
+    /// including mod-added ones like the "Modern Dev Tools" test actions, is captured. Because it touches
+    /// no childGetter, the whole build is cheap and runs synchronously on first search: no freeze, and no
+    /// per-keystroke work beyond a substring filter over cached, pre-lowercased labels.
     ///
-    /// Giant grids (>300 children) are recorded as folders but NOT expanded, so we never label the tens of
-    /// thousands of spawn-item nodes (those are searched in place once you drill in). The index is cached
-    /// per tab for the session: the first pass over a tab completes within a second or two of the window
-    /// being open, and every reopen/keystroke after that filters the cached list instantly.
+    /// Cached per context (a tab root, or a specific category you drilled into) for the session: when you
+    /// enter a spawn grid its children are built by the draw pass, so searching there indexes those items.
     /// </summary>
     public static class ActionSearchIndex
     {
         private struct Entry { public DebugActionNode Node; public string LabelLower; }
 
-        private class State
-        {
-            public readonly List<Entry> Entries = new List<Entry>();
-            public Queue<KeyValuePair<DebugActionNode, int>> Frontier;
-            public bool Done;
-            public long BuildMs;
-            public long MaxStepMs;
-            public bool Logged;
-        }
+        private static readonly Dictionary<string, List<Entry>> _cache = new Dictionary<string, List<Entry>>();
 
-        private static readonly Dictionary<string, State> _byTab = new Dictionary<string, State>();
-        // Category paths already found to be huge spawn/thing grids; never re-expanded.
-        private static readonly HashSet<string> _giant = new HashSet<string>();
-
-        private static State Ensure(DebugTabMenuDef tab, DebugActionNode tabRoot)
-        {
-            string key = tab?.defName ?? "";
-            if (_byTab.TryGetValue(key, out State st) && st.Frontier != null) return st;
-            st = new State { Frontier = new Queue<KeyValuePair<DebugActionNode, int>>() };
-            try
-            {
-                foreach (DebugActionNode c in DebugTree.Children(tabRoot))
-                    st.Frontier.Enqueue(new KeyValuePair<DebugActionNode, int>(c, 0));
-            }
-            catch { }
-            _byTab[key] = st;
-            return st;
-        }
-
-        /// <summary>Advance the current tab's index by up to budgetMs of work. Call once per frame while the
-        /// window is open; a no-op once the tab is fully indexed.</summary>
-        public static void Step(DebugTabMenuDef tab, DebugActionNode tabRoot, int budgetMs = 6)
-        {
-            if (tab == null || tabRoot == null) return;
-            State st = Ensure(tab, tabRoot);
-            if (st.Done) return;
-
-            var sw = Stopwatch.StartNew();
-            try
-            {
-                while (st.Frontier.Count > 0)
-                {
-                    KeyValuePair<DebugActionNode, int> kv = st.Frontier.Dequeue();
-                    DebugActionNode n = kv.Key;
-                    st.Entries.Add(new Entry { Node = n, LabelLower = (DebugTree.Label(n) ?? "").ToLowerInvariant() });
-
-                    if (kv.Value < 6 && DebugTree.IsCategory(n))
-                    {
-                        string path = DebugTree.PathOf(n);
-                        if (path == null || !_giant.Contains(path))
-                        {
-                            List<DebugActionNode> kids = DebugTree.Children(n);
-                            if (kids.Count > 300) { if (path != null) _giant.Add(path); }   // giant grid: index as a folder only
-                            else foreach (DebugActionNode child in kids)
-                                st.Frontier.Enqueue(new KeyValuePair<DebugActionNode, int>(child, kv.Value + 1));
-                        }
-                    }
-
-                    if (sw.ElapsedMilliseconds >= budgetMs) break;   // resume next frame
-                }
-            }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] search index step failed: " + e.Message, 0x2E19C35); }
-
-            sw.Stop();
-            st.BuildMs += sw.ElapsedMilliseconds;
-            if (sw.ElapsedMilliseconds > st.MaxStepMs) st.MaxStepMs = sw.ElapsedMilliseconds;
-            if (st.Frontier.Count == 0)
-            {
-                st.Done = true;
-                if (!st.Logged)
-                {
-                    st.Logged = true;
-                    Log.Message("MDT-DIAG index tab=" + tab.defName + " entries=" + st.Entries.Count
-                        + " giantSkipped=" + _giant.Count + " buildMs=" + st.BuildMs + " maxStepMs=" + st.MaxStepMs);
-                }
-            }
-        }
-
-        public static List<DebugActionNode> Filter(DebugTabMenuDef tab, string search, int cap = 400)
+        /// <summary>Matches in the given context, filtered by substring over cached lowercased labels.</summary>
+        public static List<DebugActionNode> Filter(string contextKey, DebugActionNode searchRoot, string search, int cap = 400)
         {
             var res = new List<DebugActionNode>();
-            if (!_byTab.TryGetValue(tab?.defName ?? "", out State st)) return res;
+            List<Entry> entries = Ensure(contextKey, searchRoot);
             string needle = (search ?? "").ToLowerInvariant();
-            List<Entry> entries = st.Entries;
             for (int i = 0; i < entries.Count; i++)
             {
                 if (entries[i].LabelLower.IndexOf(needle, StringComparison.Ordinal) >= 0)
@@ -118,8 +39,35 @@ namespace ModernDevTools
             return res;
         }
 
-        /// <summary>How many nodes are indexed so far (used to re-filter as the index grows).</summary>
-        public static int Count(DebugTabMenuDef tab) =>
-            _byTab.TryGetValue(tab?.defName ?? "", out State st) ? st.Entries.Count : 0;
+        private static List<Entry> Ensure(string contextKey, DebugActionNode searchRoot)
+        {
+            if (_cache.TryGetValue(contextKey, out List<Entry> cached)) return cached;
+            List<Entry> built = Build(searchRoot);
+            _cache[contextKey] = built;
+            return built;
+        }
+
+        private static List<Entry> Build(DebugActionNode root)
+        {
+            var list = new List<Entry>();
+            if (root == null) return list;
+            try
+            {
+                var queue = new Queue<DebugActionNode>();
+                foreach (DebugActionNode c in DebugTree.BuiltChildren(root)) queue.Enqueue(c);
+
+                int guard = 0;
+                while (queue.Count > 0 && list.Count < 8000 && guard++ < 40000)
+                {
+                    DebugActionNode n = queue.Dequeue();
+                    list.Add(new Entry { Node = n, LabelLower = (DebugTree.Label(n) ?? "").ToLowerInvariant() });
+                    // Recurse only into already-built subtrees (BuiltChildren never invokes a childGetter),
+                    // so collapsed grids contribute their folder node but not their thousands of items.
+                    foreach (DebugActionNode child in DebugTree.BuiltChildren(n)) queue.Enqueue(child);
+                }
+            }
+            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] search index build failed: " + e.Message, 0x2E19C34); }
+            return list;
+        }
     }
 }
