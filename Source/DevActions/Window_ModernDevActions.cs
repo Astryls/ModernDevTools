@@ -29,6 +29,10 @@ namespace ModernDevTools
         private List<DebugActionNode> _searchResults;
         private bool _focusSearch;
         private int _openedFrame;   // frame the window opened / switched tabs; focus is deferred past it
+        private string _poolKey;               // (tab, current node) the searchable pool was built for
+        private List<IndexEntry> _pool;        // cached (node, lowercased label) pairs, filtered per keystroke
+
+        private struct IndexEntry { public DebugActionNode Node; public string LabelLower; }
 
         public Window_ModernDevActions(DebugTabMenuDef tab)
         {
@@ -39,7 +43,7 @@ namespace ModernDevTools
             preventCameraMotion = false;
             drawShadow = true;
             closeOnAccept = false;
-            closeOnCancel = false;
+            closeOnCancel = true;   // route Esc to OnCancelKeyPressed (WindowStack ignores it otherwise)
             closeOnClickedOutside = true;
             onlyOneOfTypeAllowed = true;
             layer = WindowLayer.Dialog;
@@ -422,56 +426,78 @@ namespace ModernDevTools
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        /// <summary>Cached search across the WHOLE current tab (from its root, not just the node the user
-        /// is standing on). Uses breadth-first traversal so shallow, root-level actions (e.g. the "General"
-        /// tools like "T: Destroy") are always reached before the huge spawn/place submenus - a depth-first
-        /// walk would dive into a thousands-node grid and hit the iteration guard before ever reaching
-        /// them. Folder labels match too (so submenus are findable and drillable). Cached per (tab, search)
-        /// so it only runs on a keystroke.</summary>
+        /// <summary>Search the current context: the whole tab from root, or - once you drill into a large
+        /// category like a spawn grid - within that category. The searchable pool (node + pre-lowercased
+        /// label) is built ONCE per context (Pool()) and cached, so every keystroke is a cheap substring
+        /// filter instead of a fresh walk that rebuilds and re-labels tens of thousands of nodes (which
+        /// stalled for whole seconds per key). Result is also cached per (context, search) so it only
+        /// re-filters when the query changes, not every frame.</summary>
         private List<DebugActionNode> SearchResults()
         {
-            string key = (_tab?.defName ?? "") + "\u0001" + _search;
+            List<IndexEntry> pool = Pool();   // also refreshes _poolKey for the current context
+            string key = _poolKey + "\u0001" + _search;
             if (key == _searchKey && _searchResults != null) return _searchResults;
             _searchKey = key;
 
-            int built = 0, guard = 0;
+            string needle = (_search ?? "").ToLowerInvariant();
             var results = new List<DebugActionNode>();
             try
             {
-                var queue = new Queue<KeyValuePair<DebugActionNode, int>>();
-                foreach (DebugActionNode c in DebugTree.Children(_tabRoot))
-                    queue.Enqueue(new KeyValuePair<DebugActionNode, int>(c, 0));
-
-                // Hard time budget: building a category's children invokes its childGetter, and the spawn
-                // grids build tens of thousands of nodes. Without this a broad search froze for ~71 s.
-                var budget = System.Diagnostics.Stopwatch.StartNew();
-                bool overBudget = false;
-                while (queue.Count > 0 && results.Count < 400 && guard++ < 200000)
+                foreach (IndexEntry e in pool)
                 {
-                    KeyValuePair<DebugActionNode, int> kv = queue.Dequeue();
-                    DebugActionNode n = kv.Key;
-
-                    // Match this node's own label - leaf actions AND category/folder labels.
-                    string label = DebugTree.Label(n);
-                    if (!label.NullOrEmpty() && label.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0)
-                        results.Add(n);
-
-                    // Descend breadth-first so nearer nodes are always checked first. Stop BUILDING new
-                    // children once the time budget is spent (checked before each build so at worst we
-                    // overrun by one category's build); already-queued nodes are still matched cheaply.
-                    if (!overBudget && (budget.ElapsedMilliseconds > 300L || built > 20000)) overBudget = true;
-                    if (!overBudget && kv.Value < 6 && DebugTree.IsCategory(n))
-                        foreach (DebugActionNode child in DebugTree.Children(n))
-                        {
-                            built++;
-                            queue.Enqueue(new KeyValuePair<DebugActionNode, int>(child, kv.Value + 1));
-                        }
+                    if (e.LabelLower.IndexOf(needle, StringComparison.Ordinal) >= 0)
+                    {
+                        results.Add(e.Node);
+                        if (results.Count >= 400) break;
+                    }
                 }
             }
             catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] action search failed: " + e.Message, 0x2E19C33); }
 
             _searchResults = results;
             return results;
+        }
+
+        /// <summary>The cached, flat searchable pool for the current context, built breadth-first from the
+        /// node the user is standing on. Time-boxed and grid-aware: it indexes the current node's own
+        /// children (so a spawn grid you drilled into is fully searchable) but does NOT expand DEEPER
+        /// categories that turn out to be huge (>300 children) - those spawn grids are found as folders and
+        /// searched in place once entered. Rebuilt only when the tab or current node changes.</summary>
+        private List<IndexEntry> Pool()
+        {
+            string poolKey = (_tab?.defName ?? "") + "\u0001" + (_node == _tabRoot ? "*tab*" : DebugTree.PathOf(_node));
+            if (poolKey == _poolKey && _pool != null) return _pool;
+            _poolKey = poolKey;
+
+            var list = new List<IndexEntry>();
+            try
+            {
+                var queue = new Queue<KeyValuePair<DebugActionNode, int>>();
+                foreach (DebugActionNode c in DebugTree.Children(_node))
+                    queue.Enqueue(new KeyValuePair<DebugActionNode, int>(c, 0));
+
+                var budget = System.Diagnostics.Stopwatch.StartNew();
+                bool stop = false;
+                int guard = 0;
+                while (queue.Count > 0 && list.Count < 8000 && guard++ < 60000)
+                {
+                    KeyValuePair<DebugActionNode, int> kv = queue.Dequeue();
+                    DebugActionNode n = kv.Key;
+                    list.Add(new IndexEntry { Node = n, LabelLower = (DebugTree.Label(n) ?? "").ToLowerInvariant() });
+
+                    if (!stop && budget.ElapsedMilliseconds > 400L) stop = true;
+                    if (stop || kv.Value >= 6 || !DebugTree.IsCategory(n)) continue;
+
+                    List<DebugActionNode> kids = DebugTree.Children(n);
+                    if (kids.Count > 300) continue;   // deeper giant grid: found as a folder, searched in place
+                    foreach (DebugActionNode child in kids)
+                        queue.Enqueue(new KeyValuePair<DebugActionNode, int>(child, kv.Value + 1));
+                }
+            }
+            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] search index build failed: " + e.Message, 0x2E19C34); }
+
+            _pool = list;
+            return _pool;
         }
     }
 
