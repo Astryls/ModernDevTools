@@ -357,7 +357,8 @@
   <MDT_KbDepNotInstalled>not installed</MDT_KbDepNotInstalled>
 
   <!-- Knowledge base: Harmony entries -->
-  <MDT_KbHarmonySummary>{0} game methods are patched by mods. {1} are changed by two or more different mods, which can conflict.</MDT_KbHarmonySummary>
+  <MDT_KbHarmonySummary>{0} game methods are patched by mods. {1} are changed by two or more different mods, which can conflict (highlighted below).</MDT_KbHarmonySummary>
+  <MDT_KbHarmonyEmpty>No mods currently patch any game methods.</MDT_KbHarmonyEmpty>
   <MDT_KbHarmonyPatchers>Patched by: {0}</MDT_KbHarmonyPatchers>
   <MDT_KbHarmonyShowing>Showing the first {0} of {1}.</MDT_KbHarmonyShowing>
 

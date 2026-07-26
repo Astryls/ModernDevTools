@@ -41,9 +41,9 @@ namespace ModernDevTools
         private CompatData _compat;
         private long _compatStamp = -1;
 
-        // Harmony conflicts, built lazily the first time the Harmony tab is opened (the index build hitches
-        // once on large modlists, so it is not done for the rail badge).
-        private List<HConflict> _harmony;
+        // All Harmony-patched methods, built lazily the first time the Harmony tab is opened (the index
+        // build hitches once on large modlists, so it is not done for the rail badge).
+        private List<HPatch> _harmony;
 
         public Window_KnowledgeBase()
         {
@@ -522,12 +522,15 @@ namespace ModernDevTools
         {
             if (_harmony == null) _harmony = BuildHarmony();
             float y = 0f;
-            y = DrawNote(w, y, "MDT_KbHarmonySummary".Translate(HarmonyIndex.PatchedMethodCount, _harmony.Count));
 
-            if (_harmony.Count == 0) return DrawNote(w, y, "MDT_KbNoConflicts".Translate());
+            int conflicts = 0;
+            foreach (HPatch h in _harmony) if (h.ForeignCount >= 2) conflicts++;
+            y = DrawNote(w, y, "MDT_KbHarmonySummary".Translate(HarmonyIndex.PatchedMethodCount, conflicts));
 
-            var list = new List<HConflict>();
-            foreach (HConflict h in _harmony)
+            if (_harmony.Count == 0) return DrawNote(w, y, "MDT_KbHarmonyEmpty".Translate());
+
+            var list = new List<HPatch>();
+            foreach (HPatch h in _harmony)
                 if (Match(_search, h.Method, h.Full) || MatchOwners(_search, h.Owners)) list.Add(h);
             if (list.Count == 0) return DrawNote(w, y, "MDT_KbNoResults".Translate());
 
@@ -535,37 +538,43 @@ namespace ModernDevTools
             if (list.Count > cap) y = DrawNote(w, y, "MDT_KbHarmonyShowing".Translate(cap, list.Count));
 
             int n = 0;
-            foreach (HConflict h in list)
+            foreach (HPatch h in list)
             {
                 if (n >= cap) break;
                 string body = "MDT_KbHarmonyPatchers".Translate(string.Join(", ", h.Owners.ToArray()));
-                y = DrawIssueCard(w, y, h.Method, body, null, null, "MDT_KbTagHarmony".Translate(), h.Full, Palette.Warn);
+                Color strip = h.ForeignCount >= 2 ? Palette.Warn : Palette.StripGray;
+                y = DrawIssueCard(w, y, h.Method, body, null, null, "MDT_KbTagHarmony".Translate(), h.Full, strip);
                 n++;
             }
             return y;
         }
 
-        private List<HConflict> BuildHarmony()
+        /// <summary>Every patched method with its resolved patcher name(s). ForeignCount is the number of
+        /// distinct patchers other than this mod itself, so methods contested by 2+ foreign mods (conflict
+        /// candidates) can be flagged and sorted to the top while still listing every patch.</summary>
+        private List<HPatch> BuildHarmony()
         {
-            var res = new List<HConflict>();
+            var res = new List<HPatch>();
             InstalledModIndex idx = InstalledModIndex.Instance;
             foreach (var kv in HarmonyIndex.Snapshot())
             {
-                var names = new List<string>();
+                var all = new List<string>();
+                var foreign = new HashSet<string>();
                 foreach (string o in kv.Value)
                 {
                     if (o.NullOrEmpty()) continue;
-                    if (string.Equals(o, HarmonyIndex.SelfId, StringComparison.OrdinalIgnoreCase)) continue;
+                    bool isSelf = string.Equals(o, HarmonyIndex.SelfId, StringComparison.OrdinalIgnoreCase);
                     ModMetaData meta = idx?.MatchOwnerId(o);
                     string nm = meta != null ? meta.Name : o;
-                    if (!names.Contains(nm)) names.Add(nm);
+                    if (!all.Contains(nm)) all.Add(nm);
+                    if (!isSelf) foreign.Add(nm);
                 }
-                if (names.Count < 2) continue;   // only methods contested by 2+ distinct foreign mods
-                res.Add(new HConflict { Method = Pretty(kv.Key), Full = kv.Key, Owners = names });
+                if (all.Count == 0) continue;
+                res.Add(new HPatch { Method = Pretty(kv.Key), Full = kv.Key, Owners = all, ForeignCount = foreign.Count });
             }
             res.Sort((a, b) =>
             {
-                int c = b.Owners.Count.CompareTo(a.Owners.Count);
+                int c = b.ForeignCount.CompareTo(a.ForeignCount);
                 return c != 0 ? c : string.CompareOrdinal(a.Method, b.Method);
             });
             return res;
@@ -875,7 +884,7 @@ namespace ModernDevTools
 
         private class Pair2 { public string A; public string B; }
         private class RepItem { public string Old; public string New; public string Url; public string Versions; }
-        private class HConflict { public string Method; public string Full; public List<string> Owners; }
+        private class HPatch { public string Method; public string Full; public List<string> Owners; public int ForeignCount; }
 
         private class CompatData
         {
