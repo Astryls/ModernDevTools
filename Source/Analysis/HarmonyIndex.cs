@@ -83,5 +83,26 @@ namespace ModernDevTools
                 ? owners
                 : null;
         }
+
+        /// <summary>Patched-method count known so far WITHOUT forcing a build (0 until built). Cheap;
+        /// safe to poll every frame for a rail badge.</summary>
+        public static int BuiltMethodCount => _byMethod?.Count ?? 0;
+
+        /// <summary>Total patched methods, building the index if needed (may hitch once on a large modlist).</summary>
+        public static int PatchedMethodCount { get { EnsureBuilt(); return _byMethod?.Count ?? 0; } }
+
+        /// <summary>Snapshot of the whole reverse map (method key "Type.FullName:Method" -> owner ids) for
+        /// browsing. Builds the index if needed; returns a copy so callers can't mutate the cache.</summary>
+        public static List<KeyValuePair<string, string[]>> Snapshot()
+        {
+            EnsureBuilt();
+            var list = new List<KeyValuePair<string, string[]>>();
+            lock (_lock)
+            {
+                if (_byMethod == null) return list;
+                foreach (var kv in _byMethod) list.Add(new KeyValuePair<string, string[]>(kv.Key, kv.Value));
+            }
+            return list;
+        }
     }
 }

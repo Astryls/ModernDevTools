@@ -66,5 +66,15 @@ namespace ModernDevTools
             }
             return found;
         }
+
+        /// <summary>Every glossary term as (label, definition), translated. Used by the knowledge browser.</summary>
+        public static List<KeyValuePair<string, string>> AllTerms()
+        {
+            Ensure();
+            var list = new List<KeyValuePair<string, string>>(_terms.Count);
+            foreach (Term t in _terms)
+                list.Add(new KeyValuePair<string, string>(t.LabelKey.Translate(), t.DefKey.Translate()));
+            return list;
+        }
     }
 }

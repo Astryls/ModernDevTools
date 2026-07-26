@@ -177,6 +177,8 @@ namespace ModernDevTools
             Rect modR = new Rect(copyR.x - Gap - modW, r.y, modW, r.height);
             float updW = BtnW("MDT_CommUpdate".Translate());
             Rect updR = new Rect(modR.x - Gap - updW, r.y, updW, r.height);
+            float kbW = BtnW("MDT_KbButton".Translate());
+            Rect kbR = new Rect(updR.x - Gap - kbW, r.y, kbW, r.height);
 
             if (Palette.GrayButton(clearR, "MDT_Clear".Translate(), "MDT_ClearTip".Translate()))
             {
@@ -200,9 +202,13 @@ namespace ModernDevTools
                 }
                 CommunityData.Update();
             }
+            if (Palette.GrayButton(kbR, "MDT_KbButton".Translate(), "MDT_KbButtonTip".Translate()))
+            {
+                if (!Find.WindowStack.IsOpen<Window_KnowledgeBase>()) Find.WindowStack.Add(new Window_KnowledgeBase());
+            }
 
             // Left: search field filling the rest.
-            Rect searchR = new Rect(r.x, r.y, updR.x - Gap - r.x, r.height);
+            Rect searchR = new Rect(r.x, r.y, kbR.x - Gap - r.x, r.height);
             DrawSearch(searchR);
         }
 

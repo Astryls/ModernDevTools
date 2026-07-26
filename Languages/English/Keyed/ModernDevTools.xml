@@ -281,4 +281,84 @@
   <MDT_TagRequires>requires {0}</MDT_TagRequires>
   <MDT_TagUnavailable>unavailable</MDT_TagUnavailable>
 
+  <!-- Knowledge base (global browser of everything Modern Dev Tools knows) -->
+  <MDT_KbButton>Knowledge base</MDT_KbButton>
+  <MDT_KbButtonTip>Browse everything Modern Dev Tools knows: the issue libraries, community databases, your mods' compatibility and dependencies, live Harmony patches, and the glossary - each with its source.</MDT_KbButtonTip>
+  <MDT_KbTitle>Knowledge base</MDT_KbTitle>
+  <MDT_KbSearchPlaceholder>Search this section...</MDT_KbSearchPlaceholder>
+  <MDT_KbNoResults>Nothing matches your search.</MDT_KbNoResults>
+
+  <!-- Knowledge base: tab names -->
+  <MDT_KbTabSources>Sources</MDT_KbTabSources>
+  <MDT_KbTabKnown>Known issues</MDT_KbTabKnown>
+  <MDT_KbTabBenign>Benign log lines</MDT_KbTabBenign>
+  <MDT_KbTabCommunity>Community bugs</MDT_KbTabCommunity>
+  <MDT_KbTabCompat>Compatibility</MDT_KbTabCompat>
+  <MDT_KbTabDeps>Dependencies</MDT_KbTabDeps>
+  <MDT_KbTabHarmony>Harmony patches</MDT_KbTabHarmony>
+  <MDT_KbTabGlossary>Glossary</MDT_KbTabGlossary>
+
+  <!-- Knowledge base: sources dashboard -->
+  <MDT_KbSourcesIntro>Everything Modern Dev Tools shows you is gathered from the sources below. Select one to browse its entries.</MDT_KbSourcesIntro>
+  <MDT_KbSourceKnown>Known-issue library</MDT_KbSourceKnown>
+  <MDT_KbSourceKnownDesc>Curated, plain-language explanations of common engine and mod errors.</MDT_KbSourceKnownDesc>
+  <MDT_KbSourceBenign>Benign log-line library</MDT_KbSourceBenign>
+  <MDT_KbSourceBenignDesc>Normal RimWorld log lines recognized as no-fault, so they are never blamed on a mod.</MDT_KbSourceBenignDesc>
+  <MDT_KbSourceCommunity>Community bug database</MDT_KbSourceCommunity>
+  <MDT_KbSourceCommunityDesc>Opt-in online database of known bugs and fixes, plus issues shipped inside your mods.</MDT_KbSourceCommunityDesc>
+  <MDT_KbSourceCompat>Mod compatibility</MDT_KbSourceCompat>
+  <MDT_KbSourceCompatDesc>Declared and community-known incompatibilities and updated replacements for your mods.</MDT_KbSourceCompatDesc>
+  <MDT_KbSourceDeps>Dependencies and load order</MDT_KbSourceDeps>
+  <MDT_KbSourceDepsDesc>Missing required mods and load-order problems in your active mod list.</MDT_KbSourceDepsDesc>
+  <MDT_KbSourceHarmony>Harmony patch registry</MDT_KbSourceHarmony>
+  <MDT_KbSourceHarmonyDesc>Live list of game methods that mods change at runtime, and where several collide.</MDT_KbSourceHarmonyDesc>
+  <MDT_KbSourceGlossary>Glossary</MDT_KbSourceGlossary>
+  <MDT_KbSourceGlossaryDesc>Plain-language definitions of the jargon that shows up in errors.</MDT_KbSourceGlossaryDesc>
+  <MDT_KbEntries>{0} entries</MDT_KbEntries>
+  <MDT_KbSourceOff>off</MDT_KbSourceOff>
+  <MDT_KbNotScanned>not scanned yet</MDT_KbNotScanned>
+
+  <!-- Knowledge base: entry provenance tags -->
+  <MDT_KbTagShipped>shipped by {0}</MDT_KbTagShipped>
+  <MDT_KbTagCommunityBug>community database</MDT_KbTagCommunityBug>
+  <MDT_KbTagAbout>declared in About.xml</MDT_KbTagAbout>
+  <MDT_KbTagCommunityRule>community rules database</MDT_KbTagCommunityRule>
+  <MDT_KbTagReplace>Use This Instead database</MDT_KbTagReplace>
+  <MDT_KbTagYourMods>your active mod list</MDT_KbTagYourMods>
+  <MDT_KbTagHarmony>live Harmony registry</MDT_KbTagHarmony>
+  <MDT_KbSignals>Triggers on: {0}</MDT_KbSignals>
+
+  <!-- Knowledge base: section headers and empty states -->
+  <MDT_KbSecCommunityDb>Community database</MDT_KbSecCommunityDb>
+  <MDT_KbSecShipped>Shipped by your mods</MDT_KbSecShipped>
+  <MDT_KbSecAbout>Declared incompatibilities (About.xml)</MDT_KbSecAbout>
+  <MDT_KbSecRules>Known incompatibilities (community)</MDT_KbSecRules>
+  <MDT_KbSecReplace>Updated replacements</MDT_KbSecReplace>
+  <MDT_KbEmptyKnown>No known-issue entries are loaded.</MDT_KbEmptyKnown>
+  <MDT_KbEmptyBenign>No benign log-line entries are loaded.</MDT_KbEmptyBenign>
+  <MDT_KbCommOff>Community data is off. Turn it on to download the online bug, incompatibility and replacement databases. It runs in the background and is cached for offline use.</MDT_KbCommOff>
+  <MDT_KbCommEnable>Enable and update</MDT_KbCommEnable>
+  <MDT_KbNoCommunityBugs>No community bug entries are loaded yet. Press Enable and update, or Update info, to download them.</MDT_KbNoCommunityBugs>
+  <MDT_KbNoShipped>None of your active mods ship their own known-issue file.</MDT_KbNoShipped>
+  <MDT_KbNoCompat>No incompatibilities or replacements were found for your mods.</MDT_KbNoCompat>
+  <MDT_KbNoDeps>No missing dependencies or load-order problems in your active mods.</MDT_KbNoDeps>
+  <MDT_KbNoConflicts>No game method is patched by two or more different mods.</MDT_KbNoConflicts>
+
+  <!-- Knowledge base: compatibility entries -->
+  <MDT_KbIncompatPair>{0}  vs  {1}</MDT_KbIncompatPair>
+  <MDT_KbBothActive>Both are active in your mod list.</MDT_KbBothActive>
+  <MDT_KbReplacePair>{0}  -&gt;  {1}</MDT_KbReplacePair>
+  <MDT_KbReplaceBlurb>The community lists an updated replacement for this mod.</MDT_KbReplaceBlurb>
+  <MDT_KbReplaceVersions>Supports: {0}</MDT_KbReplaceVersions>
+
+  <!-- Knowledge base: dependency entries -->
+  <MDT_KbDepMissingLine>Missing: {0}</MDT_KbDepMissingLine>
+  <MDT_KbDepInstalledInactive>installed but not active</MDT_KbDepInstalledInactive>
+  <MDT_KbDepNotInstalled>not installed</MDT_KbDepNotInstalled>
+
+  <!-- Knowledge base: Harmony entries -->
+  <MDT_KbHarmonySummary>{0} game methods are patched by mods. {1} are changed by two or more different mods, which can conflict.</MDT_KbHarmonySummary>
+  <MDT_KbHarmonyPatchers>Patched by: {0}</MDT_KbHarmonyPatchers>
+  <MDT_KbHarmonyShowing>Showing the first {0} of {1}.</MDT_KbHarmonyShowing>
+
 </LanguageData>

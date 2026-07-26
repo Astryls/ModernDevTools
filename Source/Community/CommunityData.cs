@@ -65,6 +65,12 @@ namespace ModernDevTools
         public static bool Enabled => ModernDevToolsMod.Settings != null && ModernDevToolsMod.Settings.enableCommunityData;
         public static bool HasData => _rules != null || _replacements != null || _bugs != null;
 
+        // Read-only views for the knowledge browser. Never mutate the returned list.
+        public static List<RemoteIssue> AllBugs => _bugs;
+        public static int BugsCount => _bugs?.Count ?? 0;
+        public static int RulesCount => _rules?.Count ?? 0;
+        public static int ReplacementsCount => _replacements?.Count ?? 0;
+
         private static string CacheDir => Path.Combine(GenFilePaths.ConfigFolderPath, "ModernDevTools");
         private static string CachePath(string f) => Path.Combine(CacheDir, f);
 
