@@ -426,12 +426,13 @@ namespace ModernDevTools
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        /// <summary>Search the current context: the whole tab from root, or - once you drill into a large
-        /// category like a spawn grid - within that category. The searchable pool (node + pre-lowercased
-        /// label) is built ONCE per context (Pool()) and cached, so every keystroke is a cheap substring
-        /// filter instead of a fresh walk that rebuilds and re-labels tens of thousands of nodes (which
-        /// stalled for whole seconds per key). Result is also cached per (context, search) so it only
-        /// re-filters when the query changes, not every frame.</summary>
+        /// <summary>Search the CURRENT level - the children of the node you are standing on (the tab root,
+        /// or a category you drilled into). Those children are already built (they are on screen), so the
+        /// searchable pool (node + pre-lowercased label) is built once, cheaply, and cached: at the tab
+        /// root that is ~a few dozen items (instant), inside a spawn grid it is a one-time label pass. Every
+        /// keystroke then filters cached strings. We deliberately do NOT walk the whole tab - probing every
+        /// category to do that builds the giant spawn grids' childGetters and stalled the first keystroke
+        /// for seconds. To reach an action inside a category, drill in, then search there.</summary>
         private List<DebugActionNode> SearchResults()
         {
             List<IndexEntry> pool = Pool();   // also refreshes _poolKey for the current context
@@ -458,40 +459,23 @@ namespace ModernDevTools
             return results;
         }
 
-        /// <summary>The cached, flat searchable pool for the current context, built breadth-first from the
-        /// node the user is standing on. Time-boxed and grid-aware: it indexes the current node's own
-        /// children (so a spawn grid you drilled into is fully searchable) but does NOT expand DEEPER
-        /// categories that turn out to be huge (>300 children) - those spawn grids are found as folders and
-        /// searched in place once entered. Rebuilt only when the tab or current node changes.</summary>
+        /// <summary>The cached searchable pool for the current level: the current node's own children,
+        /// pre-lowercased for cheap filtering. Those children are already materialized (they are being
+        /// drawn), so this is just a label pass - no tree walk, no building of deeper categories. Rebuilt
+        /// only when the tab or current node changes.</summary>
         private List<IndexEntry> Pool()
         {
-            string poolKey = (_tab?.defName ?? "") + "\u0001" + (_node == _tabRoot ? "*tab*" : DebugTree.PathOf(_node));
+            string poolKey = (_tab?.defName ?? "") + "\u0001" + (_node == _tabRoot ? "*root*" : DebugTree.PathOf(_node));
             if (poolKey == _poolKey && _pool != null) return _pool;
             _poolKey = poolKey;
 
             var list = new List<IndexEntry>();
             try
             {
-                var queue = new Queue<KeyValuePair<DebugActionNode, int>>();
-                foreach (DebugActionNode c in DebugTree.Children(_node))
-                    queue.Enqueue(new KeyValuePair<DebugActionNode, int>(c, 0));
-
-                var budget = System.Diagnostics.Stopwatch.StartNew();
-                bool stop = false;
-                int guard = 0;
-                while (queue.Count > 0 && list.Count < 8000 && guard++ < 60000)
+                foreach (DebugActionNode n in DebugTree.Children(_node))
                 {
-                    KeyValuePair<DebugActionNode, int> kv = queue.Dequeue();
-                    DebugActionNode n = kv.Key;
                     list.Add(new IndexEntry { Node = n, LabelLower = (DebugTree.Label(n) ?? "").ToLowerInvariant() });
-
-                    if (!stop && budget.ElapsedMilliseconds > 400L) stop = true;
-                    if (stop || kv.Value >= 6 || !DebugTree.IsCategory(n)) continue;
-
-                    List<DebugActionNode> kids = DebugTree.Children(n);
-                    if (kids.Count > 300) continue;   // deeper giant grid: found as a folder, searched in place
-                    foreach (DebugActionNode child in kids)
-                        queue.Enqueue(new KeyValuePair<DebugActionNode, int>(child, kv.Value + 1));
+                    if (list.Count >= 8000) break;
                 }
             }
             catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] search index build failed: " + e.Message, 0x2E19C34); }
