@@ -73,8 +73,17 @@ namespace ModernDevTools
             {
                 if (EditWindow_Log.wantsToOpen)
                 {
-                    Window_ModernLog.OpenIfNeeded();
-                    EditWindow_Log.wantsToOpen = false;
+                    // Optional: don't auto-open the log at the main menu / during loading (startup errors).
+                    var s = ModernDevToolsMod.Settings;
+                    if (s != null && s.dontAutoOpenAtMainMenu && Current.ProgramState == ProgramState.Entry)
+                    {
+                        EditWindow_Log.wantsToOpen = false; // consume it so it doesn't linger into the game
+                    }
+                    else
+                    {
+                        Window_ModernLog.OpenIfNeeded();
+                        EditWindow_Log.wantsToOpen = false;
+                    }
                 }
                 return false; // fully replaces vanilla's poll
             }
@@ -131,7 +140,7 @@ namespace ModernDevTools
     {
         static bool Prefix()
         {
-            try { Diag.Mark("toggle-actions-menu pressed"); Window_ModernDevActions.OpenOrSwitch(DebugTabMenuDefOf.Actions); Diag.Mark("toggle-actions-menu returned"); return false; }
+            try { Window_ModernDevActions.OpenOrSwitch(DebugTabMenuDefOf.Actions); return false; }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] actions redirect failed: " + e, 0x2E19A23); return true; }
         }
     }

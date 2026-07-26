@@ -79,6 +79,8 @@
   <MDT_StateNotInstalled>not installed</MDT_StateNotInstalled>
 
   <!-- Settings -->
+  <MDT_NoMainMenuLog>Don't open the log at the main menu</MDT_NoMainMenuLog>
+  <MDT_NoMainMenuLogDesc>Keep the debug log from opening by itself while at the main menu or loading, when startup errors are logged. It still opens automatically once you are in a game, and you can always open it by hand. Off by default.</MDT_NoMainMenuLogDesc>
   <MDT_SettingsIntro>Analysis modules. Turn any of them on or off. Mod authors can add their own modules to expand attribution, diagnosis and reporting.</MDT_SettingsIntro>
   <MDT_SettingsUnavailable>unavailable</MDT_SettingsUnavailable>
 

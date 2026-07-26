@@ -54,7 +54,6 @@ namespace ModernDevTools
 
         private static void Build()
         {
-            var _sw = Diag.Begin("ModDependencyIndex.Build");
             var byPid = new Dictionary<string, ModProblems>(StringComparer.OrdinalIgnoreCase);
             var all = new List<ModProblems>();
             try
@@ -105,7 +104,6 @@ namespace ModernDevTools
             }
             _byPid = byPid;
             _all = all;
-            Diag.End("ModDependencyIndex.Build problems=" + all.Count, _sw);
         }
 
         private static void AddOrder(ModProblems prob, List<string> ids, Dictionary<ModMetaData, int> indexOf, int index, bool mustLoadBefore)

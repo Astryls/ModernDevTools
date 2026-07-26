@@ -63,9 +63,7 @@ namespace ModernDevTools
         private void GoToTab(DebugTabMenuDef tab)
         {
             _tab = tab;
-            var _sw = Diag.Begin("RootOf(" + (tab?.defName ?? "null") + ")");
             _tabRoot = DebugTree.RootOf(tab);
-            Diag.End("RootOf", _sw);
             _node = _tabRoot;
             _search = "";
             _scroll = Vector2.zero;
@@ -86,19 +84,17 @@ namespace ModernDevTools
 
         public override void OnCancelKeyPressed()
         {
+            // Esc goes up one level inside a submenu; at the top level it closes the window.
             if (!AtRoot && _node?.parent != null) { Navigate(_node.parent); Event.current.Use(); }
-            else base.OnCancelKeyPressed();
+            else { Close(); Event.current.Use(); }
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            var _sw = System.Diagnostics.Stopwatch.StartNew();
             try { DrawAll(inRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] dev window draw failed: " + e, 0x2E19C10); }
             finally
             {
-                _sw.Stop();
-                if (_sw.ElapsedMilliseconds > 150L) Diag.Mark("SLOW DoWindowContents " + _sw.ElapsedMilliseconds + " ms (search='" + _search + "' node=" + DebugTree.Label(_node) + ")");
                 GUI.color = Color.white;
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
@@ -438,8 +434,7 @@ namespace ModernDevTools
             if (key == _searchKey && _searchResults != null) return _searchResults;
             _searchKey = key;
 
-            var _sw = Diag.Begin("SearchResults tab=" + (_tab?.defName ?? "?") + " search='" + _search + "'");
-            int _visited = 0, _built = 0, guard = 0;
+            int built = 0, guard = 0;
             var results = new List<DebugActionNode>();
             try
             {
@@ -455,7 +450,6 @@ namespace ModernDevTools
                 {
                     KeyValuePair<DebugActionNode, int> kv = queue.Dequeue();
                     DebugActionNode n = kv.Key;
-                    _visited++;
 
                     // Match this node's own label - leaf actions AND category/folder labels.
                     string label = DebugTree.Label(n);
@@ -465,18 +459,17 @@ namespace ModernDevTools
                     // Descend breadth-first so nearer nodes are always checked first. Stop BUILDING new
                     // children once the time budget is spent (checked before each build so at worst we
                     // overrun by one category's build); already-queued nodes are still matched cheaply.
-                    if (!overBudget && (budget.ElapsedMilliseconds > 300L || _built > 20000)) overBudget = true;
+                    if (!overBudget && (budget.ElapsedMilliseconds > 300L || built > 20000)) overBudget = true;
                     if (!overBudget && kv.Value < 6 && DebugTree.IsCategory(n))
                         foreach (DebugActionNode child in DebugTree.Children(n))
                         {
-                            _built++;
+                            built++;
                             queue.Enqueue(new KeyValuePair<DebugActionNode, int>(child, kv.Value + 1));
                         }
                 }
             }
             catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] action search failed: " + e.Message, 0x2E19C33); }
 
-            Diag.End("SearchResults visited=" + _visited + " built=" + _built + " guard=" + guard + " results=" + results.Count, _sw);
             _searchResults = results;
             return results;
         }

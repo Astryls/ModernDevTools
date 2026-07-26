@@ -11,6 +11,7 @@ namespace ModernDevTools
         public HashSet<string> ignoredIssues = new HashSet<string>();
         public string lastSeenVersion = "";   // for the update-notes popup
         public bool enableCommunityData = false;   // opt-in: fetch community databases from the internet
+        public bool dontAutoOpenAtMainMenu = false;   // opt-in: suppress the log's auto-open at the main menu / loading
         public bool experimentalWindowHardening = false;   // experimental: isolate/close UI-breaking windows
         public bool experimentalMapUiHardening = false;    // experimental: recover from broken world/map UI
 
@@ -21,6 +22,7 @@ namespace ModernDevTools
             Scribe_Collections.Look(ref ignoredIssues, "ignoredIssues", LookMode.Value);
             Scribe_Values.Look(ref lastSeenVersion, "lastSeenVersion", "");
             Scribe_Values.Look(ref enableCommunityData, "enableCommunityData", false);
+            Scribe_Values.Look(ref dontAutoOpenAtMainMenu, "dontAutoOpenAtMainMenu", false);
             Scribe_Values.Look(ref experimentalWindowHardening, "experimentalWindowHardening", false);
             Scribe_Values.Look(ref experimentalMapUiHardening, "experimentalMapUiHardening", false);
             if (moduleEnabled == null) moduleEnabled = new Dictionary<string, bool>();
@@ -86,9 +88,12 @@ namespace ModernDevTools
             var defs = DefDatabase<ErrorModuleDef>.AllDefsListForReading.OrderBy(d => d.order).ToList();
 
             var top = new Listing_Standard();
-            top.Begin(new Rect(inRect.x, inRect.y, inRect.width, 128f));
+            top.Begin(new Rect(inRect.x, inRect.y, inRect.width, 158f));
             Text.Font = GameFont.Small;
             top.Label("MDT_SettingsIntro".Translate());
+            bool noMenuLog = Settings.dontAutoOpenAtMainMenu;
+            top.CheckboxLabeled("MDT_NoMainMenuLog".Translate(), ref noMenuLog, "MDT_NoMainMenuLogDesc".Translate());
+            Settings.dontAutoOpenAtMainMenu = noMenuLog;
             bool harden = Settings.experimentalWindowHardening;
             top.CheckboxLabeled("MDT_Hardening".Translate(), ref harden, "MDT_HardeningDesc".Translate());
             Settings.experimentalWindowHardening = harden;
@@ -97,7 +102,7 @@ namespace ModernDevTools
             Settings.experimentalMapUiHardening = mapHarden;
             top.End();
 
-            Rect listOut = new Rect(inRect.x, inRect.y + 132f, inRect.width, inRect.height - 132f);
+            Rect listOut = new Rect(inRect.x, inRect.y + 162f, inRect.width, inRect.height - 162f);
             float rowH = 56f;
             Rect view = new Rect(0f, 0f, listOut.width - 16f, defs.Count * rowH + 4f);
             Palette.BeginScroll(listOut, ref _scroll, view);
