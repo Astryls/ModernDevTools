@@ -29,6 +29,7 @@ namespace ModernDevTools
         private List<DebugActionNode> _searchResults;
         private bool _focusSearch;
         private int _openedFrame;   // frame the window opened / switched tabs; focus is deferred past it
+        private bool _restorePalette;   // the dev palette was hidden on open and should reappear on close
 
         public Window_ModernDevActions(DebugTabMenuDef tab)
         {
@@ -47,6 +48,40 @@ namespace ModernDevTools
         }
 
         protected override float Margin => 0f;
+
+        // The dev palette lives on WindowLayer.Super, so it draws OVER this Dialog-layer window and would
+        // cover its content. Hide the palette while we're open (without flipping the devPalette pref) and
+        // restore it on close, so the two dev tools never overlap.
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            try
+            {
+                var ws = Find.WindowStack;
+                var palette = ws?.WindowOfType<Window_ModernDevPalette>();
+                if (palette != null)
+                {
+                    palette.suppressClosePref = true;
+                    ws.TryRemove(palette, false);
+                    _restorePalette = true;
+                }
+            }
+            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette hide failed: " + e.Message, 0x2E19C30); }
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            try
+            {
+                if (_restorePalette && DebugSettings.devPalette)
+                {
+                    var ws = Find.WindowStack;
+                    if (ws != null && !ws.IsOpen<Window_ModernDevPalette>()) ws.Add(new Window_ModernDevPalette());
+                }
+            }
+            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette restore failed: " + e.Message, 0x2E19C31); }
+        }
 
         public override Vector2 InitialSize =>
             new Vector2(Mathf.Min(UI.screenWidth * 0.6f, 1080f), Mathf.Min(UI.screenHeight * 0.72f, 820f));

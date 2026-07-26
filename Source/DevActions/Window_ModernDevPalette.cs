@@ -13,9 +13,14 @@ namespace ModernDevTools
     /// </summary>
     public class Window_ModernDevPalette : Window
     {
-        private const float RowH = 26f;
+        private const float RowH = 26f;    // flat (single-line) row
+        private const float RowH2 = 42f;   // nested (breadcrumb + leaf) row
         private const float HeaderH = 26f;
         private int _lastCount = -1;
+
+        /// <summary>Set before a programmatic remove (e.g. while the dev actions window hides us) so
+        /// PostClose doesn't turn the devPalette pref off - we want to restore the palette afterwards.</summary>
+        public bool suppressClosePref;
 
         public Window_ModernDevPalette()
         {
@@ -50,12 +55,28 @@ namespace ModernDevTools
             return list;
         }
 
+        /// <summary>Parent-chain breadcrumb for a pinned node (null for a flat top-level action).
+        /// Path is backslash-separated ("Do incident\Raid"); we drop the leaf and render the rest.</summary>
+        private static string NestPrefix(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return null;
+            int i = path.LastIndexOf('\\');
+            if (i <= 0) return null;
+            return path.Substring(0, i).Replace("\\", " / ");
+        }
+
+        private static float RowHeightFor(DebugActionNode node) =>
+            NestPrefix(DebugTree.PathOf(node)) != null ? RowH2 : RowH;
+
         protected override void SetInitialSizeAndPosition()
         {
-            int n = ResolveNodes().Count;
-            _lastCount = n;
+            List<DebugActionNode> nodes = ResolveNodes();
+            _lastCount = nodes.Count;
             float w = 300f;
-            float h = HeaderH + 8f + (n == 0 ? 44f : n * RowH) + 8f;
+            float rowsH = 0f;
+            if (nodes.Count == 0) rowsH = 44f;
+            else foreach (DebugActionNode nd in nodes) rowsH += RowHeightFor(nd);
+            float h = HeaderH + 8f + rowsH + 8f;
             w = Mathf.Min(w, UI.screenWidth);
             h = Mathf.Min(h, UI.screenHeight);
             Vector2 pos = Prefs.DevPalettePosition;
@@ -108,8 +129,9 @@ namespace ModernDevTools
             {
                 for (int i = 0; i < nodes.Count; i++)
                 {
-                    DrawRow(new Rect(content.x, y, content.width, RowH - 2f), nodes[i], i);
-                    y += RowH;
+                    float rh = RowHeightFor(nodes[i]);
+                    DrawRow(new Rect(content.x, y, content.width, rh - 2f), nodes[i], i);
+                    y += rh;
                 }
             }
 
@@ -133,16 +155,27 @@ namespace ModernDevTools
             Rect pinR = new Rect(row.xMax - pinW, row.y + (row.height - 18f) / 2f, 18f, 18f);
             Rect clickR = new Rect(row.x, row.y, row.width - pinW - 4f, row.height);
 
+            string prefix = NestPrefix(DebugTree.PathOf(node));
             float x = row.x + 8f;
+            float leafY, leafH;
+            if (prefix != null)
+            {
+                // Two-line: dim parent breadcrumb on top, bright leaf label below.
+                Palette.LabelFit(new Rect(x, row.y + 2f, clickR.xMax - x - 2f, 16f), prefix, Palette.TextDim);
+                leafY = row.y + 18f;
+                leafH = 20f;
+            }
+            else { leafY = row.y; leafH = row.height; }
+
             if (checkbox)
             {
-                Rect ck = new Rect(x, row.y + (row.height - 16f) / 2f, 16f, 16f);
+                Rect ck = new Rect(x, leafY + (leafH - 16f) / 2f, 16f, 16f);
                 DrawCheck(ck, DebugTree.GetCheck(node));
                 x = ck.xMax + 6f;
             }
 
             Color col = broken ? Palette.Bad : (active ? Palette.Stat : Palette.TextDim);
-            Palette.LabelFit(new Rect(x, row.y, clickR.xMax - x - 2f, row.height), DebugTree.Label(node), col);
+            Palette.LabelFit(new Rect(x, leafY, clickR.xMax - x - 2f, leafH), DebugTree.Label(node), col);
             TooltipHandler.TipRegion(clickR, DebugTree.PathOf(node));
 
             // thumbtack: always pinned here, so white; click to unpin
@@ -171,7 +204,7 @@ namespace ModernDevTools
         public override void PostClose()
         {
             base.PostClose();
-            DebugSettings.devPalette = false;
+            if (!suppressClosePref) DebugSettings.devPalette = false;
         }
     }
 }
