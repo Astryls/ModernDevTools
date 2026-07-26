@@ -77,6 +77,7 @@ namespace ModernDevTools
                 TryLoadFile(CachePath("communityRules.json"), ParseRules);
                 TryLoadFile(CachePath("replacements.json"), ParseReplacements);
                 TryLoadFile(CachePath("known-issues.json"), ParseBugs);
+                LoadBundledBugsIfNeeded();   // offline floor: our shipped snapshot when no fetch cache exists yet
                 try { LastUpdated = File.Exists(CachePath("replacements.json")) ? File.GetLastWriteTime(CachePath("replacements.json")) : (DateTime?)null; } catch { }
             });
         }
@@ -209,6 +210,28 @@ namespace ModernDevTools
         }
 
         private static void ParseBugs(string txt) => _bugs = ParseIssues(txt);
+
+        /// <summary>Load the compressed community bug snapshot that ships inside the mod (Data/
+        /// community-bugs.json.gz), used as an offline baseline before the first successful fetch. Only
+        /// applied when the network cache produced nothing, so a fresher downloaded copy always wins.</summary>
+        private static void LoadBundledBugsIfNeeded()
+        {
+            try
+            {
+                if (_bugs != null && _bugs.Count > 0) return;
+                string root = ModernDevToolsMod.Instance?.Content?.RootDir;
+                if (root.NullOrEmpty()) return;
+                string path = Path.Combine(root, "Data", "community-bugs.json.gz");
+                if (!File.Exists(path)) return;
+                string txt = StripBom(Gunzip(File.ReadAllBytes(path)));
+                List<RemoteIssue> parsed = ParseIssues(txt);
+                if (parsed != null && parsed.Count > 0 && (_bugs == null || _bugs.Count == 0)) _bugs = parsed;
+            }
+            catch (Exception e)
+            {
+                Log.Warning("[Modern Dev Tools] bundled community snapshot load failed: " + e.Message);
+            }
+        }
 
         /// <summary>Parse a known-issues.json document (the community repo OR a mod-shipped file - same
         /// schema) into issues. Shared by the community fetch and by ModShippedIssues.</summary>

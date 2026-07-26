@@ -14,6 +14,14 @@ namespace ModernDevTools
         private static readonly Regex ColonForm = new Regex(@"^\s*([A-Za-z_][\w.`+<>]*):[A-Za-z_.<>]+\s*\(", RegexOptions.Compiled);
         private static readonly Regex ExceptionForm = new Regex(@"([A-Za-z_][\w.]*?Exception)\b", RegexOptions.Compiled);
 
+        // Type + method split of a single frame, for both trace forms:
+        //   colon:  "Namespace.Type:Method (args)"          -> type=Namespace.Type, method=Method
+        //   at:     "  at Namespace.Type.Method (args) [..]" -> type=Namespace.Type, method=Method
+        private static readonly Regex ColonTypeMethod =
+            new Regex(@"^\s*([A-Za-z_][\w.`+<>]*):([A-Za-z_][\w`<>]*)\s*[\(\[]", RegexOptions.Compiled);
+        private static readonly Regex AtTypeMethod =
+            new Regex(@"\bat\s+([A-Za-z_][\w.`+<>]*)\.([A-Za-z_][\w`<>]*)\s*[\(\[]", RegexOptions.Compiled);
+
         private static readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
         // Root namespace segments owned by the engine / bundled libraries. A mod that IL-merges one
@@ -25,6 +33,20 @@ namespace ModernDevTools
             "Verse", "RimWorld", "LudeonTK", "HarmonyLib", "MonoMod", "Cecil",
             "Newtonsoft", "Steamworks", "Ionic", "ICSharpCode", "NVorbis", "TMPro", "JetBrains", "NAudio"
         };
+
+        /// <summary>Split one stack-trace line into its declaring type (Namespace.Type) and method name.
+        /// Handles both the Unity colon form and the exception "at" form; returns false for wrapper
+        /// frames, constructors and anything that doesn't cleanly parse.</summary>
+        public static bool TypeMethodOf(string line, out string type, out string method)
+        {
+            type = null; method = null;
+            if (line.NullOrEmpty()) return false;
+            Match c = ColonTypeMethod.Match(line);
+            if (c.Success) { type = c.Groups[1].Value.Trim(); method = c.Groups[2].Value.Trim(); return true; }
+            Match a = AtTypeMethod.Match(line);
+            if (a.Success) { type = a.Groups[1].Value.Trim(); method = a.Groups[2].Value.Trim(); return true; }
+            return false;
+        }
 
         public static string ExtractExceptionType(string message)
         {

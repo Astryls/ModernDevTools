@@ -220,6 +220,38 @@ namespace ModernDevTools
             return null;
         }
 
+        /// <summary>Resolve a Harmony owner id (the string a mod passes to `new Harmony(id)`) back to the
+        /// mod that owns it. Owner ids are free-form but overwhelmingly follow the mod's packageId or a
+        /// reverse-DNS form, so we try: (1) exact packageId, (2) normalized-exact against name/packageId/
+        /// suffix/folder keys, (3) a unique suffix match so "com.author.mymod" folds onto the mod key
+        /// "mymod". Ambiguous or unrecognizable ids resolve to null (the raw id is still shown as text).</summary>
+        public ModMetaData MatchOwnerId(string owner)
+        {
+            if (owner.NullOrEmpty()) return null;
+            if (ByPackageId.TryGetValue(owner, out var direct) && direct != null) return direct;
+
+            string n = Normalize(owner);
+            if (n == null) return null;
+            if (_byNorm.TryGetValue(n, out var exact))
+            {
+                ModMetaData m = SoleActive(exact) ?? (exact.Count == 1 ? exact[0] : null);
+                if (m != null) return m;
+            }
+
+            ModMetaData best = null;
+            int bestLen = 0;
+            bool tie = false;
+            foreach (var kv in _normList)
+            {
+                if (kv.Key.Length < 5) continue;
+                if (kv.Value == null || !kv.Value.Active) continue;
+                if (!n.EndsWith(kv.Key, StringComparison.Ordinal)) continue;
+                if (kv.Key.Length > bestLen) { bestLen = kv.Key.Length; best = kv.Value; tie = false; }
+                else if (kv.Key.Length == bestLen && kv.Value != best) tie = true;
+            }
+            return (best != null && !tie) ? best : null;
+        }
+
         private static ModMetaData SoleActive(List<ModMetaData> owners)
         {
             ModMetaData found = null;

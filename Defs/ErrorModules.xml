@@ -33,6 +33,22 @@
   </ModernDevTools.ErrorModuleDef>
 
   <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_HarmonyPatches</defName>
+    <label>Harmony patch attribution</label>
+    <description>Reads the live Harmony registry and names the mods that patch a method in the error, even when the stack trace is pure vanilla. When two or more mods patch the same method, it flags a likely conflict by name. Local, always on.</description>
+    <workerClass>ModernDevTools.Module_HarmonyPatches</workerClass>
+    <order>26</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_DependencyCheck</defName>
+    <label>missing requirements and load order</label>
+    <description>Checks every active mod's declared dependencies and load order against your modlist, and explains missing or inactive required mods and wrong load order, the usual root cause of missing def, missing type and unresolved reference errors. Local, always on.</description>
+    <workerClass>ModernDevTools.Module_DependencyCheck</workerClass>
+    <order>60</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
     <defName>MDT_Module_VersionMismatch</defName>
     <label>version mismatch</label>
     <description>Flags a mod that does not list support for your RimWorld version, a common cause of errors. Local, no internet.</description>
@@ -78,6 +94,14 @@
     <description>Explains the error in plain language, and suggests a fix, using the shipped and third-party knowledge library.</description>
     <workerClass>ModernDevTools.Module_KnownIssues</workerClass>
     <order>30</order>
+  </ModernDevTools.ErrorModuleDef>
+
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_Module_Glossary</defName>
+    <label>plain-language glossary</label>
+    <description>Adds a short "Terms in this error" card that defines any modding jargon in the error or its explanations (Harmony, def, xpath, TPS, load order and more), so the log is readable without prior knowledge.</description>
+    <workerClass>ModernDevTools.Module_Glossary</workerClass>
+    <order>900</order>
   </ModernDevTools.ErrorModuleDef>
 
 </Defs>

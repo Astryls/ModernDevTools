@@ -64,6 +64,7 @@ namespace ModernDevTools
         public const float WeightMessageOwner = 6f;   // named as the mod with the problem
         public const float WeightMessagePath = 5f;    // named in a file path
         public const float WeightKnownAttr = 4f;      // captured by a known-issue pattern
+        public const float WeightHarmonyPatch = 4f;   // patches a method that appears in the stack trace
         public const float WeightMessagePackage = 3f; // referenced by packageId
         public const float WeightMessageName = 2.5f;  // name mentioned in the text
 
@@ -74,10 +75,10 @@ namespace ModernDevTools
             Merge("pid:" + (mcp.PackageId ?? mcp.Name), mcp.Name, mcp.PackageId, SourceKind.Mod, weight, reason, frameIndex, true, true, url);
         }
 
-        public void Attribute(ModMetaData meta, float weight, string reason)
+        public void Attribute(ModMetaData meta, float weight, string reason, int frameIndex = -1)
         {
             if (meta == null) return;
-            Merge("pid:" + (meta.PackageId ?? meta.Name), meta.Name, meta.PackageId, SourceKind.Mod, weight, reason, -1, meta.Active, true, InstalledModIndex.UrlFor(meta));
+            Merge("pid:" + (meta.PackageId ?? meta.Name), meta.Name, meta.PackageId, SourceKind.Mod, weight, reason, frameIndex, meta.Active, true, InstalledModIndex.UrlFor(meta));
         }
 
         public void AttributeSource(SourceKind kind, string name, float weight, string reason, int frameIndex = -1)

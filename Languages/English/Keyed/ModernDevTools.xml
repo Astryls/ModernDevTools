@@ -71,6 +71,7 @@
   <MDT_ReasonLogPrefix>stamped its name on the log message</MDT_ReasonLogPrefix>
   <MDT_ReasonLogMention>named as a tag in the log message</MDT_ReasonLogMention>
   <MDT_ReasonKnownPattern>identified by a known issue pattern</MDT_ReasonKnownPattern>
+  <MDT_ReasonHarmonyPatch>patches a method in the stack trace</MDT_ReasonHarmonyPatch>
 
   <!-- Source state tags -->
   <MDT_StateActive>active</MDT_StateActive>
@@ -180,6 +181,58 @@
   <MDT_ReportPasteToPage>Opening {0}'s page. The report was copied to your clipboard - paste it into a comment.</MDT_ReportPasteToPage>
   <MDT_ReportClose>Close</MDT_ReportClose>
   <MDT_ReportCopied>Report copied to clipboard.</MDT_ReportCopied>
+
+  <!-- Harmony patch attribution and conflicts -->
+  <MDT_HarmonyConflictTitle>possible Harmony patch conflict</MDT_HarmonyConflictTitle>
+  <MDT_HarmonyConflictExplain>The method {0} in this error is changed by {2} mods using Harmony: {1}. When two mods change the same method, one can break the other, and this often produces errors whose stack trace looks like vanilla code.</MDT_HarmonyConflictExplain>
+  <MDT_HarmonyConflictFix>Disable these mods one at a time to find the pair that conflicts, then report it to both authors with this stack trace. A patch load-order or compatibility mod may also resolve it.</MDT_HarmonyConflictFix>
+  <MDT_HarmonyPatchedTitle>a mod changed the method in this error</MDT_HarmonyPatchedTitle>
+  <MDT_HarmonyPatchedExplain>The method {0} in this error is changed by {1} using Harmony. The error can come from that change even though the stack trace shows the original vanilla code.</MDT_HarmonyPatchedExplain>
+  <MDT_HarmonyPatchedFix>If the error repeats, disable that mod to confirm it is the cause, then report it to the author with this stack trace.</MDT_HarmonyPatchedFix>
+
+  <!-- Missing requirements and load order (proactive scan) -->
+  <MDT_DepMissingTitle>a required mod is missing or inactive</MDT_DepMissingTitle>
+  <MDT_DepMissingExplain>{0} requires {1}, which is not active. Missing required mods are the most common cause of errors like missing defs, missing types and unresolved references.</MDT_DepMissingExplain>
+  <MDT_DepMissingFix>Install or activate the required mod, then restart. A mod-list sorter can also add and place it for you.</MDT_DepMissingFix>
+  <MDT_DepInactive>{0} (installed but not active)</MDT_DepInactive>
+  <MDT_DepOrderTitle>a mod is in the wrong load order</MDT_DepOrderTitle>
+  <MDT_DepOrderExplain>{0} is loaded in the wrong order:</MDT_DepOrderExplain>
+  <MDT_DepOrderFix>Move it as noted above, or press Sort in the mod list to fix load order automatically.</MDT_DepOrderFix>
+  <MDT_DepSummaryTitle>missing required mods can cause this</MDT_DepSummaryTitle>
+  <MDT_DepSummaryExplain>{0} active mods are missing a required mod, the usual root cause of missing def, missing type and unresolved reference errors:</MDT_DepSummaryExplain>
+  <MDT_DepLine>{0} needs {1}</MDT_DepLine>
+  <MDT_DepSummaryFix>Install or activate the mods listed above, then restart. A mod-list sorter can add and order dependencies for you.</MDT_DepSummaryFix>
+
+  <!-- Plain-language glossary ("Terms in this error") -->
+  <MDT_SectionTerms>Terms in this error</MDT_SectionTerms>
+  <MDT_GlHarmony>Harmony</MDT_GlHarmony>
+  <MDT_GlHarmonyDef>A shared library that lets mods change the game's built-in code at runtime. Most code mods use it. When two mods change the same thing, they can clash.</MDT_GlHarmonyDef>
+  <MDT_GlTranspiler>Transpiler</MDT_GlTranspiler>
+  <MDT_GlTranspilerDef>The most invasive kind of Harmony patch: it rewrites a method's instructions directly. Powerful, but the most likely to break when the game or another mod updates.</MDT_GlTranspilerDef>
+  <MDT_GlCrossRef>Cross-reference</MDT_GlCrossRef>
+  <MDT_GlCrossRefDef>One piece of game data pointing at another by name. An unresolved cross-reference means the thing it points at was not found, usually a missing or wrongly ordered mod.</MDT_GlCrossRefDef>
+  <MDT_GlDef>Def</MDT_GlDef>
+  <MDT_GlDefDef>A piece of game data defined in a mod's XML: an item, building, recipe, animal, and so on. Its defName is its unique id.</MDT_GlDefDef>
+  <MDT_GlXpath>XPath</MDT_GlXpath>
+  <MDT_GlXpathDef>The addressing language a mod's patch uses to find the exact game data it wants to change. A failed patch usually means its XPath no longer matches anything.</MDT_GlXpathDef>
+  <MDT_GlPatchOp>Patch operation</MDT_GlPatchOp>
+  <MDT_GlPatchOpDef>A rule in a mod that edits another mod's or the game's XML data at load time. It fails quietly when its target has moved or another mod changed it first.</MDT_GlPatchOpDef>
+  <MDT_GlStackTrace>Stack trace</MDT_GlStackTrace>
+  <MDT_GlStackTraceDef>The list of methods the game was running when the error happened, newest first. It is the main clue for finding which mod's code is involved.</MDT_GlStackTraceDef>
+  <MDT_GlNullRef>Null reference</MDT_GlNullRef>
+  <MDT_GlNullRefDef>Code tried to use something that did not exist. The most common error, usually a mod meeting a situation its author did not expect.</MDT_GlNullRefDef>
+  <MDT_GlTps>TPS</MDT_GlTps>
+  <MDT_GlTpsDef>Ticks per second: how fast the simulation runs. An error that fires every tick drags TPS down and makes the game feel slow even at high FPS.</MDT_GlTpsDef>
+  <MDT_GlFps>FPS</MDT_GlFps>
+  <MDT_GlFpsDef>Frames per second: how smoothly the screen draws. An error in drawing code fires every frame and can tank FPS.</MDT_GlFpsDef>
+  <MDT_GlLoadOrder>Load order</MDT_GlLoadOrder>
+  <MDT_GlLoadOrderDef>The order mods load in. A mod that must load after the mods it depends on will error if it loads too early. A sorter fixes most of these.</MDT_GlLoadOrderDef>
+  <MDT_GlPackageId>packageId</MDT_GlPackageId>
+  <MDT_GlPackageIdDef>A mod's unique id, like author.modname. The game uses it to match dependencies and load order, not the display name.</MDT_GlPackageIdDef>
+  <MDT_GlHugsLib>HugsLib</MDT_GlHugsLib>
+  <MDT_GlHugsLibDef>A common library mod that many others depend on. If it is missing or outdated, every mod that needs it can fail.</MDT_GlHugsLibDef>
+  <MDT_GlTypeLoad>Type load failure</MDT_GlTypeLoad>
+  <MDT_GlTypeLoadDef>A mod's code could not be loaded, so all of its features and data are disabled. Usually a missing dependency or a version mismatch, often with Harmony.</MDT_GlTypeLoadDef>
 
   <!-- Experimental window hardening -->
   <MDT_Hardening>Experimental: close UI-breaking windows</MDT_Hardening>
