@@ -34,7 +34,11 @@ namespace ModernDevTools
             preventCameraMotion = false;
             onlyDrawInDevMode = true;
             onlyOneOfTypeAllowed = true;
-            layer = WindowLayer.Super;
+            // SubSuper (not Super): tooltips are drawn as ImmediateWindows on WindowLayer.Super
+            // (ActiveTip.DrawTooltip), so a Super palette would z-fight and cover its own row
+            // tooltips. SubSuper keeps the palette above the other tool windows (log / knowledge
+            // base / dev actions are all Dialog) while letting Super tooltips render on top.
+            layer = WindowLayer.SubSuper;
         }
 
         protected override float Margin => 0f;

@@ -49,9 +49,9 @@ namespace ModernDevTools
 
         protected override float Margin => 0f;
 
-        // The dev palette lives on WindowLayer.Super, so it draws OVER this Dialog-layer window and would
-        // cover its content. Hide the palette while we're open (without flipping the devPalette pref) and
-        // restore it on close, so the two dev tools never overlap.
+        // The dev palette lives on WindowLayer.SubSuper, so it draws OVER this Dialog-layer window and
+        // would cover its content. Hide the palette while we're open (without flipping the devPalette
+        // pref) and restore it on close, so the two dev tools never overlap.
         public override void PreOpen()
         {
             base.PreOpen();

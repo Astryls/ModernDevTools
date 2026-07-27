@@ -281,7 +281,13 @@ namespace ModernDevTools
             var thumbHover = SolidColorMaterials.NewSolidColorTexture(new Color(0.72f, 0.75f, 0.80f, 0.75f));
             _flatBar = new GUIStyle { fixedWidth = 8f };
             _flatBar.normal.background = track;
-            _flatThumb = new GUIStyle { fixedWidth = 8f, border = new RectOffset(0, 0, 0, 0) };
+            // Unity sizes a scrollbar thumb as (visible/total)*track + ThumbSize(), where
+            // ThumbSize() = thumb.fixedHeight if set, else thumb.padding.vertical (see
+            // UnityEngine.SliderHandler.VerticalThumbRect / ThumbSize). With both zero the thumb
+            // is PURELY proportional and shrinks toward 0px on very long content (a ~1000-line
+            // log), so it visually disappears. The 24px vertical padding gives the thumb a
+            // minimum grabbable length while it still grows proportionally on short content.
+            _flatThumb = new GUIStyle { fixedWidth = 8f, border = new RectOffset(0, 0, 0, 0), padding = new RectOffset(0, 0, 12, 12) };
             _flatThumb.normal.background = thumb;
             _flatThumb.hover.background = thumbHover;
             _flatThumb.active.background = thumbHover;
