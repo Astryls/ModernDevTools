@@ -120,6 +120,45 @@
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
+  <!-- ===== Startup and initialization ===== -->
+
+  <!-- Verse.StaticConstructorOnStartupUtility:25 -> "Error in static constructor of <type>: <ex>" -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_StaticConstructor</defName>
+    <label>a mod's startup code threw an error</label>
+    <description>A mod's start-of-game initialization (a static constructor) threw an exception, so part or all of that mod is left half set up. This often breaks one feature while the rest of the mod appears to work.</description>
+    <fix>Find the mod named in the message or trace, update it, and confirm its required mods are active and in the right order. If it started right after a game update, the mod likely needs a version bump. Report the trace to the author.</fix>
+    <priority>2</priority>
+    <keywords>
+      <li>error in static constructor of</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- RimWorld.DefOfHelper:91 -> "Tried to use an uninitialized DefOf of type <type>. ..." -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_UninitializedDefOf</defName>
+    <label>a def shortcut was used too early</label>
+    <description>A mod read a DefOf (a code shortcut to a specific def) before defs finished loading, so the value was empty. This is a startup-timing bug in the mod, and the feature that needed the def will not work.</description>
+    <fix>An author-side timing bug in the named mod; update it. If it only appears alongside another mod, a load-order or patch conflict is exposing it. Report the exact message to the author.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>uninitialized defof</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- Verse.DefDatabase:204 -> "Exception in ConfigErrors() of <defName>: <ex>";
+       Verse.LoadedModManager:283 -> "Exception in ConfigErrors() of <mod> patch <patch>: <ex>" -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_ConfigErrors</defName>
+    <label>a def's validation code threw</label>
+    <description>While checking a def for problems, the game's validation code itself threw an exception. The def is often built anyway, but the error hides whatever real problem the check was trying to report.</description>
+    <fix>A bug in the mod that owns the named def or patch, sometimes exposed by another mod changing shared data. Update the mod, check its dependencies, and report the message if it persists.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>exception in configerrors</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
   <!-- ===== Def and XML data problems ===== -->
 
   <ModernDevTools.KnownIssueDef>
@@ -186,6 +225,18 @@
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
+  <!-- Verse.DirectXmlToObject:73 -> "Exception in custom XML loader for <type>. Node is: ... Exception is: ..." -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_CustomXmlLoader</defName>
+    <label>a mod's custom XML failed to load</label>
+    <description>A mod uses its own code to read one of its XML nodes, and that code threw, so the value is skipped and the content that needed it is missing or misconfigured.</description>
+    <fix>A bug in the named mod's XML or its loader code, often after a game update changed the expected shape. Update the mod, revert any hand-edited XML, and report the message to the author.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>exception in custom xml loader</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
   <ModernDevTools.KnownIssueDef>
     <defName>MDT_MissingTranslation</defName>
     <label>missing translation key</label>
@@ -225,6 +276,44 @@
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
+  <!-- Verse.LoadedObjectDirectory:130 -> "Could not resolve reference to object with loadID <id> of type <type>. ..." -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_LoadIdReference</defName>
+    <label>a saved object reference could not be found</label>
+    <description>While loading a save, the game could not find an object another object pointed at by its saved id. The thing was removed, not saved correctly, or belonged to a mod that is no longer present, so the reference is dropped.</description>
+    <fix>Usually a mod was removed or changed since the save was made. Re-add the missing mod to recover the content, or accept that the referenced object is gone. On a fresh game it points to a mod bug; report the trace to the mod in the likely source.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>could not resolve reference to object with loadid</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- Verse.ScribeMetaHeaderUtility:115 -> "Loaded file (<mode>) is from version <a>, we are running version <b>." -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_SaveVersionMismatch</defName>
+    <label>save is from a different game version</label>
+    <description>You loaded a save, config, or mod list created on a different RimWorld version than you are running now. Within the same major version this is usually fine; across major versions some content may not load cleanly.</description>
+    <fix>Nothing to fix if the game plays normally. If follow-on errors appear, the save predates a game or mod update: match your RimWorld and mod versions to those the save was made with, or start a new colony on the current version.</fix>
+    <ignorable>true</ignorable>
+    <regexes>
+      <li>Loaded file \(.*\) is from version</li>
+    </regexes>
+  </ModernDevTools.KnownIssueDef>
+
+  <!-- Verse.LongEventHandler:454 -> "Exception from asynchronous event: <ex>";
+       Verse.LongEventHandler:490 -> "Could not execute post-long-event action. Exception: <ex>" -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_LongEventException</defName>
+    <label>a loading step threw an error</label>
+    <description>Code running during a loading screen (a long event, such as generating a map or loading a save) threw an exception. Whatever that step was setting up may be incomplete, which can cascade into later errors.</description>
+    <fix>Look at the likely source and trace for the mod driving that step. Update or disable it, confirm its dependencies are active, and report the trace to the author.</fix>
+    <priority>1</priority>
+    <keywords>
+      <li>exception from asynchronous event</li>
+      <li>could not execute post-long-event</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
   <ModernDevTools.KnownIssueDef>
     <defName>MDT_HarmonyConflict</defName>
     <label>possible Harmony patch conflict</label>
@@ -251,12 +340,14 @@
 
   <ModernDevTools.KnownIssueDef>
     <defName>MDT_RootOnGUI</defName>
-    <label>an on-screen draw hook threw an error</label>
-    <description>A per-frame draw hook threw at the top level, so RimWorld aborted the rest of that frame's UI. Symptoms are often several unrelated UI elements flickering or not updating at once.</description>
-    <fix>A mod drawing to the screen has a bug. Use the stack trace to find it, disable it to confirm, and report the trace. If attribution points only at vanilla, a mod's global draw hook is still the likely cause.</fix>
+    <label>a per-frame game loop hook threw an error</label>
+    <description>A top-level per-frame hook threw, so RimWorld aborted the rest of that frame's drawing (OnGUI) or update logic (Update). Symptoms are often several unrelated UI elements flickering or not updating at once, or the same error repeating every frame.</description>
+    <fix>A mod running each frame has a bug. Use the stack trace to find it, disable it to confirm, and report the trace. If attribution points only at vanilla, a mod's global draw or update hook is still the likely cause.</fix>
     <priority>2</priority>
+    <!-- Verse.Root:149 / Verse.Root:182 / Verse.Root_Play:81 -> "Root level exception in Update()/OnGUI(): <ex>" -->
     <keywords>
       <li>root level exception in ongui</li>
+      <li>root level exception in update</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
@@ -294,6 +385,7 @@
     <priority>1</priority>
     <keywords>
       <li>exception ticking</li>
+      <li>exception interval ticking</li>
       <li>error in jobdriver</li>
       <li>jobdriver threw</li>
       <li>exception in job</li>

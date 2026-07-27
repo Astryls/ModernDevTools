@@ -47,13 +47,25 @@ namespace ModernDevTools
             Add(@"\bpackageid\b", "MDT_GlPackageId", "MDT_GlPackageIdDef");
             Add(@"\bhugslib\b", "MDT_GlHugsLib", "MDT_GlHugsLibDef");
             Add(@"typeloadexception|reflectiontypeloadexception", "MDT_GlTypeLoad", "MDT_GlTypeLoadDef");
+            Add(@"\bthing ?comps?\b|\bcomps?\b", "MDT_GlComp", "MDT_GlCompDef");
+            Add(@"\bhediffs?\b", "MDT_GlHediff", "MDT_GlHediffDef");
+            Add(@"\bticks?\b|\bticking\b", "MDT_GlTick", "MDT_GlTickDef");
+            Add(@"\bscribe\b", "MDT_GlScribe", "MDT_GlScribeDef");
+            Add(@"\bload ?id\b", "MDT_GlLoadId", "MDT_GlLoadIdDef");
+            Add(@"\bdefof\b", "MDT_GlDefOf", "MDT_GlDefOfDef");
+            Add(@"\bgizmos?\b", "MDT_GlGizmo", "MDT_GlGizmoDef");
+            Add(@"\bitab\b|\binspect tab\b", "MDT_GlITab", "MDT_GlITabDef");
+            Add(@"\bmotes?\b", "MDT_GlMote", "MDT_GlMoteDef");
+            Add(@"\bassembl(y|ies)\b|\.dll\b", "MDT_GlAssembly", "MDT_GlAssemblyDef");
+            Add(@"\b(pre|post)fix\b", "MDT_GlPrePostfix", "MDT_GlPrePostfixDef");
+            Add(@"\bdlc\b", "MDT_GlDlc", "MDT_GlDlcDef");
 
             _terms = list;
         }
 
         /// <summary>Returns (term label, definition) pairs whose term appears in the text, capped so the
         /// section stays short. Order follows the term list (roughly most-common first).</summary>
-        public static List<KeyValuePair<string, string>> TermsIn(string text, int max = 6)
+        public static List<KeyValuePair<string, string>> TermsIn(string text, int max = 8)
         {
             var found = new List<KeyValuePair<string, string>>();
             if (text.NullOrEmpty()) return found;

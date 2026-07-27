@@ -238,6 +238,30 @@
   <MDT_GlHugsLibDef>A common library mod that many others depend on. If it is missing or outdated, every mod that needs it can fail.</MDT_GlHugsLibDef>
   <MDT_GlTypeLoad>Type load failure</MDT_GlTypeLoad>
   <MDT_GlTypeLoadDef>A mod's code could not be loaded, so all of its features and data are disabled. Usually a missing dependency or a version mismatch, often with Harmony.</MDT_GlTypeLoadDef>
+  <MDT_GlComp>Comp (component)</MDT_GlComp>
+  <MDT_GlCompDef>A reusable piece of behavior a mod attaches to a thing (an item, building, or pawn) to give it extra abilities. A buggy comp is a common source of repeating per-tick errors.</MDT_GlCompDef>
+  <MDT_GlHediff>Hediff (health condition)</MDT_GlHediff>
+  <MDT_GlHediffDef>Short for health diff: anything on a pawn's health tab, such as a wound, disease, implant, or drug effect. A broken hediff can error every time the pawn updates.</MDT_GlHediffDef>
+  <MDT_GlTick>Tick</MDT_GlTick>
+  <MDT_GlTickDef>The smallest step of the simulation; the game runs 60 per second at normal speed. An error that fires every tick repeats very fast and slows the game.</MDT_GlTickDef>
+  <MDT_GlScribe>Scribe (save system)</MDT_GlScribe>
+  <MDT_GlScribeDef>RimWorld's save and load system. Errors mentioning Scribe happen while writing or reading your save, often because a mod changed since the save was made.</MDT_GlScribeDef>
+  <MDT_GlLoadId>loadID</MDT_GlLoadId>
+  <MDT_GlLoadIdDef>The unique id a save uses to link one saved object to another. An unresolved loadID means the linked object is missing from the save, usually from a removed or changed mod.</MDT_GlLoadIdDef>
+  <MDT_GlDefOf>DefOf</MDT_GlDefOf>
+  <MDT_GlDefOfDef>A code shortcut a mod uses to grab a specific def by name. Using one before defs finish loading returns nothing, a common startup-timing bug.</MDT_GlDefOfDef>
+  <MDT_GlGizmo>Gizmo</MDT_GlGizmo>
+  <MDT_GlGizmoDef>One of the command buttons at the bottom-left when you select something (draft, set area, toggle power). A mod's gizmo code can throw while the button draws.</MDT_GlGizmoDef>
+  <MDT_GlITab>ITab (inspect tab)</MDT_GlITab>
+  <MDT_GlITabDef>One of the tabs on the panel that opens when you select a thing (Health, Gear, Needs). A broken tab errors when you open it.</MDT_GlITabDef>
+  <MDT_GlMote>Mote</MDT_GlMote>
+  <MDT_GlMoteDef>A small, short-lived visual effect such as text popups, puffs of smoke, or hearts. Harmless on their own; mote errors are usually cosmetic.</MDT_GlMoteDef>
+  <MDT_GlAssembly>Assembly (DLL)</MDT_GlAssembly>
+  <MDT_GlAssemblyDef>A mod's compiled code, shipped as a .dll file. If an assembly fails to load, every feature and def from that mod is disabled at once.</MDT_GlAssemblyDef>
+  <MDT_GlPrePostfix>Prefix / postfix</MDT_GlPrePostfix>
+  <MDT_GlPrePostfixDef>The two gentler kinds of Harmony patch: a prefix runs before the original code, a postfix after. They coexist better than transpilers when several mods patch the same thing.</MDT_GlPrePostfixDef>
+  <MDT_GlDlc>DLC</MDT_GlDlc>
+  <MDT_GlDlcDef>An official paid expansion (Royalty, Ideology, Biotech, Anomaly). A mod that needs one will error if that DLC is not installed and active.</MDT_GlDlcDef>
 
   <!-- Experimental window hardening -->
   <MDT_Hardening>Experimental: close UI-breaking windows</MDT_Hardening>
