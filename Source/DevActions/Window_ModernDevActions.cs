@@ -95,6 +95,41 @@ namespace ModernDevTools
             else ws.Add(new Window_ModernDevActions(tab));
         }
 
+        /// <summary>Open (or reuse) the dev actions window and navigate straight to <paramref name="node"/>.
+        /// Used whenever a submenu node is entered outside the window - e.g. a dev palette row that turns
+        /// out to be a category, which vanilla would answer by popping its own Dialog_Debug.</summary>
+        public static void OpenAt(DebugActionNode node)
+        {
+            if (node == null) return;
+            var ws = Find.WindowStack;
+            if (ws == null) return;
+            DebugTabMenuDef tab = TabForNode(node);
+            var existing = ws.WindowOfType<Window_ModernDevActions>();
+            if (existing == null)
+            {
+                existing = new Window_ModernDevActions(tab);
+                ws.Add(existing);
+            }
+            else if (existing._tab != tab) existing.GoToTab(tab);
+            existing.Navigate(node);
+        }
+
+        /// <summary>Which tab a node belongs to: walk up to the top-most non-root ancestor (that node is
+        /// the tab root registered in Dialog_Debug.roots) and match it against the tab list.</summary>
+        private static DebugTabMenuDef TabForNode(DebugActionNode node)
+        {
+            try
+            {
+                DebugActionNode top = node;
+                while (top.parent != null && !top.parent.IsRoot) top = top.parent;
+                List<DebugTabMenuDef> tabs = DebugTree.Tabs();
+                for (int i = 0; i < tabs.Count; i++)
+                    if (DebugTree.RootOf(tabs[i]) == top) return tabs[i];
+                return tabs.FirstOrDefaultSafe();
+            }
+            catch { return DebugTree.Tabs().FirstOrDefaultSafe(); }
+        }
+
         private void GoToTab(DebugTabMenuDef tab)
         {
             _tab = tab;

@@ -13,10 +13,14 @@ namespace ModernDevTools
     /// </summary>
     public class Window_ModernDevPalette : Window
     {
-        private const float RowH = 26f;    // flat (single-line) row
-        private const float RowH2 = 42f;   // nested (breadcrumb + leaf) row
+        private const float RowH = 26f;    // single-line row (vanilla parity)
         private const float HeaderH = 26f;
+        private const float PinW = 22f;
+        private const float PadL = 8f;
+        private const float MinW = 220f;
+        private const float MaxW = 640f;
         private int _lastCount = -1;
+        private float _lastWidth = -1f;
 
         /// <summary>Set before a programmatic remove (e.g. while the dev actions window hides us) so
         /// PostClose doesn't turn the devPalette pref off - we want to restore the palette afterwards.</summary>
@@ -59,27 +63,39 @@ namespace ModernDevTools
             return list;
         }
 
-        /// <summary>Parent-chain breadcrumb for a pinned node (null for a flat top-level action).
-        /// Path is backslash-separated ("Do incident\Raid"); we drop the leaf and render the rest.</summary>
-        private static string NestPrefix(string path)
+        /// <summary>Width needed to show every row's full label without truncation (vanilla sizes to
+        /// its content too). Clamped so a pathological label can't produce a screen-wide window.</summary>
+        private static float DesiredWidth(List<DebugActionNode> nodes)
         {
-            if (string.IsNullOrEmpty(path)) return null;
-            int i = path.LastIndexOf('\\');
-            if (i <= 0) return null;
-            return path.Substring(0, i).Replace("\\", " / ");
+            GameFont prevFont = Text.Font;
+            bool prevWrap = Text.WordWrap;
+            Text.Font = GameFont.Small;
+            Text.WordWrap = false;
+            float w;
+            try
+            {
+                float titleW = Text.CalcSize("MDT_DevPaletteTitle".Translate()).x + 30f;
+                float labelW = 0f;
+                for (int i = 0; i < nodes.Count; i++)
+                {
+                    float lw = Text.CalcSize(DebugTree.PrettyName(nodes[i])).x + 4f;
+                    if (DebugTree.IsCheckbox(nodes[i])) lw += 22f;
+                    if (lw > labelW) labelW = lw;
+                }
+                w = Mathf.Max(titleW, labelW + PadL + 4f + PinW) + 16f + 4f;
+            }
+            catch { w = 300f; }
+            finally { Text.Font = prevFont; Text.WordWrap = prevWrap; }
+            return Mathf.Clamp(w, MinW, Mathf.Min(MaxW, UI.screenWidth));
         }
-
-        private static float RowHeightFor(DebugActionNode node) =>
-            NestPrefix(DebugTree.PathOf(node)) != null ? RowH2 : RowH;
 
         protected override void SetInitialSizeAndPosition()
         {
             List<DebugActionNode> nodes = ResolveNodes();
             _lastCount = nodes.Count;
-            float w = 300f;
-            float rowsH = 0f;
-            if (nodes.Count == 0) rowsH = 44f;
-            else foreach (DebugActionNode nd in nodes) rowsH += RowHeightFor(nd);
+            float w = nodes.Count == 0 ? 300f : DesiredWidth(nodes);
+            _lastWidth = w;
+            float rowsH = nodes.Count == 0 ? 44f : nodes.Count * RowH;
             float h = HeaderH + 8f + rowsH + 8f;
             w = Mathf.Min(w, UI.screenWidth);
             h = Mathf.Min(h, UI.screenHeight);
@@ -105,7 +121,11 @@ namespace ModernDevTools
         private void Draw(Rect inRect)
         {
             List<DebugActionNode> nodes = ResolveNodes();
-            if (nodes.Count != _lastCount) SetInitialSizeAndPosition();
+            // Labels come from live getters, so re-fit when the count OR the widest label changes.
+            if (nodes.Count != _lastCount ||
+                (nodes.Count > 0 && Event.current.type == EventType.Repaint &&
+                 Mathf.Abs(DesiredWidth(nodes) - _lastWidth) > 1f))
+                SetInitialSizeAndPosition();
 
             Widgets.DrawBoxSolid(inRect, Palette.BG);
             Palette.DrawBox(inRect, Palette.BGL, 1);
@@ -133,9 +153,8 @@ namespace ModernDevTools
             {
                 for (int i = 0; i < nodes.Count; i++)
                 {
-                    float rh = RowHeightFor(nodes[i]);
-                    DrawRow(new Rect(content.x, y, content.width, rh - 2f), nodes[i], i);
-                    y += rh;
+                    DrawRow(new Rect(content.x, y, content.width, RowH - 2f), nodes[i], i);
+                    y += RowH;
                 }
             }
 
@@ -155,31 +174,20 @@ namespace ModernDevTools
             if (over) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.05f));
             if (broken) Palette.StateStrip(row, Palette.Bad, 3f);
 
-            float pinW = 22f;
-            Rect pinR = new Rect(row.xMax - pinW, row.y + (row.height - 18f) / 2f, 18f, 18f);
-            Rect clickR = new Rect(row.x, row.y, row.width - pinW - 4f, row.height);
+            Rect pinR = new Rect(row.xMax - PinW, row.y + (row.height - 18f) / 2f, 18f, 18f);
+            Rect clickR = new Rect(row.x, row.y, row.width - PinW - 4f, row.height);
 
-            string prefix = NestPrefix(DebugTree.PathOf(node));
-            float x = row.x + 8f;
-            float leafY, leafH;
-            if (prefix != null)
-            {
-                // Two-line: dim parent breadcrumb on top, bright leaf label below.
-                Palette.LabelFit(new Rect(x, row.y + 2f, clickR.xMax - x - 2f, 16f), prefix, Palette.TextDim);
-                leafY = row.y + 18f;
-                leafH = 20f;
-            }
-            else { leafY = row.y; leafH = row.height; }
-
+            float x = row.x + PadL;
             if (checkbox)
             {
-                Rect ck = new Rect(x, leafY + (leafH - 16f) / 2f, 16f, 16f);
+                Rect ck = new Rect(x, row.y + (row.height - 16f) / 2f, 16f, 16f);
                 DrawCheck(ck, DebugTree.GetCheck(node));
                 x = ck.xMax + 6f;
             }
 
+            // Vanilla-parity single-line label: "Spawn pawn / Colonist" (tab name dropped).
             Color col = broken ? Palette.Bad : (active ? Palette.Stat : Palette.TextDim);
-            Palette.LabelFit(new Rect(x, leafY, clickR.xMax - x - 2f, leafH), DebugTree.Label(node), col);
+            Palette.LabelFit(new Rect(x, row.y, clickR.xMax - x - 2f, row.height), DebugTree.PrettyName(node), col);
             TooltipHandler.TipRegion(clickR, DebugTree.PathOf(node));
 
             // thumbtack: always pinned here, so white; click to unpin

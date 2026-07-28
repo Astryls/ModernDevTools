@@ -131,6 +131,34 @@ namespace ModernDevTools
             catch { return node?.label ?? ""; }
         }
 
+        private static readonly Dictionary<string, string> PrettyCache = new Dictionary<string, string>();
+
+        /// <summary>Vanilla-parity palette label (mirrors Dialog_DevPalette.PrettifyNodeName): the leaf
+        /// label prefixed by its parent chain MINUS the top-level tab, with "..." stripped. So
+        /// "Actions\Spawn pawn\Colonist" renders as "Spawn pawn / Colonist", not "Actions / ...".</summary>
+        public static string PrettyName(DebugActionNode node)
+        {
+            if (node == null) return "";
+            string path = PathOf(node);
+            if (!string.IsNullOrEmpty(path) && PrettyCache.TryGetValue(path, out string cached)) return cached;
+            string value;
+            try
+            {
+                DebugActionNode n = node;
+                value = Label(n).Replace("...", "");
+                // Stop one level below the tab root: parent must not be the graph root, and the
+                // grandparent must not be either (that grandparent is the tab node, e.g. "Actions").
+                while (n.parent != null && !n.parent.IsRoot && (n.parent.parent == null || !n.parent.parent.IsRoot))
+                {
+                    value = Label(n.parent).Replace("...", "") + " / " + value;
+                    n = n.parent;
+                }
+            }
+            catch { value = Label(node); }
+            if (!string.IsNullOrEmpty(path)) PrettyCache[path] = value;
+            return value;
+        }
+
         public static bool IsBroken(DebugActionNode node) => node != null && Broken.Contains(PathOf(node));
 
         /// <summary>Run a leaf action/tool. Closes the window first (parity), routes output to the log,

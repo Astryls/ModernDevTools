@@ -165,6 +165,30 @@ namespace ModernDevTools
         }
     }
 
+    /// <summary>Entering a SUBMENU node with no dialog (a dev palette row that turns out to be a
+    /// category, or any mod calling node.Enter(null)) makes vanilla spawn its own Dialog_Debug.
+    /// Route those into our modern dev actions window, navigated to that node. Leaves are untouched -
+    /// they just run their action.</summary>
+    [HarmonyPatch(typeof(DebugActionNode), nameof(DebugActionNode.Enter))]
+    public static class Patch_DebugActionNodeEnter
+    {
+        static bool Prefix(DebugActionNode __instance, Dialog_Debug dialog)
+        {
+            try
+            {
+                if (dialog != null) return true;                      // a vanilla dialog is driving: leave it be
+                if (!DebugTree.HasChildren(__instance)) return true;   // leaf: run the action normally
+                Window_ModernDevActions.OpenAt(__instance);
+                return false;
+            }
+            catch (Exception e)
+            {
+                Log.ErrorOnce("[Modern Dev Tools] submenu enter redirect failed: " + e, 0x2E19A27);
+                return true;
+            }
+        }
+    }
+
     /// <summary>Dev palette toggle (toolbar + hotkey) -> our suite-styled palette.</summary>
     [HarmonyPatch(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.TryOpenOrClosePalette))]
     public static class Patch_TryOpenOrClosePalette
