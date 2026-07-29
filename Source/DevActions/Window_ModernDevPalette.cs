@@ -13,12 +13,14 @@ namespace ModernDevTools
     /// </summary>
     public class Window_ModernDevPalette : Window
     {
-        private const float RowH = 26f;    // top-level action: single white line
-        private const float RowH2 = 40f;   // nested action: gray italic category line + white leaf line
-        private const float CatH = 15f;    // height of the category (breadcrumb) line
+        // Rows are sized from the ACTUAL line height of each font (Text.LineHeightOf) plus padding -
+        // hardcoding a height clips glyph tops, because IMGUI labels clip to their rect.
+        private const float VPad = 4f;     // breathing room above/below the text inside a row
+        private const float RowGap = 2f;   // gap between row plates
         private const float HeaderH = 26f;
         private const float PinW = 22f;
         private const float PadL = 8f;
+        private const float PadR = 6f;     // gap between the longest label and the thumbtack
         private const float MinW = 220f;
         private const float MaxW = 640f;
         private int _lastCount = -1;
@@ -65,8 +67,13 @@ namespace ModernDevTools
             return list;
         }
 
+        private static float CatH => Text.LineHeightOf(GameFont.Tiny);
+        private static float LeafH => Text.LineHeightOf(GameFont.Small);
+        private static float FlatRowH => LeafH + VPad * 2f + RowGap;
+        private static float NestRowH => CatH + LeafH + VPad * 2f + RowGap;
+
         private static float RowHeightFor(DebugActionNode node) =>
-            DebugTree.PrettyPrefix(node) != null ? RowH2 : RowH;
+            DebugTree.PrettyPrefix(node) != null ? NestRowH : FlatRowH;
 
         /// <summary>Width needed to show every row in full without truncation (vanilla sizes to its
         /// content too). Measures the leaf line at Small and the category line at Tiny, since the two
@@ -95,7 +102,7 @@ namespace ModernDevTools
                     }
                     if (lw > labelW) labelW = lw;
                 }
-                w = Mathf.Max(titleW, labelW + PadL + 4f + PinW) + 16f + 4f;
+                w = Mathf.Max(titleW, labelW + PadL + PadR + PinW + 4f) + 16f + 2f;
             }
             catch { w = 300f; }
             finally { Text.Font = prevFont; Text.WordWrap = prevWrap; }
@@ -169,7 +176,7 @@ namespace ModernDevTools
                 for (int i = 0; i < nodes.Count; i++)
                 {
                     float rh = RowHeightFor(nodes[i]);
-                    DrawRow(new Rect(content.x, y, content.width, rh - 2f), nodes[i], i);
+                    DrawRow(new Rect(content.x, y, content.width, rh - RowGap), nodes[i], i);
                     y += rh;
                 }
             }
@@ -194,27 +201,29 @@ namespace ModernDevTools
             Rect clickR = new Rect(row.x, row.y, row.width - PinW - 4f, row.height);
 
             // Nested actions read as two lines: the category chain (tab name dropped, vanilla parity)
-            // in small gray italic, then the action itself in normal white below it.
+            // in small gray italic, then the action itself in normal white below it. Each line gets a
+            // rect exactly one line-height tall, inset by VPad, so nothing is clipped.
             string cat = DebugTree.PrettyPrefix(node);
             float x = row.x + PadL;
-            float leafY, leafH;
+            float textW = clickR.xMax - x - PadR;
+            float leafY = row.y + VPad;
             if (cat != null)
             {
-                LabelCategory(new Rect(x, row.y + 1f, clickR.xMax - x - 2f, CatH), cat);
-                leafY = row.y + CatH + 1f;
-                leafH = row.height - CatH - 1f;
+                LabelCategory(new Rect(x, leafY, textW, CatH), cat);
+                leafY += CatH;
             }
-            else { leafY = row.y; leafH = row.height; }
+            float leafH = LeafH;
 
             if (checkbox)
             {
                 Rect ck = new Rect(x, leafY + (leafH - 16f) / 2f, 16f, 16f);
                 DrawCheck(ck, DebugTree.GetCheck(node));
                 x = ck.xMax + 6f;
+                textW = clickR.xMax - x - PadR;
             }
 
             Color col = broken ? Palette.Bad : (active ? Palette.Stat : Palette.TextDim);
-            Palette.LabelFit(new Rect(x, leafY, clickR.xMax - x - 2f, leafH), DebugTree.PrettyLeaf(node), col);
+            Palette.LabelFit(new Rect(x, leafY, textW, leafH), DebugTree.PrettyLeaf(node), col);
             TooltipHandler.TipRegion(clickR, DebugTree.PathOf(node));
 
             // thumbtack: always pinned here, so white; click to unpin
@@ -237,7 +246,7 @@ namespace ModernDevTools
             bool prevWrap = Text.WordWrap;
             Text.Font = GameFont.Tiny;
             Text.WordWrap = false;
-            Text.Anchor = TextAnchor.LowerLeft;
+            Text.Anchor = TextAnchor.UpperLeft;
             string draw = Text.CalcSize(text).x > r.width ? text.Truncate(r.width) : text;
             GUI.color = Palette.TextDim;
             Widgets.Label(r, "<i>" + draw + "</i>");
