@@ -131,32 +131,44 @@ namespace ModernDevTools
             catch { return node?.label ?? ""; }
         }
 
-        private static readonly Dictionary<string, string> PrettyCache = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> PrefixCache = new Dictionary<string, string>();
 
-        /// <summary>Vanilla-parity palette label (mirrors Dialog_DevPalette.PrettifyNodeName): the leaf
-        /// label prefixed by its parent chain MINUS the top-level tab, with "..." stripped. So
-        /// "Actions\Spawn pawn\Colonist" renders as "Spawn pawn / Colonist", not "Actions / ...".</summary>
-        public static string PrettyName(DebugActionNode node)
+        /// <summary>The node's own label, "..." stripped - the leaf line in the palette.</summary>
+        public static string PrettyLeaf(DebugActionNode node) => node == null ? "" : Label(node).Replace("...", "");
+
+        /// <summary>Category breadcrumb above a pinned node, or null when it sits directly under a tab.
+        /// Mirrors vanilla Dialog_DevPalette.PrettifyNodeName: walks the parent chain but stops one level
+        /// below the tab root, so the tab name ("Actions") is never shown. "Actions\Do incident (map)\Raid"
+        /// -> "Do incident (map)".</summary>
+        public static string PrettyPrefix(DebugActionNode node)
         {
-            if (node == null) return "";
+            if (node == null) return null;
             string path = PathOf(node);
-            if (!string.IsNullOrEmpty(path) && PrettyCache.TryGetValue(path, out string cached)) return cached;
-            string value;
+            if (!string.IsNullOrEmpty(path) && PrefixCache.TryGetValue(path, out string cached)) return cached;
+            string value = null;
             try
             {
                 DebugActionNode n = node;
-                value = Label(n).Replace("...", "");
-                // Stop one level below the tab root: parent must not be the graph root, and the
-                // grandparent must not be either (that grandparent is the tab node, e.g. "Actions").
+                // Include a parent only when it is not the graph root AND its own parent is not the
+                // root either - that grandparent test is what drops the tab node from the chain.
                 while (n.parent != null && !n.parent.IsRoot && (n.parent.parent == null || !n.parent.parent.IsRoot))
                 {
-                    value = Label(n.parent).Replace("...", "") + " / " + value;
+                    string seg = Label(n.parent).Replace("...", "");
+                    value = value == null ? seg : seg + " / " + value;
                     n = n.parent;
                 }
             }
-            catch { value = Label(node); }
-            if (!string.IsNullOrEmpty(path)) PrettyCache[path] = value;
+            catch { value = null; }
+            if (!string.IsNullOrEmpty(path)) PrefixCache[path] = value;
             return value;
+        }
+
+        /// <summary>Flat one-line form ("Do incident (map) / Raid"), used for tooltips and search.</summary>
+        public static string PrettyName(DebugActionNode node)
+        {
+            string prefix = PrettyPrefix(node);
+            string leaf = PrettyLeaf(node);
+            return prefix == null ? leaf : prefix + " / " + leaf;
         }
 
         public static bool IsBroken(DebugActionNode node) => node != null && Broken.Contains(PathOf(node));

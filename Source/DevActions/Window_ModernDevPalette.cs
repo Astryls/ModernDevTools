@@ -13,7 +13,9 @@ namespace ModernDevTools
     /// </summary>
     public class Window_ModernDevPalette : Window
     {
-        private const float RowH = 26f;    // single-line row (vanilla parity)
+        private const float RowH = 26f;    // top-level action: single white line
+        private const float RowH2 = 40f;   // nested action: gray italic category line + white leaf line
+        private const float CatH = 15f;    // height of the category (breadcrumb) line
         private const float HeaderH = 26f;
         private const float PinW = 22f;
         private const float PadL = 8f;
@@ -63,23 +65,34 @@ namespace ModernDevTools
             return list;
         }
 
-        /// <summary>Width needed to show every row's full label without truncation (vanilla sizes to
-        /// its content too). Clamped so a pathological label can't produce a screen-wide window.</summary>
+        private static float RowHeightFor(DebugActionNode node) =>
+            DebugTree.PrettyPrefix(node) != null ? RowH2 : RowH;
+
+        /// <summary>Width needed to show every row in full without truncation (vanilla sizes to its
+        /// content too). Measures the leaf line at Small and the category line at Tiny, since the two
+        /// lines use different fonts. Clamped so a pathological label can't make a screen-wide window.</summary>
         private static float DesiredWidth(List<DebugActionNode> nodes)
         {
             GameFont prevFont = Text.Font;
             bool prevWrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
             Text.WordWrap = false;
             float w;
             try
             {
+                Text.Font = GameFont.Small;
                 float titleW = Text.CalcSize("MDT_DevPaletteTitle".Translate()).x + 30f;
                 float labelW = 0f;
                 for (int i = 0; i < nodes.Count; i++)
                 {
-                    float lw = Text.CalcSize(DebugTree.PrettyName(nodes[i])).x + 4f;
+                    Text.Font = GameFont.Small;
+                    float lw = Text.CalcSize(DebugTree.PrettyLeaf(nodes[i])).x + 4f;
                     if (DebugTree.IsCheckbox(nodes[i])) lw += 22f;
+                    string cat = DebugTree.PrettyPrefix(nodes[i]);
+                    if (cat != null)
+                    {
+                        Text.Font = GameFont.Tiny;
+                        lw = Mathf.Max(lw, Text.CalcSize(cat).x + 4f);
+                    }
                     if (lw > labelW) labelW = lw;
                 }
                 w = Mathf.Max(titleW, labelW + PadL + 4f + PinW) + 16f + 4f;
@@ -95,7 +108,9 @@ namespace ModernDevTools
             _lastCount = nodes.Count;
             float w = nodes.Count == 0 ? 300f : DesiredWidth(nodes);
             _lastWidth = w;
-            float rowsH = nodes.Count == 0 ? 44f : nodes.Count * RowH;
+            float rowsH = 0f;
+            if (nodes.Count == 0) rowsH = 44f;
+            else foreach (DebugActionNode nd in nodes) rowsH += RowHeightFor(nd);
             float h = HeaderH + 8f + rowsH + 8f;
             w = Mathf.Min(w, UI.screenWidth);
             h = Mathf.Min(h, UI.screenHeight);
@@ -153,8 +168,9 @@ namespace ModernDevTools
             {
                 for (int i = 0; i < nodes.Count; i++)
                 {
-                    DrawRow(new Rect(content.x, y, content.width, RowH - 2f), nodes[i], i);
-                    y += RowH;
+                    float rh = RowHeightFor(nodes[i]);
+                    DrawRow(new Rect(content.x, y, content.width, rh - 2f), nodes[i], i);
+                    y += rh;
                 }
             }
 
@@ -177,17 +193,28 @@ namespace ModernDevTools
             Rect pinR = new Rect(row.xMax - PinW, row.y + (row.height - 18f) / 2f, 18f, 18f);
             Rect clickR = new Rect(row.x, row.y, row.width - PinW - 4f, row.height);
 
+            // Nested actions read as two lines: the category chain (tab name dropped, vanilla parity)
+            // in small gray italic, then the action itself in normal white below it.
+            string cat = DebugTree.PrettyPrefix(node);
             float x = row.x + PadL;
+            float leafY, leafH;
+            if (cat != null)
+            {
+                LabelCategory(new Rect(x, row.y + 1f, clickR.xMax - x - 2f, CatH), cat);
+                leafY = row.y + CatH + 1f;
+                leafH = row.height - CatH - 1f;
+            }
+            else { leafY = row.y; leafH = row.height; }
+
             if (checkbox)
             {
-                Rect ck = new Rect(x, row.y + (row.height - 16f) / 2f, 16f, 16f);
+                Rect ck = new Rect(x, leafY + (leafH - 16f) / 2f, 16f, 16f);
                 DrawCheck(ck, DebugTree.GetCheck(node));
                 x = ck.xMax + 6f;
             }
 
-            // Vanilla-parity single-line label: "Spawn pawn / Colonist" (tab name dropped).
             Color col = broken ? Palette.Bad : (active ? Palette.Stat : Palette.TextDim);
-            Palette.LabelFit(new Rect(x, row.y, clickR.xMax - x - 2f, row.height), DebugTree.PrettyName(node), col);
+            Palette.LabelFit(new Rect(x, leafY, clickR.xMax - x - 2f, leafH), DebugTree.PrettyLeaf(node), col);
             TooltipHandler.TipRegion(clickR, DebugTree.PathOf(node));
 
             // thumbtack: always pinned here, so white; click to unpin
@@ -200,6 +227,24 @@ namespace ModernDevTools
                 if (checkbox) DebugTree.SetCheck(node, !DebugTree.GetCheck(node));
                 else DebugTree.RunLeaf(node, null); // keep the palette open (like vanilla)
             }
+        }
+
+        /// <summary>The category line: Tiny + rich-text italics + dim gray. This is the one place the
+        /// suite uses GameFont.Tiny on purpose - it has to read as subordinate to the action label.</summary>
+        private static void LabelCategory(Rect r, string text)
+        {
+            GameFont prevFont = Text.Font;
+            bool prevWrap = Text.WordWrap;
+            Text.Font = GameFont.Tiny;
+            Text.WordWrap = false;
+            Text.Anchor = TextAnchor.LowerLeft;
+            string draw = Text.CalcSize(text).x > r.width ? text.Truncate(r.width) : text;
+            GUI.color = Palette.TextDim;
+            Widgets.Label(r, "<i>" + draw + "</i>");
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.WordWrap = prevWrap;
+            Text.Font = prevFont;
         }
 
         private static void DrawCheck(Rect r, bool on)
