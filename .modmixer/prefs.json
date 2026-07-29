@@ -1,6 +1,8 @@
 {
   "trackOnLeaderboard": true,
-  "lastPublishedAt": 1785118805028,
+  "lastPublishedAt": 1785287119018,
   "game": "rimworld",
+  "pinned": false,
+  "archived": false,
   "license": "MIT"
 }
