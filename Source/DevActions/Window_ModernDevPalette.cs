@@ -15,11 +15,14 @@ namespace ModernDevTools
     {
         // Rows are sized from the ACTUAL line height of each font (Text.LineHeightOf) plus padding -
         // hardcoding a height clips glyph tops, because IMGUI labels clip to their rect.
-        private const float VPad = 4f;     // breathing room above/below the text inside a row
-        private const float RowGap = 2f;   // gap between row plates
+        private const float VPad = 2f;         // breathing room above/below the text inside a row
+        private const float LineOverlap = 2f;  // pull the leaf line up into the category line's leading
+        private const float RowGap = 2f;       // gap between row plates
+        private const float DragThreshold = 3f;// px of movement before a press becomes a reorder drag
         private const float HeaderH = 26f;
-        private const float PinW = 22f;
-        private const float PadL = 8f;
+        private const float PinW = 20f;
+        private const float PinIcon = 16f;
+        private const float PadL = 7f;
         private const float PadR = 6f;     // gap between the longest label and the thumbtack
         private const float MinW = 220f;
         private const float MaxW = 640f;
@@ -67,10 +70,20 @@ namespace ModernDevTools
             return list;
         }
 
+        // --- browser-tab style drag state (ported from Modern Pawn Tabs' DragState idiom) ---
+        private readonly List<Rect> _rowRects = new List<Rect>();
+        private readonly List<int> _prefIdx = new List<int>();   // row index -> index in Prefs.DebugActionsPalette
+        private int _dragRow = -1;      // row the press started on (-1 = no candidate)
+        private bool _dragging;         // press has passed the movement threshold
+        private int _dropRow = -1;      // insertion slot under the cursor, 0..rowCount
+        private Vector2 _dragStart;
+        private float _dragOffsetY;     // grab point inside the row, so the ghost tracks naturally
+        private bool _swallowClick;     // a drag just ended: don't let this MouseUp fire the action
+
         private static float CatH => Text.LineHeightOf(GameFont.Tiny);
         private static float LeafH => Text.LineHeightOf(GameFont.Small);
         private static float FlatRowH => LeafH + VPad * 2f + RowGap;
-        private static float NestRowH => CatH + LeafH + VPad * 2f + RowGap;
+        private static float NestRowH => CatH + LeafH - LineOverlap + VPad * 2f + RowGap;
 
         private static float RowHeightFor(DebugActionNode node) =>
             DebugTree.PrettyPrefix(node) != null ? NestRowH : FlatRowH;
@@ -93,7 +106,7 @@ namespace ModernDevTools
                 {
                     Text.Font = GameFont.Small;
                     float lw = Text.CalcSize(DebugTree.PrettyLeaf(nodes[i])).x + 4f;
-                    if (DebugTree.IsCheckbox(nodes[i])) lw += 22f;
+                    if (DebugTree.IsCheckbox(nodes[i])) lw += 20f;
                     string cat = DebugTree.PrettyPrefix(nodes[i]);
                     if (cat != null)
                     {
@@ -173,12 +186,18 @@ namespace ModernDevTools
             }
             else
             {
+                // Lay the rows out first: the drag handler needs every rect before anything draws.
+                _rowRects.Clear();
                 for (int i = 0; i < nodes.Count; i++)
                 {
                     float rh = RowHeightFor(nodes[i]);
-                    DrawRow(new Rect(content.x, y, content.width, rh - RowGap), nodes[i], i);
+                    _rowRects.Add(new Rect(content.x, y, content.width, rh - RowGap));
                     y += rh;
                 }
+
+                HandleDragInput();
+                for (int i = 0; i < nodes.Count; i++) DrawRow(_rowRects[i], nodes[i], i);
+                if (_dragging) DrawDragVisuals(nodes);
             }
 
             // persist dragged position
@@ -193,37 +212,23 @@ namespace ModernDevTools
             bool broken = DebugTree.IsBroken(node);
             bool over = Mouse.IsOver(row);
 
+            bool isSource = _dragging && index == _dragRow;
+
             Widgets.DrawBoxSolid(row, (index & 1) == 1 ? Palette.RowAlt : Palette.PanelBG);
-            if (over) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.05f));
+            if (isSource)
+            {
+                // The row being dragged leaves a hollow slot behind (browser-tab feel).
+                Widgets.DrawBoxSolid(row, new Color(0f, 0f, 0f, 0.35f));
+                Palette.DrawBox(row, Palette.BGL, 1);
+                return;
+            }
+            if (over && !_dragging) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.05f));
             if (broken) Palette.StateStrip(row, Palette.Bad, 3f);
 
-            Rect pinR = new Rect(row.xMax - PinW, row.y + (row.height - 18f) / 2f, 18f, 18f);
+            Rect pinR = new Rect(row.xMax - PinW, row.y + (row.height - PinIcon) / 2f, PinIcon, PinIcon);
             Rect clickR = new Rect(row.x, row.y, row.width - PinW - 4f, row.height);
 
-            // Nested actions read as two lines: the category chain (tab name dropped, vanilla parity)
-            // in small gray italic, then the action itself in normal white below it. Each line gets a
-            // rect exactly one line-height tall, inset by VPad, so nothing is clipped.
-            string cat = DebugTree.PrettyPrefix(node);
-            float x = row.x + PadL;
-            float textW = clickR.xMax - x - PadR;
-            float leafY = row.y + VPad;
-            if (cat != null)
-            {
-                LabelCategory(new Rect(x, leafY, textW, CatH), cat);
-                leafY += CatH;
-            }
-            float leafH = LeafH;
-
-            if (checkbox)
-            {
-                Rect ck = new Rect(x, leafY + (leafH - 16f) / 2f, 16f, 16f);
-                DrawCheck(ck, DebugTree.GetCheck(node));
-                x = ck.xMax + 6f;
-                textW = clickR.xMax - x - PadR;
-            }
-
-            Color col = broken ? Palette.Bad : (active ? Palette.Stat : Palette.TextDim);
-            Palette.LabelFit(new Rect(x, leafY, textW, leafH), DebugTree.PrettyLeaf(node), col);
+            DrawRowText(row, node, clickR.xMax, checkbox, active, broken, interactive: true);
             TooltipHandler.TipRegion(clickR, DebugTree.PathOf(node));
 
             // thumbtack: always pinned here, so white; click to unpin
@@ -231,29 +236,190 @@ namespace ModernDevTools
             TooltipHandler.TipRegion(pinR, "MDT_Unpin".Translate());
             if (Widgets.ButtonInvisible(pinR)) { DebugTree.TogglePin(node); SetInitialSizeAndPosition(); }
 
-            if (Widgets.ButtonInvisible(clickR))
+            // Always call the button (stable IMGUI control count), but swallow the result while a drag
+            // is live or just ended - otherwise dropping a row would also fire its action.
+            bool clicked = Widgets.ButtonInvisible(clickR);
+            if (clicked && !_dragging && !_swallowClick)
             {
                 if (checkbox) DebugTree.SetCheck(node, !DebugTree.GetCheck(node));
                 else DebugTree.RunLeaf(node, null); // keep the palette open (like vanilla)
             }
         }
 
-        /// <summary>The category line: Tiny + rich-text italics + dim gray. This is the one place the
-        /// suite uses GameFont.Tiny on purpose - it has to read as subordinate to the action label.</summary>
-        private static void LabelCategory(Rect r, string text)
+        /// <summary>The two text lines of a row (shared by the real row and the drag ghost). The category
+        /// chain is Tiny + italic + dim; the action label is Small in normal white below it. Each line gets
+        /// a rect exactly one line-height tall - IMGUI clips labels to their rect, so undersized rects
+        /// slice the glyph tops.</summary>
+        private static void DrawRowText(Rect row, DebugActionNode node, float textRight, bool checkbox,
+                                        bool active, bool broken, bool interactive)
         {
+            string cat = DebugTree.PrettyPrefix(node);
+            float x = row.x + PadL;
+            float textW = textRight - x - PadR;
+            float leafY = row.y + VPad;
+            if (cat != null)
+            {
+                LabelCategory(new Rect(x, leafY, textW, CatH), cat);
+                leafY += CatH - LineOverlap;
+            }
+
+            if (checkbox)
+            {
+                Rect ck = new Rect(x, leafY + (LeafH - 14f) / 2f, 14f, 14f);
+                DrawCheck(ck, DebugTree.GetCheck(node));
+                x = ck.xMax + 5f;
+                textW = textRight - x - PadR;
+            }
+
+            Color col = broken ? Palette.Bad : (active || !interactive ? Palette.Stat : Palette.TextDim);
+            Palette.LabelFit(new Rect(x, leafY, textW, LeafH), DebugTree.PrettyLeaf(node), col);
+        }
+
+        // ---- drag to reorder (browser-tab style: ghost follows the cursor, slot opens, insert line) ----
+
+        /// <summary>Press anywhere on a row and move &gt;3px to start a reorder; a plain click still runs
+        /// the action. Runs before the rows draw so it sees the raw MouseDown before the row buttons
+        /// consume it, and it never calls Event.Use() on MouseUp (that would strand GUI hotControl).</summary>
+        private void HandleDragInput()
+        {
+            Event e = Event.current;
+            Vector2 m = e.mousePosition;
+
+            if (e.type == EventType.MouseDown && e.button == 0)
+            {
+                _swallowClick = false;
+                for (int i = 0; i < _rowRects.Count; i++)
+                {
+                    Rect r = _rowRects[i];
+                    if (!r.Contains(m)) continue;
+                    // the thumbtack is its own button - never start a drag from it
+                    if (new Rect(r.xMax - PinW - 2f, r.y, PinW + 2f, r.height).Contains(m)) break;
+                    _dragRow = i;
+                    _dropRow = i;
+                    _dragStart = m;
+                    _dragOffsetY = m.y - r.y;
+                    break;
+                }
+            }
+            else if (e.rawType == EventType.MouseUp && _dragRow >= 0)
+            {
+                if (_dragging) { ApplyReorder(_dragRow, _dropRow); _swallowClick = true; }
+                ClearDrag();
+            }
+            else if (_dragRow >= 0 && e.type == EventType.Repaint)
+            {
+                if (!_dragging && (m - _dragStart).magnitude > DragThreshold) _dragging = true;
+                if (_dragging) _dropRow = InsertRowFor(m.y);
+            }
+        }
+
+        private void ClearDrag()
+        {
+            _dragRow = -1;
+            _dropRow = -1;
+            _dragging = false;
+        }
+
+        /// <summary>Which slot (0..rowCount) the cursor is hovering, by row centers.</summary>
+        private int InsertRowFor(float mouseY)
+        {
+            for (int i = 0; i < _rowRects.Count; i++)
+                if (mouseY < _rowRects[i].center.y) return i;
+            return _rowRects.Count;
+        }
+
+        /// <summary>Commit a drop: move the pref entry for <paramref name="fromRow"/> into slot
+        /// <paramref name="toRow"/>. Row indices are mapped through _prefIdx because unresolvable pins
+        /// are skipped when building the row list.</summary>
+        private void ApplyReorder(int fromRow, int toRow)
+        {
+            try
+            {
+                List<string> pref = Prefs.DebugActionsPalette;
+                if (pref == null || fromRow < 0 || fromRow >= _prefIdx.Count) return;
+                int from = _prefIdx[fromRow];
+                int to = toRow >= _prefIdx.Count ? pref.Count : _prefIdx[toRow];
+                if (from < 0 || from >= pref.Count || to == from || to == from + 1) return;
+                string item = pref[from];
+                pref.Insert(Mathf.Clamp(to, 0, pref.Count), item);
+                pref.RemoveAt(from < to ? from : from + 1);
+                Prefs.Save();
+                SetInitialSizeAndPosition();
+            }
+            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette reorder failed: " + e.Message, 0x2E19C22); }
+        }
+
+        /// <summary>Drop indicator + the ghost row riding the cursor. Drawn after every row so it floats
+        /// above them.</summary>
+        private void DrawDragVisuals(List<DebugActionNode> nodes)
+        {
+            if (_dragRow < 0 || _dragRow >= _rowRects.Count || _rowRects.Count == 0) return;
+            Rect src = _rowRects[_dragRow];
+
+            float lineY;
+            if (_dropRow <= 0) lineY = _rowRects[0].y - RowGap * 0.5f;
+            else if (_dropRow >= _rowRects.Count) lineY = _rowRects[_rowRects.Count - 1].yMax + RowGap * 0.5f;
+            else lineY = (_rowRects[_dropRow - 1].yMax + _rowRects[_dropRow].y) * 0.5f;
+
+            Color accent = Palette.Accent;
+            Widgets.DrawBoxSolid(new Rect(src.x, lineY - 3f, src.width, 6f), new Color(accent.r, accent.g, accent.b, 0.20f));
+            Widgets.DrawBoxSolid(new Rect(src.x, lineY - 1f, src.width, 2f), accent);
+
+            Rect ghost = new Rect(src.x, Event.current.mousePosition.y - _dragOffsetY, src.width, src.height);
+            Widgets.DrawBoxSolid(new Rect(ghost.x + 3f, ghost.y + 3f, ghost.width, ghost.height), new Color(0f, 0f, 0f, 0.35f));
+            Widgets.DrawBoxSolid(ghost, Palette.RowAlt);
+            Palette.DrawBox(ghost, accent, 1);
+            DebugActionNode node = nodes[_dragRow];
+            DrawRowText(ghost, node, ghost.xMax - PinW, DebugTree.IsCheckbox(node),
+                        DebugTree.IsActive(node), DebugTree.IsBroken(node), interactive: false);
+        }
+
+        /// <summary>Apply a palette reorder to the pinned-action pref (same shape as vanilla's).</summary>
+        private void ReorderPalette(int from, int to)
+        {
+            try
+            {
+                List<string> list = Prefs.DebugActionsPalette;
+                if (list == null || from < 0 || from >= list.Count || from == to) return;
+                string item = list[from];
+                list.Insert(Mathf.Clamp(to, 0, list.Count), item);
+                list.RemoveAt(from < to ? from : from + 1);
+                Prefs.Save();
+                SetInitialSizeAndPosition();
+            }
+            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette reorder failed: " + e.Message, 0x2E19C22); }
+        }
+
+        /// <summary>Draw one line of text at <see cref="Scale"/>. RimWorld ships three fixed font sizes,
+        /// so anything between/below them can only be done by scaling the draw matrix. This is drawing
+        /// only - every hit rect stays unscaled, so clicks, drags and tooltips are unaffected.</summary>
+        private static void LabelScaled(Rect r, string text, Color color, GameFont font, bool italic)
+        {
+            Matrix4x4 prevMatrix = GUI.matrix;
             GameFont prevFont = Text.Font;
             bool prevWrap = Text.WordWrap;
-            Text.Font = GameFont.Tiny;
-            Text.WordWrap = false;
-            Text.Anchor = TextAnchor.UpperLeft;
-            string draw = Text.CalcSize(text).x > r.width ? text.Truncate(r.width) : text;
-            GUI.color = Palette.TextDim;
-            Widgets.Label(r, "<i>" + draw + "</i>");
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = prevWrap;
-            Text.Font = prevFont;
+            try
+            {
+                Text.Font = font;
+                Text.WordWrap = false;
+                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.matrix = prevMatrix * Matrix4x4.TRS(new Vector3(r.x, r.y, 0f), Quaternion.identity,
+                                                        new Vector3(Scale, Scale, 1f));
+                float localW = r.width / Scale;
+                string draw = text ?? "";
+                if (Text.CalcSize(draw).x > localW) draw = draw.Truncate(localW);
+                GUI.color = color;
+                Widgets.Label(new Rect(0f, 0f, localW, Text.LineHeightOf(font)), italic ? "<i>" + draw + "</i>" : draw);
+            }
+            catch { /* never let a label kill the palette */ }
+            finally
+            {
+                GUI.matrix = prevMatrix;
+                GUI.color = Color.white;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.WordWrap = prevWrap;
+                Text.Font = prevFont;
+            }
         }
 
         private static void DrawCheck(Rect r, bool on)
