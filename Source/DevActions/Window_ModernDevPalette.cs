@@ -54,16 +54,22 @@ namespace ModernDevTools
 
         protected override float Margin => 0f;
 
-        private static List<DebugActionNode> ResolveNodes()
+        /// <summary>Resolve the pinned paths to live nodes. <paramref name="prefIndicesOut"/> (when given)
+        /// records which Prefs.DebugActionsPalette entry each row came from - pins that no longer resolve
+        /// are skipped, so row index != pref index.</summary>
+        private static List<DebugActionNode> ResolveNodes(List<int> prefIndicesOut = null)
         {
             var list = new List<DebugActionNode>();
+            prefIndicesOut?.Clear();
             try
             {
                 var palette = Prefs.DebugActionsPalette;
                 for (int i = 0; i < palette.Count; i++)
                 {
                     DebugActionNode n = Dialog_Debug.GetNode(palette[i]);
-                    if (n != null) list.Add(n);
+                    if (n == null) continue;
+                    list.Add(n);
+                    prefIndicesOut?.Add(i);
                 }
             }
             catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette resolve failed: " + e.Message, 0x2E19C20); }
@@ -155,7 +161,7 @@ namespace ModernDevTools
 
         private void Draw(Rect inRect)
         {
-            List<DebugActionNode> nodes = ResolveNodes();
+            List<DebugActionNode> nodes = ResolveNodes(_prefIdx);
             // Labels come from live getters, so re-fit when the count OR the widest label changes.
             if (nodes.Count != _lastCount ||
                 (nodes.Count > 0 && Event.current.type == EventType.Repaint &&
@@ -374,47 +380,27 @@ namespace ModernDevTools
                         DebugTree.IsActive(node), DebugTree.IsBroken(node), interactive: false);
         }
 
-        /// <summary>Apply a palette reorder to the pinned-action pref (same shape as vanilla's).</summary>
-        private void ReorderPalette(int from, int to)
+        /// <summary>The category line: Tiny + rich-text italics + dim gray - the one place the suite uses
+        /// GameFont.Tiny on purpose, so it reads as subordinate to the action label. Never scale text with
+        /// GUI.matrix inside a Window: the matrix is applied outside the window's GUI clip, so the label
+        /// lands in screen space (it renders out on the map instead of on the row).</summary>
+        private static void LabelCategory(Rect r, string text)
         {
-            try
-            {
-                List<string> list = Prefs.DebugActionsPalette;
-                if (list == null || from < 0 || from >= list.Count || from == to) return;
-                string item = list[from];
-                list.Insert(Mathf.Clamp(to, 0, list.Count), item);
-                list.RemoveAt(from < to ? from : from + 1);
-                Prefs.Save();
-                SetInitialSizeAndPosition();
-            }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette reorder failed: " + e.Message, 0x2E19C22); }
-        }
-
-        /// <summary>Draw one line of text at <see cref="Scale"/>. RimWorld ships three fixed font sizes,
-        /// so anything between/below them can only be done by scaling the draw matrix. This is drawing
-        /// only - every hit rect stays unscaled, so clicks, drags and tooltips are unaffected.</summary>
-        private static void LabelScaled(Rect r, string text, Color color, GameFont font, bool italic)
-        {
-            Matrix4x4 prevMatrix = GUI.matrix;
             GameFont prevFont = Text.Font;
             bool prevWrap = Text.WordWrap;
             try
             {
-                Text.Font = font;
+                Text.Font = GameFont.Tiny;
                 Text.WordWrap = false;
                 Text.Anchor = TextAnchor.UpperLeft;
-                GUI.matrix = prevMatrix * Matrix4x4.TRS(new Vector3(r.x, r.y, 0f), Quaternion.identity,
-                                                        new Vector3(Scale, Scale, 1f));
-                float localW = r.width / Scale;
                 string draw = text ?? "";
-                if (Text.CalcSize(draw).x > localW) draw = draw.Truncate(localW);
-                GUI.color = color;
-                Widgets.Label(new Rect(0f, 0f, localW, Text.LineHeightOf(font)), italic ? "<i>" + draw + "</i>" : draw);
+                if (Text.CalcSize(draw).x > r.width) draw = draw.Truncate(r.width);
+                GUI.color = Palette.TextDim;
+                Widgets.Label(r, "<i>" + draw + "</i>");
             }
             catch { /* never let a label kill the palette */ }
             finally
             {
-                GUI.matrix = prevMatrix;
                 GUI.color = Color.white;
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.WordWrap = prevWrap;
