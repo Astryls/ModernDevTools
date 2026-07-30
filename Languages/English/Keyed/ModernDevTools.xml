@@ -72,6 +72,7 @@
   <MDT_ReasonLogMention>named as a tag in the log message</MDT_ReasonLogMention>
   <MDT_ReasonKnownPattern>identified by a known issue pattern</MDT_ReasonKnownPattern>
   <MDT_ReasonHarmonyPatch>patches a method in the stack trace</MDT_ReasonHarmonyPatch>
+  <MDT_ReasonCorpusCorrelation>correlated with this error across many installs</MDT_ReasonCorpusCorrelation>
 
   <!-- Source state tags -->
   <MDT_StateActive>active</MDT_StateActive>
@@ -125,6 +126,9 @@
   <MDT_IncompatTitle>known mod incompatibility</MDT_IncompatTitle>
   <MDT_IncompatExplain>{0} is known to be incompatible with {1}, and both are active. This can cause errors.</MDT_IncompatExplain>
   <MDT_IncompatFix>Remove one of the two mods, or check their pages for a compatibility patch.</MDT_IncompatFix>
+  <!-- Circinus corpus (only shown when Circinus is active; the body text comes from Circinus) -->
+  <MDT_CorpusTitle>how common this error is</MDT_CorpusTitle>
+
   <MDT_AboutIncompatTitle>declared mod incompatibility</MDT_AboutIncompatTitle>
   <MDT_AboutIncompatExplain>{0} is marked as incompatible with {1} in a mod's own About.xml, and both are active. Incompatible mods are a common cause of errors like this.</MDT_AboutIncompatExplain>
 

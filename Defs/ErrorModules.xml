@@ -96,6 +96,21 @@
     <order>30</order>
   </ModernDevTools.ErrorModuleDef>
 
+  <!--
+    Compat module for our sibling mod Circinus. requiresPackageId keeps it out of the module list
+    entirely when Circinus is not active, so the reflection probe never even runs for people who
+    do not have it. Kept in this file rather than a Defs/ErrorModuleDefs/ subfolder so there is
+    one place to read the whole module set and its order values.
+  -->
+  <ModernDevTools.ErrorModuleDef>
+    <defName>MDT_CircinusCorpus</defName>
+    <label>corpus prevalence</label>
+    <description>Reports how many installs see this error, using the shared corpus at circinus.sh. Requires Circinus.</description>
+    <workerClass>ModernDevTools.Module_CircinusCorpus</workerClass>
+    <requiresPackageId>astryl.Circinus</requiresPackageId>
+    <order>140</order>
+  </ModernDevTools.ErrorModuleDef>
+
   <ModernDevTools.ErrorModuleDef>
     <defName>MDT_Module_Glossary</defName>
     <label>plain-language glossary</label>
