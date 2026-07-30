@@ -22,10 +22,15 @@ A modern overhaul of RimWorld's developer tools, dressed in the flat, dark Moder
 
 [h1]✦ Understand every error[/h1]
 [list]
-[*][b]Impact at a glance[/b]: a snip shows the severity and whether the error hurts your simulation speed (TPS) or rendering (FPS), and whether it is a known issue.
-[*][b]Plain-language fixes[/b]: a shipped library of about thirty entries explains the common errors and how to fix them, from null references and version mismatches to patch failures and load-order conflicts.
+[*][b]Impact at a glance[/b]: a snip shows the severity and whether the error hurts your simulation speed (TPS) or rendering (FPS), and whether it is a known issue. Performance claims require an error that actually repeats, and self-healing engine fallbacks (like a raid defaulting its arrival mode) are labeled low impact instead of critical.
+[*][b]Plain-language fixes[/b]: a shipped library of over forty entries explains the common errors and how to fix them, from null references and version mismatches to patch failures and load-order conflicts. Every match pattern is verified against the game's decompiled source and cites the engine line it matches.
+[*][b]No concern lines[/b]: normal startup output, like the version banner and mod lists, gets a calm green badge instead of implicating the mods it happens to mention.
+[*][b]A plain-language glossary[/b]: jargon in an error (Harmony, transpiler, def, TPS, load order) is defined right under it, so the log is readable without prior modding knowledge.
 [*][b]Version aware[/b]: it flags a mod that does not support your RimWorld version, using the mod's own data, no internet needed.
 [/list]
+
+[h1]✦ A knowledge base you can browse[/h1]
+Everything the mod knows, in one searchable window opened from the log: known issues, benign log lines, the community bug database, compatibility rules scoped to your modlist, declared dependencies, every Harmony-patched method with its patching mods (two or more on one method is flagged as a conflict candidate), and the glossary. Every entry cites where it comes from.
 
 [h1]✦ Community knowledge (opt-in)[/h1]
 [list]
