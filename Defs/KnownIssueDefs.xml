@@ -314,6 +314,42 @@
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
+  <!--
+    Self-healing vanilla fallbacks. These are logged at ERROR severity but the engine immediately
+    substitutes a working default and carries on, so they look far worse than they are. maxImpact
+    caps the banner so the heuristic cannot escalate a cosmetic fallback to "Critical".
+    Both patterns are anchored on verbatim engine strings; keep them narrow.
+  -->
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_RaidArrivalFallback</defName>
+    <label>raid used a default arrival mode</label>
+    <description>The game could not pick an arrival mode for a raid, so it sent the raiders in on foot from the map edge instead. This happens when none of the arrival modes allowed by that raid strategy can be used with this particular faction and map - for example when a faction cannot use drop pods, or a raid strategy lists arrival modes that do not fit the situation. The raid itself still runs normally; only how the attackers arrive changed.</description>
+    <fix>Nothing is broken and no action is needed - the raid went ahead. If you see it for every raid from one faction and want it fixed properly, report this line to the author of the mod that adds that faction or raid strategy.</fix>
+    <ignorable>true</ignorable>
+    <maxImpact>Low</maxImpact>
+    <priority>2</priority>
+    <!-- Verbatim: RimWorld/IncidentWorker_Raid.cs:57 (ResolveRaidArriveMode logs, then assigns
+         PawnsArrivalModeDefOf.EdgeWalkIn). Selection logic: IncidentWorker_Raid.cs:41. -->
+    <keywords>
+      <li>could not resolve arrival mode for raid</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
+    <defName>MDT_RaidStrategyFallback</defName>
+    <label>raid used a default strategy</label>
+    <description>A raid was created without a strategy, so the game fell back to a straightforward immediate attack. The raid still happens; only the tactics the attackers were meant to use were lost.</description>
+    <fix>Nothing is broken and no action is needed. If it repeats, report this line to the author of the mod that triggers that raid or incident.</fix>
+    <ignorable>true</ignorable>
+    <maxImpact>Low</maxImpact>
+    <priority>2</priority>
+    <!-- Verbatim: RimWorld/IncidentWorker_Raid.cs:38 (TryResolveRaidArriveMode, then assigns
+         RaidStrategyDefOf.ImmediateAttack). -->
+    <keywords>
+      <li>parms raidstrategy was null but shouldn't be</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
   <ModernDevTools.KnownIssueDef>
     <defName>MDT_HarmonyConflict</defName>
     <label>possible Harmony patch conflict</label>

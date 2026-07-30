@@ -35,6 +35,18 @@ namespace ModernDevTools
         public float Score;
         public bool Ignorable;  // harmless class the player can mute
         public bool Benign;     // normal, no-fault engine output (rendered as "No concern", green strip)
+
+        /// <summary>True only when this came from a CURATED knowledge source: the shipped/third-party
+        /// KnownIssueDef library, a mod's own shipped known-issues file, or the community bug DB. It
+        /// drives the "Known issue" badge, so heuristic modules (Harmony, dependencies, version) must
+        /// leave it false - otherwise the banner claims the library recognized an error it has never
+        /// seen, which reads as "we know this is bad" and sends people hunting a phantom.</summary>
+        public bool FromLibrary;
+
+        /// <summary>Curated ceiling on the impact banner. Critical = no opinion (the default), so an
+        /// entry only downgrades when its author deliberately says so. Lets curated knowledge overrule
+        /// the impact heuristic for self-healing engine lines that merely LOOK severe.</summary>
+        public ImpactLevel MaxImpact = ImpactLevel.Critical;
     }
 
     /// <summary>

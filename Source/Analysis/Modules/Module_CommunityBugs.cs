@@ -28,6 +28,7 @@ namespace ModernDevTools
                     Fix = b.Fix,
                     Url = b.Url,
                     Source = "community:" + b.Id,
+                    FromLibrary = true,   // curated, contributor-reviewed entry
                     Score = 8 + (n - i)   // community-reported fixes rank highest
                 });
             }

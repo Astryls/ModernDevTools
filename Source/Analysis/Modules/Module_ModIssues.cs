@@ -30,6 +30,7 @@ namespace ModernDevTools
                     Fix = b.Fix,
                     Url = b.Url,
                     Source = "modissue:" + b.Id,
+                    FromLibrary = true,   // a curated entry, just curated by the mod's own author
                     Score = 9 + (n - i)   // the author's own shipped fix ranks above community (8) and the library
                 });
             }

@@ -23,6 +23,15 @@ namespace ModernDevTools
         public int priority = 0;           // ties broken toward higher priority
         public bool ignorable = false;     // a harmless class the player can mute from the inspector
 
+        /// <summary>Ceiling for the impact banner when this entry matches. Default Critical means "no
+        /// opinion" (capping at the most severe level is a no-op), so existing entries are unaffected.
+        ///
+        /// Set this when the engine logs at Error severity but SELF-HEALS - vanilla has several of
+        /// these, and the impact heuristic cannot tell them apart from a real fault because it only
+        /// sees severity plus stack frames. Use it only on tightly anchored patterns: a cap on an
+        /// over-broad entry would hide genuine failures that happen to co-match.</summary>
+        public ImpactLevel maxImpact = ImpactLevel.Critical;
+
         /// <summary>Normal, no-fault engine output (the version banner, the "Initializing new game with
         /// mods" list, etc.). A benign match is presented as "No concern": the inspector shows the calm
         /// explanation, suppresses mod attribution (so merely listing packageIds does not implicate them),

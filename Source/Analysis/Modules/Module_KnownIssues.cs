@@ -29,7 +29,9 @@ namespace ModernDevTools
                     Source = def.defName,
                     Score = n - i + (def.benign ? 1000 : 0),
                     Ignorable = def.ignorable,
-                    Benign = def.benign
+                    Benign = def.benign,
+                    FromLibrary = true,
+                    MaxImpact = def.maxImpact
                 });
 
                 Regex attr = matches[i].attributeRegex;
