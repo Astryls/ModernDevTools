@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using Verse;
 
@@ -11,36 +10,207 @@ namespace ModernDevTools
     public struct ModChangeEntry
     {
         public string Name;
+        public string PackageId;
         public ChangeKind Kind;
-    }
-
-    /// <summary>Result of comparing the mods a save was made with against the mods loaded now.</summary>
-    public static class ModChange
-    {
-        public static List<ModChangeEntry> Report = new List<ModChangeEntry>();
-        public static bool HasChanges => Report.Count > 0;
-
-        public static void Set(List<ModChangeEntry> report) => Report = report ?? new List<ModChangeEntry>();
-        public static void Clear() => Report = new List<ModChangeEntry>();
+        public string Evidence;   // why we say so, shown on hover - no claim without a stated reason
     }
 
     /// <summary>
-    /// Snapshots the active mods (and each mod folder's write time) into the save, then on load diffs
-    /// that snapshot against the current mods so the log window can warn about mods that were updated,
-    /// removed, or added since the save was made - a top cause of "my save is throwing errors".
+    /// Result of comparing the mods a save was made with against the mods loaded now.
+    ///
+    /// Everything here is user-facing fact that people act on ("updated mods are the usual cause of
+    /// errors on an existing save"), so the rule is FAIL CLOSED: when the evidence for a mod is
+    /// incomplete it is counted as unverified and never reported as changed. Silence is correct;
+    /// a false accusation is not.
+    /// </summary>
+    public static class ModChange
+    {
+        public static List<ModChangeEntry> Report = new List<ModChangeEntry>();
+
+        /// <summary>Mods present on both sides whose content could not be compared (not yet scanned,
+        /// unreadable folder, or official content). Surfaced in the UI - never silently dropped.</summary>
+        public static int Unverified;
+
+        /// <summary>True when the save carried a snapshot this build can actually compare against.</summary>
+        public static bool Usable;
+
+        /// <summary>True while the content scan is still running, so "updated" results are incomplete.</summary>
+        public static bool Pending;
+
+        public static bool HasChanges => Report.Count > 0;
+
+        private static Dictionary<string, string> _saved;   // normalized packageId -> "fingerprint|name"
+        private static bool _armed;
+
+        /// <summary>Take the snapshot loaded from a save and produce the diff. Called once per game load.</summary>
+        public static void Arm(Dictionary<string, string> saved, int savedVersion)
+        {
+            Clear();
+            try
+            {
+                if (saved == null || saved.Count == 0) return;                       // new game / no snapshot
+                if (savedVersion != ModFingerprint.AlgorithmVersion) return;          // written by a different
+                                                                                      // hashing rule: not comparable,
+                                                                                      // so we say nothing at all
+                _saved = saved;
+                _armed = true;
+                Usable = true;
+                Recompute();
+            }
+            catch (Exception e)
+            {
+                Clear();
+                Log.Warning("[Modern Dev Tools] mod-change diff failed: " + e.Message);
+            }
+        }
+
+        /// <summary>Driven from the permanent Root.Update postfix: the fingerprint scan runs in the
+        /// background, so the "updated" half of the diff is finished as soon as it lands.</summary>
+        public static void TickPending()
+        {
+            if (!_armed || !Pending || !ModFingerprint.Ready) return;
+            try { Recompute(); }
+            catch (Exception e)
+            {
+                Pending = false;
+                Log.WarningOnce("[Modern Dev Tools] mod-change recompute failed: " + e.Message, 0x2E19E03);
+            }
+        }
+
+        public static void Clear()
+        {
+            Report = new List<ModChangeEntry>();
+            Unverified = 0;
+            Usable = false;
+            Pending = false;
+            _saved = null;
+            _armed = false;
+        }
+
+        /// <summary>Current running mods keyed the same way the snapshot is: normalized packageId ->
+        /// "fingerprint|name". Fingerprint is empty when unknown.</summary>
+        public static Dictionary<string, string> BuildSnapshot()
+        {
+            var d = new Dictionary<string, string>(StringComparer.Ordinal);
+            try
+            {
+                foreach (ModContentPack mcp in LoadedModManager.RunningModsListForReading)
+                {
+                    if (mcp == null) continue;
+                    string id = ModFingerprint.NormalizeId(mcp.PackageId);
+                    if (id == null || d.ContainsKey(id)) continue;
+                    // The name is recorded HERE, from the pack that is actually loaded. It is never
+                    // re-derived later from the packageId: ModLister.GetModWithIdentifier(id,
+                    // ignorePostfix: true) returns ElementAtOrDefault(0) of every copy sharing that id
+                    // - which is the LOCAL copy whenever a mod exists both locally and on Steam, and
+                    // null outright for any id carrying the "_steam" postfix (that dictionary is keyed
+                    // on the stripped id). Either way it can name a different mod than the one we mean.
+                    string name = mcp.Name.NullOrEmpty() ? id : mcp.Name;
+                    string fp = ModFingerprint.IsOfficial(id) ? "" : (ModFingerprint.Get(id) ?? "");
+                    d[id] = fp + "|" + name;
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning("[Modern Dev Tools] mod snapshot failed: " + e.Message);
+            }
+            return d;
+        }
+
+        private static void Split(string packed, out string fingerprint, out string name)
+        {
+            fingerprint = ""; name = "";
+            if (packed == null) return;
+            int bar = packed.IndexOf('|');          // first separator only: names may contain '|'
+            if (bar < 0) { name = packed; return; }
+            fingerprint = packed.Substring(0, bar);
+            name = packed.Substring(bar + 1);
+        }
+
+        private static void Recompute()
+        {
+            var report = new List<ModChangeEntry>();
+            int unverified = 0;
+            Dictionary<string, string> cur = BuildSnapshot();
+
+            foreach (var kv in _saved)
+            {
+                Split(kv.Value, out string savedFp, out string savedName);
+                if (!cur.TryGetValue(kv.Key, out string curPacked))
+                {
+                    // Presence is directly observable and needs no fingerprint.
+                    report.Add(new ModChangeEntry
+                    {
+                        Name = savedName.NullOrEmpty() ? kv.Key : savedName,
+                        PackageId = kv.Key,
+                        Kind = ChangeKind.Removed,
+                        Evidence = "MDT_EvidenceRemoved".Translate(kv.Key)
+                    });
+                    continue;
+                }
+
+                Split(curPacked, out string curFp, out string curName);
+                if (savedFp.NullOrEmpty() || curFp.NullOrEmpty()) { unverified++; continue; }
+                if (string.Equals(savedFp, curFp, StringComparison.Ordinal)) continue;
+
+                report.Add(new ModChangeEntry
+                {
+                    Name = curName.NullOrEmpty() ? kv.Key : curName,
+                    PackageId = kv.Key,
+                    Kind = ChangeKind.Updated,
+                    Evidence = "MDT_EvidenceUpdated".Translate(kv.Key)
+                });
+            }
+
+            foreach (var kv in cur)
+            {
+                if (_saved.ContainsKey(kv.Key)) continue;
+                Split(kv.Value, out _, out string curName);
+                report.Add(new ModChangeEntry
+                {
+                    Name = curName.NullOrEmpty() ? kv.Key : curName,
+                    PackageId = kv.Key,
+                    Kind = ChangeKind.Added,
+                    Evidence = "MDT_EvidenceAdded".Translate(kv.Key)
+                });
+            }
+
+            report.Sort((a, b) => a.Kind != b.Kind
+                ? a.Kind.CompareTo(b.Kind)
+                : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+
+            Report = report;
+            Unverified = unverified;
+            Pending = !ModFingerprint.Ready;
+        }
+    }
+
+    /// <summary>
+    /// Snapshots the active mods (and a content fingerprint of each) into the save, then on load diffs
+    /// that snapshot against the mods loaded now, so the log window can warn about mods that were
+    /// updated, removed, or added since the save was made - a top cause of "my save is throwing errors".
     /// Auto-registered by the engine (every GameComponent with a (Game) ctor is instantiated).
     /// </summary>
     public class GameComponent_ModSnapshot : GameComponent
     {
         private Dictionary<string, string> saved = new Dictionary<string, string>();
+        private int savedVersion;
 
         public GameComponent_ModSnapshot(Game game) { }
 
         public override void ExposeData()
         {
             base.ExposeData();
-            if (Scribe.mode == LoadSaveMode.Saving) saved = CurrentTokens();
-            Scribe_Collections.Look(ref saved, "mdtModSnapshot", LookMode.Value, LookMode.Value);
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                saved = ModChange.BuildSnapshot();
+                savedVersion = ModFingerprint.AlgorithmVersion;
+            }
+            // Deliberately a NEW node name. The pre-1.3 snapshot stored folder write-time ticks under
+            // "mdtModSnapshot"; comparing those against fingerprints would flag every mod in the list.
+            // Leaving the old node unread lets Scribe discard it.
+            Scribe_Values.Look(ref savedVersion, "mdtSnapshotVersion", 0);
+            Scribe_Collections.Look(ref saved, "mdtModSnapshotV2", LookMode.Value, LookMode.Value);
             if (saved == null) saved = new Dictionary<string, string>();
         }
 
@@ -49,46 +219,15 @@ namespace ModernDevTools
             base.FinalizeInit();
             try
             {
-                var report = new List<ModChangeEntry>();
-                if (saved != null && saved.Count > 0)
+                if (ModernDevToolsMod.Settings != null && !ModernDevToolsMod.Settings.detectModChanges)
                 {
-                    var cur = CurrentTokens();
-                    foreach (var kv in saved)
-                    {
-                        if (!cur.TryGetValue(kv.Key, out string t)) report.Add(new ModChangeEntry { Name = NameOf(kv.Key), Kind = ChangeKind.Removed });
-                        else if (t != kv.Value) report.Add(new ModChangeEntry { Name = NameOf(kv.Key), Kind = ChangeKind.Updated });
-                    }
-                    foreach (var kv in cur)
-                        if (!saved.ContainsKey(kv.Key)) report.Add(new ModChangeEntry { Name = NameOf(kv.Key), Kind = ChangeKind.Added });
+                    ModChange.Clear();
+                    return;
                 }
-                ModChange.Set(report);
+                ModFingerprint.Begin();               // no-op if it already ran at startup
+                ModChange.Arm(saved, savedVersion);
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] mod-change diff failed: " + e.Message); }
-        }
-
-        private static Dictionary<string, string> CurrentTokens()
-        {
-            var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                foreach (ModContentPack mcp in LoadedModManager.RunningModsListForReading)
-                {
-                    string pid = mcp.PackageId;
-                    if (pid.NullOrEmpty() || pid.StartsWith("ludeon.", StringComparison.OrdinalIgnoreCase)) continue;
-                    string token = "";
-                    try { if (!mcp.RootDir.NullOrEmpty() && Directory.Exists(mcp.RootDir)) token = Directory.GetLastWriteTimeUtc(mcp.RootDir).Ticks.ToString(); }
-                    catch { }
-                    d[pid] = token;
-                }
-            }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] mod token scan failed: " + e.Message); }
-            return d;
-        }
-
-        private static string NameOf(string pid)
-        {
-            try { return ModLister.GetModWithIdentifier(pid, true)?.Name ?? pid; }
-            catch { return pid; }
+            catch (Exception e) { Log.Warning("[Modern Dev Tools] mod-change init failed: " + e.Message); }
         }
     }
 
@@ -135,9 +274,14 @@ namespace ModernDevTools
                 GUI.color = Color.white;
                 y += introH + 8f;
 
+                // Anything that qualifies the result is stated up front rather than left implied.
+                string note = FooterNote();
+                float noteH = 0f;
+                if (note != null) noteH = Mathf.Ceil(TextMetrics.Height(note, content.width)) + 6f;
+
                 var report = ModChange.Report;
                 float rowH = 26f;
-                Rect outR = new Rect(content.x, y, content.width, content.yMax - y);
+                Rect outR = new Rect(content.x, y, content.width, content.yMax - y - noteH);
                 Palette.DrawWell(outR);
                 Rect inner = outR.ContractedBy(6f);
                 Rect view = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(report.Count * rowH, inner.height));
@@ -159,12 +303,27 @@ namespace ModernDevTools
                         GUI.color = Color.white;
                         Text.Anchor = TextAnchor.UpperLeft;
                         Text.WordWrap = true;
+                        if (!e.Evidence.NullOrEmpty()) TooltipHandler.TipRegion(row, e.Evidence);
                     }
                 }
                 finally { Palette.EndScroll(); }
+
+                if (note != null)
+                {
+                    GUI.color = Palette.TextDim;
+                    Widgets.Label(new Rect(content.x, outR.yMax + 4f, content.width, noteH), note);
+                    GUI.color = Color.white;
+                }
             }
             catch (Exception ex) { Log.ErrorOnce("[Modern Dev Tools] mod-changes draw failed: " + ex, 0x2E19C40); }
             finally { Palette.ResetGuiState(); }
+        }
+
+        private static string FooterNote()
+        {
+            if (ModChange.Pending) return "MDT_ModsChangedPending".Translate();
+            if (ModChange.Unverified > 0) return "MDT_ModsChangedUnverified".Translate(ModChange.Unverified);
+            return null;
         }
 
         private static string KindLabel(ChangeKind k)

@@ -34,6 +34,10 @@ namespace ModernDevTools
         // of every mod in the game, so it earns its default-on over a release, not on day one.
         public bool throttleRepeatingLogs = false;
 
+        // "Mods changed since this save" detection. Costs one background pass over the mod folders
+        // per session (metadata only, no file contents are read), so it gets an off switch.
+        public bool detectModChanges = true;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -47,6 +51,7 @@ namespace ModernDevTools
             Scribe_Values.Look(ref yieldLogWindow, "yieldLogWindow", false);
             Scribe_Values.Look(ref dismissedLogCompatHint, "dismissedLogCompatHint", false);
             Scribe_Values.Look(ref throttleRepeatingLogs, "throttleRepeatingLogs", false);
+            Scribe_Values.Look(ref detectModChanges, "detectModChanges", true);
             if (moduleEnabled == null) moduleEnabled = new Dictionary<string, bool>();
             if (ignoredIssues == null) ignoredIssues = new HashSet<string>();
         }

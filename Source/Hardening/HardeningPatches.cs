@@ -265,6 +265,7 @@ namespace ModernDevTools
         {
             HardeningPatches.SyncIfNeeded();
             LogThrottle.DrainSummaries();
+            ModChange.TickPending();
         }
     }
 }
