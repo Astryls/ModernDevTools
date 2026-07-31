@@ -62,6 +62,7 @@ namespace ModernDevTools
         private static void DrawContent(float width, ref float y)
         {
             DrawLogWindowCard(width, ref y);
+            DrawThrottleCard(width, ref y);
             DrawGeneralCard(width, ref y);
             DrawModulesCard(width, ref y);
             DrawIgnoredCard(width, ref y);
@@ -83,6 +84,24 @@ namespace ModernDevTools
         {
             Palette.SectionHeader(new Rect(inner.x, inner.y, inner.width, HeaderH), label);
             return inner.y + HeaderH + HeaderGap;
+        }
+
+        // --- Log spam throttle ---
+
+        private static void DrawThrottleCard(float width, ref float y)
+        {
+            float iw = width - CardPad * 2f;
+            string desc = "MDT_ThrottleDesc".Translate();
+            float rowH = Palette.ToggleRowHeight(desc, iw);
+
+            Rect card = BeginCard(width, y, rowH, out Rect inner);
+            float iy = DrawHeader(inner, "MDT_SectionThrottle".Translate());
+
+            bool v = S.throttleRepeatingLogs;
+            bool nv = Palette.ToggleRow(new Rect(inner.x, iy, inner.width, rowH), "MDT_Throttle".Translate(), v, desc);
+            if (nv != v) { S.throttleRepeatingLogs = nv; Save(); }
+
+            y += card.height + CardGap;
         }
 
         // --- Log window ownership ---
@@ -178,27 +197,19 @@ namespace ModernDevTools
         {
             bool avail = def.Available;
             bool enabled = avail && ModernDevToolsMod.IsModuleEnabled(def);
+            if (Palette.ModuleRow(row, def.label.CapitalizeFirst(), Dialog_Modules.SourceTag(def, avail),
+                                  def.description, avail, enabled))
+                ToggleModule(def, enabled);
+        }
 
-            Widgets.DrawBoxSolid(row, Palette.PanelBG);
-            if (enabled) Palette.StateStrip(row, Palette.Accent, 3f);
-            Palette.DrawBox(row, Palette.BGL, 1);
-            if (avail && Mouse.IsOver(row)) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.04f));
-
-            Color nameCol = !avail ? new Color(0.37f, 0.40f, 0.45f) : (enabled ? Palette.Stat : Palette.TextDim);
-            Palette.LabelFit(new Rect(row.x + 12f, row.y + 4f, row.width - 70f, 20f), def.label.CapitalizeFirst(), nameCol);
-            Palette.LabelFit(new Rect(row.x + 12f, row.y + 24f, row.width - 70f, 18f), Dialog_Modules.SourceTag(def, avail), Palette.TextDim);
-
-            Rect toggleR = new Rect(row.xMax - 48f, row.center.y - 9f, 36f, 18f);
-            Palette.DrawToggle(toggleR, enabled);
-            if (!def.description.NullOrEmpty()) TooltipHandler.TipRegion(row, def.description);
-
-            if (avail && Widgets.ButtonInvisible(toggleR))
-            {
-                S.moduleEnabled[def.defName] = !enabled;
-                ErrorModuleRegistry.Invalidate();
-                LogAnalysisCache.Clear();
-                Save();
-            }
+        /// <summary>Flip a module's enable state and drop everything derived from it. Shared by both
+        /// settings surfaces so they can never diverge on what a toggle invalidates.</summary>
+        internal static void ToggleModule(ErrorModuleDef def, bool wasEnabled)
+        {
+            ModernDevToolsMod.Settings.moduleEnabled[def.defName] = !wasEnabled;
+            ErrorModuleRegistry.Invalidate();
+            LogAnalysisCache.Clear();
+            ModernDevToolsMod.Instance?.WriteSettings();
         }
 
         // --- Ignored warnings ---

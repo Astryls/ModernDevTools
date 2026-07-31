@@ -54,10 +54,6 @@ namespace ModernDevTools
             return false;
         }
 
-        private static string PairKey(AboutIncompatIndex.Pair p)
-        {
-            string la = p.APid.ToLowerInvariant(), lb = p.BPid.ToLowerInvariant();
-            return string.CompareOrdinal(la, lb) <= 0 ? la + "|" + lb : lb + "|" + la;
-        }
+        private static string PairKey(AboutIncompatIndex.Pair p) => IssueTextUtil.PairKey(p.APid, p.BPid);
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Verse;
 
 namespace ModernDevTools
@@ -11,8 +12,25 @@ namespace ModernDevTools
     {
         public override void Diagnose(ErrorContext ctx)
         {
-            var pool = ModShippedIssues.All;
-            if (pool == null || pool.Count == 0) return;
+            // Two curated-by-the-author sources share this module: entries shipped as a file inside a
+            // mod's About folder, and entries registered at runtime through
+            // ModernDevToolsAPI.RegisterKnowledgeSource. Both are local, always-on and rank above the
+            // community database, so they are scored as one pool.
+            var shipped = ModShippedIssues.All;
+            var api = KnowledgeSources.Pool;
+            int shippedCount = shipped?.Count ?? 0;
+            int apiCount = api?.Count ?? 0;
+            if (shippedCount + apiCount == 0) return;
+
+            List<RemoteIssue> pool;
+            if (apiCount == 0) pool = shipped;
+            else if (shippedCount == 0) pool = api;
+            else
+            {
+                pool = new List<RemoteIssue>(shippedCount + apiCount);
+                pool.AddRange(shipped);
+                pool.AddRange(api);
+            }
 
             var matches = CommunityData.Match(ctx, pool);
             int n = matches.Count;

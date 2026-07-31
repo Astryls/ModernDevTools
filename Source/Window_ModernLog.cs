@@ -119,8 +119,16 @@ namespace ModernDevTools
             // One-time disclosure that other mods decorate the vanilla log window.
             y += DrawCompatHint(new Rect(content.x, y, content.width, 0f));
 
+            // Add-on tray along the bottom, hosting HugsLib-registered log buttons (Share logs, Files,
+            // Copy, plus anything other mods added) and anything registered through our own API. Without
+            // it those controls are unreachable, because the vanilla window they normally live on never
+            // opens while we own the log. Any is frame-stable (registrations happen at startup), so the
+            // reserved space cannot change between OnGUI passes.
+            bool tray = LogWidgets.Any;
+            float trayH = tray ? LogWidgets.TrayHeight + Gap : 0f;
+
             // Body: message list (left) + inspector (right)
-            Rect body = new Rect(content.x, y, content.width, content.yMax - y);
+            Rect body = new Rect(content.x, y, content.width, content.yMax - y - trayH);
             float inspW = Mathf.Clamp(body.width * 0.38f, 330f, 470f);
             Rect listRect = new Rect(body.x, body.y, body.width - inspW - Gap, body.height);
             Rect inspRect = new Rect(listRect.xMax + Gap, body.y, inspW, body.height);
@@ -130,6 +138,12 @@ namespace ModernDevTools
 
             try { DrawInspector(inspRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] inspector draw failed: " + e, 0x2E19A32); }
+
+            if (tray)
+            {
+                try { LogWidgets.Draw(this, new Rect(content.x, body.yMax + Gap, content.width, LogWidgets.TrayHeight), LogState.Selected); }
+                catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] add-on tray draw failed: " + e, 0x2E19A33); }
+            }
         }
 
         private void DrawHeader(Rect r)
@@ -318,18 +332,23 @@ namespace ModernDevTools
             Palette.StateStrip(row, TypeColor(msg.type), 3f);
 
             float x = row.x + 3f + 6f;
-            if (msg.repeats > 1)
+            // Repeat chip. When the throttle held further repeats back we show them as "+N" rather than
+            // silently understating the count - a hidden repeat count would defeat the whole point of
+            // the log, and the throttle is only defensible if it is honest about what it suppressed.
+            int suppressed = LogThrottle.Enabled ? LogThrottle.SuppressedFor(msg.text, msg.type) : 0;
+            if (msg.repeats > 1 || suppressed > 0)
             {
-                string rep = "x" + msg.repeats;
+                string rep = "x" + msg.repeats + (suppressed > 0 ? "+" + suppressed : "");
                 Text.Font = GameFont.Small;
                 float rw = TextMetrics.Size(rep).x + 10f;
                 Rect chip = new Rect(x, row.y + (RowH - 18f) / 2f, rw, 18f);
                 Widgets.DrawBoxSolid(chip, Palette.BGD);
                 Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = Palette.TextDim;
+                GUI.color = suppressed > 0 ? Palette.Warn : Palette.TextDim;
                 Widgets.Label(chip, rep);
                 GUI.color = Color.white;
                 Text.Anchor = TextAnchor.UpperLeft;
+                if (suppressed > 0) TooltipHandler.TipRegion(chip, "MDT_SuppressedTip".Translate(suppressed));
                 x += rw + 6f;
             }
 
@@ -511,7 +530,9 @@ namespace ModernDevTools
 
         private float DrawImpactBanner(float w, float y, LogMessage msg, LogAnalysis a)
         {
-            ImpactResult imp = ImpactAssessor.Assess(msg, a);
+            // Cached on the analysis and keyed on msg.repeats: this scans the whole stack trace against
+            // ~30 signal strings and would otherwise re-run on every OnGUI pass.
+            ImpactResult imp = a != null ? a.Impact(msg) : ImpactAssessor.Assess(msg, null);
             Color sev = ImpactAssessor.ColorFor(imp.Level);
             const float h = 30f;
             Rect r = new Rect(0f, y, w, h);
@@ -830,8 +851,10 @@ namespace ModernDevTools
                 _hidden = 0;
                 string s = LogState.Search;
                 bool hasSearch = !string.IsNullOrEmpty(s);
-                var ignored = ModernDevToolsMod.Settings?.ignoredIssues;
-                bool hasIgnores = ignored != null && ignored.Count > 0;
+                // Prepared once for the whole rebuild, not once per message.
+                KnownIssueIndex.IgnoreMatcher ignoreMatcher =
+                    KnownIssueIndex.IgnoreMatcherFor(ModernDevToolsMod.Settings?.ignoredIssues);
+                bool hasIgnores = ignoreMatcher.Any;
                 LogMessage sel = LogState.Selected;
                 bool selExists = false;
 
@@ -850,7 +873,7 @@ namespace ModernDevTools
                         string txt = m.text;
                         if (txt == null || txt.IndexOf(s, StringComparison.OrdinalIgnoreCase) < 0) continue;
                     }
-                    if (hasIgnores && KnownIssueIndex.TextMatchesAnyIgnored(m.text, ignored)) { _hidden++; continue; }
+                    if (hasIgnores && ignoreMatcher.Matches(m.text)) { _hidden++; continue; }
                     _filtered.Add(m);
                 }
 

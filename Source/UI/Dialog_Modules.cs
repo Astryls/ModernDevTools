@@ -108,27 +108,10 @@ namespace ModernDevTools
                 Rect row = new Rect(0f, ry, view.width, rowH - 4f);
                 bool avail = def.Available;
                 bool enabled = avail && ModernDevToolsMod.IsModuleEnabled(def);
-
-                Widgets.DrawBoxSolid(row, Palette.PanelBG);
-                if (enabled) Palette.StateStrip(row, Palette.Accent, 3f);
-                Palette.DrawBox(row, Palette.BGL, 1);
-                if (avail && Mouse.IsOver(row)) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.04f));
-
-                Color nameCol = !avail ? new Color(0.37f, 0.40f, 0.45f) : (enabled ? Palette.Stat : Palette.TextDim);
-                Palette.LabelFit(new Rect(row.x + 12f, row.y + 4f, row.width - 70f, 20f), def.label.CapitalizeFirst(), nameCol);
-                Palette.LabelFit(new Rect(row.x + 12f, row.y + 24f, row.width - 70f, 18f), SourceTag(def, avail), Palette.TextDim);
-
-                Rect toggleR = new Rect(row.xMax - 48f, row.center.y - 9f, 36f, 18f);
-                Palette.DrawToggle(toggleR, enabled);
-                if (!def.description.NullOrEmpty()) TooltipHandler.TipRegion(row, def.description);
-
-                if (avail && Widgets.ButtonInvisible(toggleR))
-                {
-                    ModernDevToolsMod.Settings.moduleEnabled[def.defName] = !enabled;
-                    ErrorModuleRegistry.Invalidate();
-                    LogAnalysisCache.Clear();
-                    ModernDevToolsMod.Instance?.WriteSettings();
-                }
+                // Shared row renderer - this and the settings page had identical copies.
+                if (Palette.ModuleRow(row, def.label.CapitalizeFirst(), SourceTag(def, avail),
+                                      def.description, avail, enabled))
+                    SettingsPage.ToggleModule(def, enabled);
                 ry += rowH;
             }
             }

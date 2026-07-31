@@ -403,4 +403,15 @@
   <MDT_YieldLogWindowDesc>Hand the debug log back to RimWorld. The hotkey, the dev toolbar button and auto-open all open the original window again, so mods that add buttons to it work exactly as they would without this mod. The modern log stays reachable from the dev tools window.</MDT_YieldLogWindowDesc>
   <MDT_LogDecorators>Detected on the vanilla log window: {0}</MDT_LogDecorators>
 
+  <!-- Repeating-log-line throttle -->
+  <MDT_SectionThrottle>Log spam</MDT_SectionThrottle>
+  <MDT_Throttle>Throttle repeating log lines</MDT_Throttle>
+  <MDT_ThrottleDesc>When the same log line repeats over and over, stop writing it after the first few. RimWorld builds a full stack trace and writes to the log file for every repeat, even ones it then discards, so a runaway error costs speed on top of whatever is already wrong. The first few always come through, and the number held back is shown next to the message. This hides symptoms, not causes.</MDT_ThrottleDesc>
+  <MDT_ThrottleSummary>held back {0} repeats of a log line after the first {1}. Fix the underlying error to stop it.</MDT_ThrottleSummary>
+  <MDT_SuppressedTip>{0} further repeats were held back by the log spam throttle.</MDT_SuppressedTip>
+
+  <!-- Declarative reflection bridges to other mods -->
+  <MDT_BridgeTitle>{0}</MDT_BridgeTitle>
+  <MDT_ReasonBridge>named by {0}</MDT_ReasonBridge>
+
 </LanguageData>

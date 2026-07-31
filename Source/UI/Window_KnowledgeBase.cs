@@ -45,6 +45,33 @@ namespace ModernDevTools
         // build hitches once on large modlists, so it is not done for the rail badge).
         private List<HPatch> _harmony;
 
+        // --- viewport culling ---------------------------------------------------------------------
+        // Widgets.BeginScrollView CLIPS pixels; it does not skip the draw code behind them. Every tab
+        // here iterates its whole filtered list, and each card measures itself with several text calls
+        // and emits widgets - so the Harmony tab was doing well over a thousand measurements and ~1500
+        // texture draws per OnGUI pass for content that was mostly off screen. Cards still MEASURE (the
+        // layout cursor has to advance, and measurement is memoised by TextMetrics) but skip drawing
+        // when they fall outside the viewport.
+        //
+        // The window is latched per FRAME, not read live: BeginScrollView writes the scroll position
+        // during the scroll-wheel pass, so reading it directly could cull a different set on Repaint
+        // than on Layout - which shifts every later IMGUI control id and drops clicks.
+        private const float CullMargin = 300f;
+        private static float _cullTop, _cullBottom;
+        private static int _cullFrame = -1;
+
+        private void UpdateCullWindow(float viewportH)
+        {
+            int f = Time.frameCount;
+            if (f == _cullFrame) return;
+            _cullFrame = f;
+            _cullTop = _scroll.y - CullMargin;
+            _cullBottom = _scroll.y + viewportH + CullMargin;
+        }
+
+        /// <summary>True when a block at [y, y+h) intersects the (frame-latched) visible window.</summary>
+        private static bool Visible(float y, float h) => y + h >= _cullTop && y <= _cullBottom;
+
         public Window_KnowledgeBase()
         {
             doWindowBackground = false;
@@ -206,6 +233,7 @@ namespace ModernDevTools
             Rect body = new Rect(inner.x, topBar.yMax + 8f, inner.width, inner.yMax - topBar.yMax - 8f);
             float vw = body.width - 16f;
             Rect view = new Rect(0f, 0f, vw, Mathf.Max(_contentH, body.height));
+            UpdateCullWindow(body.height);
             Palette.BeginScroll(body, ref _scroll, view);
             try
             {
@@ -288,6 +316,8 @@ namespace ModernDevTools
             float innerW = w - 24f;
             float descH = Mathf.Ceil(TextMetrics.Height(desc, innerW));
             float h = 8f + lh + 2f + descH + 8f;
+            if (!Visible(y, h)) return y + h + 6f;
+
             Rect card = new Rect(0f, y, w, h);
             bool over = Mouse.IsOver(card);
             Widgets.DrawBoxSolid(card, over ? Color.Lerp(Palette.PanelBG, Palette.BGL, 0.45f) : Palette.PanelBG);
@@ -598,6 +628,8 @@ namespace ModernDevTools
             float innerW = w - 24f;
             float defH = Mathf.Ceil(TextMetrics.Height(def, innerW));
             float h = 8f + lh + 4f + defH + 8f;
+            if (!Visible(y, h)) return y + h + 6f;
+
             Rect card = new Rect(0f, y, w, h);
             Palette.DrawCard(card);
             Palette.StateStrip(card, Palette.StripGray, 3f);
@@ -637,6 +669,8 @@ namespace ModernDevTools
 
             float cardH = 8f + titleH + (hasTag ? 2f + tagH : 0f) + (hasBody ? 6f + bodyH : 0f)
                         + (hasFix ? 6f + fixH : 0f) + (hasSig ? 6f + sigH : 0f) + (hasUrl ? 4f + urlH : 0f) + 8f;
+            if (!Visible(y, cardH)) return y + cardH + 6f;   // measured, off screen: nothing to draw
+
             Rect card = new Rect(0f, y, w, cardH);
             Palette.DrawCard(card);
             Palette.StateStrip(card, strip, 3f);
@@ -671,7 +705,7 @@ namespace ModernDevTools
 
         private static float DrawSection(float w, float y, string label)
         {
-            Palette.SectionHeader(new Rect(0f, y, w, 24f), label);
+            if (Visible(y, 24f)) Palette.SectionHeader(new Rect(0f, y, w, 24f), label);
             return y + 24f + 6f;
         }
 
@@ -681,6 +715,7 @@ namespace ModernDevTools
             Text.WordWrap = true;
             Text.Anchor = TextAnchor.UpperLeft;
             float h = Mathf.Ceil(TextMetrics.Height(text, w));
+            if (!Visible(y, h)) return y + h + 8f;
             GUI.color = Palette.TextDim;
             Widgets.Label(new Rect(0f, y, w, h), text);
             GUI.color = Color.white;
@@ -791,11 +826,23 @@ namespace ModernDevTools
             return d;
         }
 
+        // Def counts are fixed once the game has loaded, but the rail badge and the Sources dashboard
+        // each asked for both of them every OnGUI pass - four full scans of the def list per pass.
+        private static int _countNormal = -1, _countBenign = -1;
+
         private static int CountDefs(bool benign)
         {
-            int n = 0;
-            foreach (KnownIssueDef d in DefDatabase<KnownIssueDef>.AllDefsListForReading) if (d.benign == benign) n++;
-            return n;
+            if (_countNormal < 0)
+            {
+                int normal = 0, ben = 0;
+                foreach (KnownIssueDef d in DefDatabase<KnownIssueDef>.AllDefsListForReading)
+                {
+                    if (d.benign) ben++; else normal++;
+                }
+                _countNormal = normal;
+                _countBenign = ben;
+            }
+            return benign ? _countBenign : _countNormal;
         }
 
         private static string TitleOf(KnownIssueDef d) => d.label.NullOrEmpty() ? d.defName : d.LabelCap.ToString();
@@ -841,11 +888,7 @@ namespace ModernDevTools
             return method.NullOrEmpty() ? shortType : shortType + "." + method;
         }
 
-        private static string PairKey(string a, string b)
-        {
-            string la = (a ?? "").ToLowerInvariant(), lb = (b ?? "").ToLowerInvariant();
-            return string.CompareOrdinal(la, lb) <= 0 ? la + "|" + lb : lb + "|" + la;
-        }
+        private static string PairKey(string a, string b) => IssueTextUtil.PairKey(a, b);
 
         private static bool Match(string q, params string[] fields)
         {

@@ -17,7 +17,13 @@ namespace ModernDevTools
 
         public override float DrawSection(float width, float y, ErrorContext ctx)
         {
-            List<KeyValuePair<string, string>> terms = Glossary.TermsIn(BuildText(ctx));
+            // Cached on the analysis: BuildText concatenates the message plus every diagnosis and then
+            // 26 compiled regexes sweep the result. All of those inputs are fixed once the pipeline has
+            // run, so doing it per OnGUI pass was pure waste.
+            LogAnalysis a = ctx?.Message != null ? LogAnalysisCache.Peek(ctx.Message) : null;
+            List<KeyValuePair<string, string>> terms = a != null
+                ? a.GlossaryTerms(() => Glossary.TermsIn(BuildText(ctx)))
+                : Glossary.TermsIn(BuildText(ctx));
             if (terms.Count == 0) return y;
 
             Text.Font = GameFont.Small;

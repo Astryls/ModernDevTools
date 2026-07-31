@@ -60,10 +60,6 @@ namespace ModernDevTools
                     yield return p;
         }
 
-        private static string PairKey(string a, string b)
-        {
-            string la = a.ToLowerInvariant(), lb = b.ToLowerInvariant();
-            return string.CompareOrdinal(la, lb) <= 0 ? la + "|" + lb : lb + "|" + la;
-        }
+        private static string PairKey(string a, string b) => IssueTextUtil.PairKey(a, b);
     }
 }

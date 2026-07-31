@@ -328,7 +328,7 @@ namespace ModernDevTools
 
             float x = row.x + 8f;
             Rect iconR = new Rect(x, row.y + (RowH - 22f) / 2f, 22f, 22f);
-            if (checkbox) { DrawCheck(iconR, DebugTree.GetCheck(node)); x = iconR.xMax + 8f; }
+            if (checkbox) { Palette.DrawCheck(iconR, DebugTree.GetCheck(node)); x = iconR.xMax + 8f; }
             else if (category) { x = row.x + 10f; }             // folders: chevron only, no fallback icon
             else { DrawIcon(iconR, node); x = iconR.xMax + 8f; }
 
@@ -454,26 +454,8 @@ namespace ModernDevTools
             catch { }
         }
 
-        private static void DrawCheck(Rect r, bool on)
-        {
-            Widgets.DrawBoxSolid(r, on ? Palette.Accent : Palette.BGD);
-            Palette.DrawBox(r, on ? Palette.Accent : Palette.BGL, 1);
-            if (on)
-            {
-                Vector2 a = new Vector2(r.x + 5f, r.y + r.height * 0.55f);
-                Vector2 b = new Vector2(r.x + r.width * 0.42f, r.yMax - 5f);
-                Vector2 c = new Vector2(r.xMax - 4f, r.y + 4f);
-                Widgets.DrawLine(a, b, Palette.BGD, 2f);
-                Widgets.DrawLine(b, c, Palette.BGD, 2f);
-            }
-        }
-
-        private static void DrawChevron(Rect r, bool over)
-        {
-            Color c = over ? Palette.Stat : Palette.TextDim;
-            Widgets.DrawLine(new Vector2(r.x, r.y), new Vector2(r.xMax, r.center.y), c, 1.5f);
-            Widgets.DrawLine(new Vector2(r.xMax, r.center.y), new Vector2(r.x, r.yMax), c, 1.5f);
-        }
+        // DrawCheck now lives on Palette (both dev windows had a near-identical copy). The former
+        // private DrawChevron here was dead code - this class draws chevrons via Palette.DrawChevron.
 
         private static void DrawCenter(Rect r, string text, Color color)
         {

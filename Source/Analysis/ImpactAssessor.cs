@@ -54,6 +54,20 @@ namespace ModernDevTools
             "DynamicDrawPhase", "DoWindowContents", "ExtraOnGUI", "MapInterface", "PawnRenderer"
         };
 
+        /// <summary>
+        /// Effective repeat count: what vanilla recorded PLUS anything the log-spam throttle held back.
+        /// Without this, enabling the throttle would quietly downgrade severity for exactly the errors
+        /// that are firing hardest - the assessment would read the capped count and conclude the error
+        /// is mild. The throttle must never be able to make an error look less serious than it is.
+        /// </summary>
+        public static int EffectiveRepeats(LogMessage msg)
+        {
+            if (msg == null) return 1;
+            int reps = Mathf.Max(1, msg.repeats);
+            if (LogThrottle.Enabled) reps += LogThrottle.SuppressedFor(msg.text, msg.type);
+            return reps;
+        }
+
         public static ImpactResult Assess(LogMessage msg, LogAnalysis a)
         {
             var r = new ImpactResult
@@ -68,7 +82,7 @@ namespace ModernDevTools
             {
                 string trace = msg.StackTrace ?? "";
                 string text = msg.text ?? "";
-                int reps = Mathf.Max(1, msg.repeats);
+                int reps = EffectiveRepeats(msg);
                 bool err = msg.type == LogMessageType.Error;
                 bool warn = msg.type == LogMessageType.Warning;
 

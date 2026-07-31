@@ -57,23 +57,67 @@ namespace ModernDevTools
         /// <summary>Resolve the pinned paths to live nodes. <paramref name="prefIndicesOut"/> (when given)
         /// records which Prefs.DebugActionsPalette entry each row came from - pins that no longer resolve
         /// are skipped, so row index != pref index.</summary>
-        private static List<DebugActionNode> ResolveNodes(List<int> prefIndicesOut = null)
+        // Resolved-node cache. Dialog_Debug.GetNode splits the path and, per segment, runs a LINQ
+        // FirstOrDefault with a CAPTURING lambda (closure + delegate allocation) and calls
+        // TrySetupChildren - and this ran for every pin on every frame. The pins themselves only change
+        // when the player pins, unpins or reorders, so the resolved nodes are cached against a cheap
+        // signature of the pref list. Labels are still read live from the nodes each frame, so nothing
+        // about the displayed text becomes stale.
+        private static readonly List<DebugActionNode> _nodeCache = new List<DebugActionNode>();
+        private static readonly List<int> _nodeCachePrefIdx = new List<int>();
+        private static int _nodeCacheSig = int.MinValue;
+
+        private static int PaletteSignature()
         {
-            var list = new List<DebugActionNode>();
-            prefIndicesOut?.Clear();
             try
             {
                 var palette = Prefs.DebugActionsPalette;
-                for (int i = 0; i < palette.Count; i++)
+                if (palette == null) return 0;
+                unchecked
                 {
-                    DebugActionNode n = Dialog_Debug.GetNode(palette[i]);
-                    if (n == null) continue;
-                    list.Add(n);
-                    prefIndicesOut?.Add(i);
+                    int h = 17 + palette.Count;
+                    for (int i = 0; i < palette.Count; i++)
+                        h = (h * 31) ^ (palette[i] != null ? palette[i].GetHashCode() : 0);
+                    return h;
                 }
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette resolve failed: " + e.Message, 0x2E19C20); }
-            return list;
+            catch { return int.MinValue + 1; }
+        }
+
+        /// <summary>Invalidate the resolved-node cache (pin/unpin/reorder changed the pref list).</summary>
+        private static void InvalidateNodes() => _nodeCacheSig = int.MinValue;
+
+        /// <summary>Resolve the pinned paths to live nodes. <paramref name="prefIndicesOut"/> (when given)
+        /// records which Prefs.DebugActionsPalette entry each row came from - pins that no longer resolve
+        /// are skipped, so row index != pref index.</summary>
+        private static List<DebugActionNode> ResolveNodes(List<int> prefIndicesOut = null)
+        {
+            int sig = PaletteSignature();
+            if (sig != _nodeCacheSig)
+            {
+                _nodeCacheSig = sig;
+                _nodeCache.Clear();
+                _nodeCachePrefIdx.Clear();
+                try
+                {
+                    var palette = Prefs.DebugActionsPalette;
+                    for (int i = 0; palette != null && i < palette.Count; i++)
+                    {
+                        DebugActionNode n = Dialog_Debug.GetNode(palette[i]);
+                        if (n == null) continue;
+                        _nodeCache.Add(n);
+                        _nodeCachePrefIdx.Add(i);
+                    }
+                }
+                catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette resolve failed: " + e.Message, 0x2E19C20); }
+            }
+
+            if (prefIndicesOut != null)
+            {
+                prefIndicesOut.Clear();
+                prefIndicesOut.AddRange(_nodeCachePrefIdx);
+            }
+            return _nodeCache;
         }
 
         // --- browser-tab style drag state (ported from Modern Pawn Tabs' DragState idiom) ---
@@ -85,6 +129,13 @@ namespace ModernDevTools
         private Vector2 _dragStart;
         private float _dragOffsetY;     // grab point inside the row, so the ghost tracks naturally
         private bool _swallowClick;     // a drag just ended: don't let this MouseUp fire the action
+
+        // Frame on which a pin/unpin/reorder changed the pref list. The re-resolve + resize is applied
+        // at the top of a LATER frame's draw, never inline, for two reasons: ResolveNodes returns the
+        // shared cache list that Draw is currently iterating (clearing it mid-loop would throw), and
+        // changing the row count between OnGUI passes of the SAME frame shifts every later IMGUI
+        // control id, which silently kills clicks.
+        private int _pendingResizeFrame = -1;
 
         private static float CatH => Text.LineHeightOf(GameFont.Tiny);
         private static float LeafH => Text.LineHeightOf(GameFont.Small);
@@ -155,6 +206,14 @@ namespace ModernDevTools
 
         private void Draw(Rect inRect)
         {
+            // Apply a pending pin/reorder only once the frame it happened in is fully over.
+            if (_pendingResizeFrame >= 0 && Time.frameCount > _pendingResizeFrame)
+            {
+                _pendingResizeFrame = -1;
+                InvalidateNodes();
+                SetInitialSizeAndPosition();
+            }
+
             List<DebugActionNode> nodes = ResolveNodes(_prefIdx);
             // Labels come from live getters, so re-fit when the count OR the widest label changes.
             if (nodes.Count != _lastCount ||
@@ -234,7 +293,7 @@ namespace ModernDevTools
             // thumbtack: always pinned here, so white; click to unpin
             Palette.DrawPin(pinR.ContractedBy(1f), true);
             TooltipHandler.TipRegion(pinR, "MDT_Unpin".Translate());
-            if (Widgets.ButtonInvisible(pinR)) { DebugTree.TogglePin(node); SetInitialSizeAndPosition(); }
+            if (Widgets.ButtonInvisible(pinR)) { DebugTree.TogglePin(node); _pendingResizeFrame = Time.frameCount; }
 
             // Always call the button (stable IMGUI control count), but swallow the result while a drag
             // is live or just ended - otherwise dropping a row would also fire its action.
@@ -266,7 +325,7 @@ namespace ModernDevTools
             if (checkbox)
             {
                 Rect ck = new Rect(x, leafY + (LeafH - 14f) / 2f, 14f, 14f);
-                DrawCheck(ck, DebugTree.GetCheck(node));
+                Palette.DrawCheck(ck, DebugTree.GetCheck(node));
                 x = ck.xMax + 5f;
                 textW = textRight - x - PadR;
             }
@@ -344,7 +403,7 @@ namespace ModernDevTools
                 pref.Insert(Mathf.Clamp(to, 0, pref.Count), item);
                 pref.RemoveAt(from < to ? from : from + 1);
                 Prefs.Save();
-                SetInitialSizeAndPosition();
+                _pendingResizeFrame = Time.frameCount;
             }
             catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette reorder failed: " + e.Message, 0x2E19C22); }
         }
@@ -399,17 +458,6 @@ namespace ModernDevTools
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.WordWrap = prevWrap;
                 Text.Font = prevFont;
-            }
-        }
-
-        private static void DrawCheck(Rect r, bool on)
-        {
-            Widgets.DrawBoxSolid(r, on ? Palette.Accent : Palette.BGD);
-            Palette.DrawBox(r, on ? Palette.Accent : Palette.BGL, 1);
-            if (on)
-            {
-                Widgets.DrawLine(new Vector2(r.x + 4f, r.y + r.height * 0.55f), new Vector2(r.x + r.width * 0.42f, r.yMax - 4f), Palette.BGD, 2f);
-                Widgets.DrawLine(new Vector2(r.x + r.width * 0.42f, r.yMax - 4f), new Vector2(r.xMax - 3f, r.y + 3f), Palette.BGD, 2f);
             }
         }
 

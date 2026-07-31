@@ -20,7 +20,7 @@ namespace ModernDevTools
     /// </summary>
     public static class KnownIssueIndex
     {
-        private class Compiled
+        internal class Compiled
         {
             public KnownIssueDef def;
             public Regex[] regexes;
@@ -85,47 +85,78 @@ namespace ModernDevTools
             catch (Exception e) { Log.WarningOnce($"[Modern Dev Tools] Bad attributeRegex in {def.defName}: {e.Message}", def.defName.GetHashCode() ^ 0x11); return null; }
         }
 
-        private static Regex[] CompileList(KnownIssueDef def, List<string> patterns)
+        private static Regex[] CompileList(KnownIssueDef def, List<string> patterns) =>
+            IssueTextUtil.CompileRegexes(patterns, def.defName);
+
+        private static string[] Lower(List<string> src) => IssueTextUtil.Lower(src);
+
+        /// <summary>
+        /// A prepared filter for "is this message one of the classes the player muted?".
+        ///
+        /// Built ONCE per list rebuild rather than per message. The previous per-message form allocated
+        /// a full lowercase copy of every message's text and ran the exception-type regex over it, for
+        /// every one of up to 1000 queued messages, on every rebuild - and a rebuild is triggered by
+        /// every single log line that arrives. Here the ignored subset is resolved up front, keyword
+        /// tests use allocation-free OrdinalIgnoreCase IndexOf, and the exception type is extracted
+        /// only if some ignored entry actually keys on one.
+        /// </summary>
+        public sealed class IgnoreMatcher
         {
-            if (patterns == null || patterns.Count == 0) return Array.Empty<Regex>();
-            var list = new List<Regex>();
-            foreach (string pat in patterns)
+            private readonly Compiled[] _entries;
+            private readonly bool _needsExType;
+
+            internal IgnoreMatcher(Compiled[] entries)
             {
-                try { list.Add(new Regex(pat, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)); }
-                catch (Exception e) { Log.WarningOnce($"[Modern Dev Tools] Bad regex in {def.defName}: {e.Message}", def.defName.GetHashCode()); }
+                _entries = entries;
+                foreach (Compiled c in entries)
+                    if (c.exTypesLower.Length > 0) { _needsExType = true; break; }
             }
-            return list.ToArray();
+
+            public bool Any => _entries.Length > 0;
+
+            public bool Matches(string messageText)
+            {
+                if (_entries.Length == 0) return false;
+                try
+                {
+                    string text = messageText ?? "";
+                    string exType = null;
+                    if (_needsExType) exType = FrameParser.ExtractExceptionType(text)?.ToLowerInvariant();
+
+                    for (int i = 0; i < _entries.Length; i++)
+                    {
+                        Compiled c = _entries[i];
+                        if (exType != null && c.exTypesLower.Length > 0
+                            && Array.IndexOf(c.exTypesLower, exType) >= 0) return true;
+                        for (int r = 0; r < c.regexes.Length; r++)
+                            if (c.regexes[r].IsMatch(text)) return true;
+                        for (int k = 0; k < c.keywordsLower.Length; k++)
+                        {
+                            string kw = c.keywordsLower[k];
+                            if (kw.Length > 0 && text.IndexOf(kw, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                        }
+                    }
+                }
+                catch { }
+                return false;
+            }
         }
 
-        private static string[] Lower(List<string> src)
-        {
-            if (src == null || src.Count == 0) return Array.Empty<string>();
-            var arr = new string[src.Count];
-            for (int i = 0; i < src.Count; i++) arr[i] = src[i]?.ToLowerInvariant() ?? "";
-            return arr;
-        }
+        private static readonly IgnoreMatcher EmptyMatcher = new IgnoreMatcher(Array.Empty<Compiled>());
 
-        /// <summary>Text-only test (no attribution needed) used by the list ignore-filter: does this
-        /// message match any of the ignored issue types?</summary>
-        public static bool TextMatchesAnyIgnored(string messageText, ICollection<string> ignoredDefNames)
+        /// <summary>Prepare an <see cref="IgnoreMatcher"/> for the given muted issue defNames.</summary>
+        public static IgnoreMatcher IgnoreMatcherFor(ICollection<string> ignoredDefNames)
         {
-            if (ignoredDefNames == null || ignoredDefNames.Count == 0) return false;
-            List<Compiled> all = All;
+            if (ignoredDefNames == null || ignoredDefNames.Count == 0) return EmptyMatcher;
             try
             {
-                string text = messageText ?? "";
-                string textLower = text.ToLowerInvariant();
-                string exType = FrameParser.ExtractExceptionType(text)?.ToLowerInvariant();
+                List<Compiled> all = All;
+                var subset = new List<Compiled>();
                 foreach (Compiled c in all)
-                {
-                    if (!ignoredDefNames.Contains(c.def.defName)) continue;
-                    if (c.exTypesLower.Length > 0 && exType != null && c.exTypesLower.Contains(exType)) return true;
-                    if (c.regexes.Length > 0 && c.regexes.Any(rx => rx.IsMatch(text))) return true;
-                    if (c.keywordsLower.Length > 0 && c.keywordsLower.Any(k => k.Length > 0 && textLower.Contains(k))) return true;
-                }
+                    if (ignoredDefNames.Contains(c.def.defName)) subset.Add(c);
+                return subset.Count == 0 ? EmptyMatcher : new IgnoreMatcher(subset.ToArray());
             }
-            catch { }
-            return false;
+            catch { return EmptyMatcher; }
         }
 
         /// <summary>Fast pre-pass: is this the text of a known benign, no-fault engine line? Text-only
@@ -158,19 +189,15 @@ namespace ModernDevTools
             try
             {
                 string text = ctx.Text ?? "";
-                string textLower = text.ToLowerInvariant();
                 string exType = ctx.ExceptionType?.ToLowerInvariant();
                 var pids = new HashSet<string>(ctx.ImplicatedPackageIds.Select(p => p.ToLowerInvariant()));
 
                 foreach (Compiled c in all)
                 {
-                    int score = 0;
-                    if (c.exTypesLower.Length > 0 && exType != null && c.exTypesLower.Contains(exType)) score += 3;
-                    if (c.regexes.Length > 0 && c.regexes.Any(rx => rx.IsMatch(text))) score += 3;
-                    if (c.keywordsLower.Length > 0 && c.keywordsLower.Any(k => k.Length > 0 && textLower.Contains(k))) score += 2;
-                    if (c.namespaces.Length > 0 && ctx.Namespaces.Count > 0 &&
-                        c.namespaces.Any(ns => ctx.Namespaces.Any(x => x.StartsWith(ns, StringComparison.OrdinalIgnoreCase)))) score += 2;
-                    if (c.packageIdsLower.Length > 0 && pids.Count > 0 && c.packageIdsLower.Any(pids.Contains)) score += 2;
+                    // Shared scorer: the same weights serve the shipped library, mod-shipped files,
+                    // API-registered sources and the community database.
+                    int score = IssueScoring.Score(text, exType, ctx.Namespaces, pids,
+                        c.exTypesLower, c.regexes, c.keywordsLower, c.namespaces, c.packageIdsLower);
 
                     if (score > 0) scored.Add(new KeyValuePair<Compiled, int>(c, score + c.def.priority));
                 }

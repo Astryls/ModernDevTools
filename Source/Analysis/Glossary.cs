@@ -79,14 +79,23 @@ namespace ModernDevTools
             return found;
         }
 
-        /// <summary>Every glossary term as (label, definition), translated. Used by the knowledge browser.</summary>
+        private static List<KeyValuePair<string, string>> _allCache;
+
+        /// <summary>
+        /// Every glossary term as (label, definition), translated. Used by the knowledge browser.
+        /// CACHED: the knowledge base called this from its rail badge, its Sources dashboard and its
+        /// Glossary tab - up to three times per OnGUI pass - and each call allocated a fresh list and
+        /// performed 52 Translate() lookups purely to render a count. Treat the result as READ-ONLY.
+        /// </summary>
         public static List<KeyValuePair<string, string>> AllTerms()
         {
+            if (_allCache != null) return _allCache;
             Ensure();
             var list = new List<KeyValuePair<string, string>>(_terms.Count);
             foreach (Term t in _terms)
                 list.Add(new KeyValuePair<string, string>(t.LabelKey.Translate(), t.DefKey.Translate()));
-            return list;
+            _allCache = list;
+            return _allCache;
         }
     }
 }

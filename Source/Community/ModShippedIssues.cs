@@ -72,6 +72,6 @@ namespace ModernDevTools
             _all = list;
         }
 
-        private static string StripBom(string s) => (!s.NullOrEmpty() && s[0] == '\uFEFF') ? s.Substring(1) : s;
+        private static string StripBom(string s) => IssueTextUtil.StripBom(s);
     }
 }

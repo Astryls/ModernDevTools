@@ -70,6 +70,12 @@ namespace ModernDevTools
 
         private readonly Dictionary<string, AttributedMod> _attr =
             new Dictionary<string, AttributedMod>(StringComparer.OrdinalIgnoreCase);
+
+        // RankedMods() runs a five-key LINQ sort plus a ToList. Culprits is defined in terms of it and
+        // four modules foreach over Culprits, so the sort was running four-plus times per analysed
+        // message. Cached, and invalidated by Merge - which matters because attribution keeps arriving
+        // while the pipeline runs (module N's Diagnose may read Culprits before module N+1 contributes).
+        private List<AttributedMod> _ranked;
         public readonly List<ErrorDiagnosis> Diagnoses = new List<ErrorDiagnosis>();
 
         /// <summary>Namespace prefixes seen in the stack trace (filled by the stack-trace module,
@@ -131,6 +137,7 @@ namespace ModernDevTools
                 if (frameIndex < am.FirstIndex) am.FirstIndex = frameIndex;
             }
             if (!reason.NullOrEmpty() && !am.Reasons.Contains(reason)) am.Reasons.Add(reason);
+            _ranked = null;   // attribution changed: the cached ranking is stale
         }
 
         public void AddDiagnosis(ErrorDiagnosis d)
@@ -141,13 +148,13 @@ namespace ModernDevTools
 
         public List<AttributedMod> RankedMods()
         {
-            return _attr.Values
+            return _ranked ?? (_ranked = _attr.Values
                 .OrderBy(a => a.Kind == SourceKind.Mod ? 0 : 1)
                 .ThenByDescending(a => a.Weight)
                 .ThenBy(a => a.FirstIndex)
                 .ThenByDescending(a => a.Frames)
                 .ThenBy(a => a.Name)
-                .ToList();
+                .ToList());
         }
 
         public IEnumerable<AttributedMod> Culprits => RankedMods().Where(m => m.Kind == SourceKind.Mod);

@@ -281,20 +281,16 @@ namespace ModernDevTools
             try
             {
                 string text = ctx.Text ?? "";
-                string textLower = text.ToLowerInvariant();
                 string exType = ctx.ExceptionType?.ToLowerInvariant();
                 var pids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var p in ctx.ImplicatedPackageIds) pids.Add(p);
 
                 foreach (RemoteIssue b in bugs)
                 {
-                    int score = 0;
-                    if (b.ExceptionTypes.Length > 0 && exType != null && System.Array.IndexOf(b.ExceptionTypes, exType) >= 0) score += 3;
-                    if (b.Regexes.Length > 0) foreach (var rx in b.Regexes) if (rx.IsMatch(text)) { score += 3; break; }
-                    if (b.Keywords.Length > 0) foreach (var k in b.Keywords) if (k.Length > 0 && textLower.Contains(k)) { score += 2; break; }
-                    if (b.Namespaces.Length > 0 && ctx.Namespaces.Count > 0)
-                        foreach (var ns in b.Namespaces) { bool hit = false; foreach (var x in ctx.Namespaces) if (x.StartsWith(ns, StringComparison.OrdinalIgnoreCase)) { hit = true; break; } if (hit) { score += 2; break; } }
-                    if (b.PackageIds.Length > 0 && pids.Count > 0) foreach (var p in b.PackageIds) if (pids.Contains(p)) { score += 2; break; }
+                    // Shared scorer - see IssueScoring. This used to be a hand-written copy of the same
+                    // weights, so a change here silently disagreed with the shipped library.
+                    int score = IssueScoring.Score(text, exType, ctx.Namespaces, pids,
+                        b.ExceptionTypes, b.Regexes, b.Keywords, b.Namespaces, b.PackageIds);
                     if (score > 0) scored.Add(new KeyValuePair<RemoteIssue, int>(b, score));
                 }
             }
@@ -317,23 +313,10 @@ namespace ModernDevTools
             return list.ToArray();
         }
 
-        private static string[] Lower(string[] arr)
-        {
-            for (int i = 0; i < arr.Length; i++) arr[i] = arr[i].ToLowerInvariant();
-            return arr;
-        }
+        private static string[] Lower(string[] arr) => IssueTextUtil.LowerInPlace(arr);
 
-        private static Regex[] CompileRegexes(string[] patterns, string id)
-        {
-            if (patterns.Length == 0) return System.Array.Empty<Regex>();
-            var list = new List<Regex>();
-            foreach (var p in patterns)
-            {
-                try { list.Add(new Regex(p, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)); }
-                catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] bad community regex in " + id + ": " + e.Message, (id ?? "").GetHashCode()); }
-            }
-            return list.ToArray();
-        }
+        private static Regex[] CompileRegexes(string[] patterns, string id) =>
+            IssueTextUtil.CompileRegexes(patterns, id);
 
         // --- io helpers ---
 
@@ -371,7 +354,7 @@ namespace ModernDevTools
                 return r.ReadToEnd();
         }
 
-        private static string StripBom(string s) => (!s.NullOrEmpty() && s[0] == '\uFEFF') ? s.Substring(1) : s;
+        private static string StripBom(string s) => IssueTextUtil.StripBom(s);
 
         private static void RunBg(Action a)
         {

@@ -30,6 +30,10 @@ namespace ModernDevTools
         public bool yieldLogWindow = false;
         public bool dismissedLogCompatHint = false;
 
+        // Suppress runaway repeating log lines (see LogThrottle). Default OFF: it sits on the error path
+        // of every mod in the game, so it earns its default-on over a release, not on day one.
+        public bool throttleRepeatingLogs = false;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -42,6 +46,7 @@ namespace ModernDevTools
             Scribe_Values.Look(ref experimentalMapUiHardening, "experimentalMapUiHardening", false);
             Scribe_Values.Look(ref yieldLogWindow, "yieldLogWindow", false);
             Scribe_Values.Look(ref dismissedLogCompatHint, "dismissedLogCompatHint", false);
+            Scribe_Values.Look(ref throttleRepeatingLogs, "throttleRepeatingLogs", false);
             if (moduleEnabled == null) moduleEnabled = new Dictionary<string, bool>();
             if (ignoredIssues == null) ignoredIssues = new HashSet<string>();
         }

@@ -16,6 +16,40 @@ namespace ModernDevTools
         public IEnumerable<AttributedMod> Culprits => Mods.Where(m => m.Kind == SourceKind.Mod);
         public bool AnyCulprit => Mods.Any(m => m.Kind == SourceKind.Mod);
 
+        // --- derived data, computed once per message instead of once per OnGUI pass ---
+        // The inspector redraws 2-3 times per frame and both of these are pure functions of data that
+        // is fixed at analysis time, yet each was being recomputed every pass: the impact assessment
+        // scans the whole stack trace against ~30 signal strings, and the glossary sweep rebuilds a
+        // concatenated string and runs 26 compiled regexes over it.
+
+        private ImpactResult _impact;
+        private int _impactRepeats = -1;
+
+        /// <summary>
+        /// Cached impact assessment. Keyed on msg.repeats, which is the ONE input that mutates after
+        /// the analysis is built: vanilla increments repeats in place when the same line is logged
+        /// again, and recurrence is precisely what escalates severity. Caching without that key would
+        /// freeze the banner at the first occurrence's verdict and silently defeat the escalation.
+        /// </summary>
+        public ImpactResult Impact(LogMessage msg)
+        {
+            // Keyed on the EFFECTIVE count so a throttled error re-assesses as its suppressed total grows.
+            int reps = ImpactAssessor.EffectiveRepeats(msg);
+            if (_impactRepeats != reps)
+            {
+                _impact = ImpactAssessor.Assess(msg, this);
+                _impactRepeats = reps;
+            }
+            return _impact;
+        }
+
+        private List<KeyValuePair<string, string>> _terms;
+
+        /// <summary>Cached glossary terms found in this error and its diagnoses. Every input is fixed
+        /// once the pipeline has run, so this is computed exactly once.</summary>
+        public List<KeyValuePair<string, string>> GlossaryTerms(Func<List<KeyValuePair<string, string>>> build) =>
+            _terms ?? (_terms = build());
+
         /// <summary>Normal, no-fault engine output (version banner, mod-list dumps, ...). Decided once,
         /// before the pipeline runs; when true the inspector shows "No concern" and hides attribution.</summary>
         public bool Benign => Context != null && Context.Benign;
@@ -42,6 +76,17 @@ namespace ModernDevTools
             if (msg == null) return null;
             if (_dirty) { _dirty = false; _cache = new ConditionalWeakTable<LogMessage, LogAnalysis>(); }
             return _cache.GetValue(msg, Compute);
+        }
+
+        /// <summary>
+        /// The cached analysis for a message, or null if it has not been analysed yet. Unlike For(),
+        /// this never triggers the module pipeline - use it from DRAW code that wants to reuse derived
+        /// data but must not cause work (or re-entrancy) if the analysis is somehow absent.
+        /// </summary>
+        public static LogAnalysis Peek(LogMessage msg)
+        {
+            if (msg == null) return null;
+            return _cache.TryGetValue(msg, out LogAnalysis a) ? a : null;
         }
 
         /// <summary>Drop every cached analysis. Safe to call from any thread.</summary>
@@ -73,12 +118,16 @@ namespace ModernDevTools
                 catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] module '" + module.Label + "' diagnose failed: " + e.Message, module.GetType().GetHashCode() ^ 7); }
             }
 
-            return new LogAnalysis
+            var analysis = new LogAnalysis
             {
                 Context = ctx,
                 Mods = ctx.RankedMods(),
                 Diagnoses = ctx.Diagnoses.OrderByDescending(d => d.Score).ToList()
             };
+
+            // Fires once per message, never per frame. Handlers are sandboxed inside the notifier.
+            ModernDevToolsAPI.NotifyAnalysisCompleted(analysis);
+            return analysis;
         }
     }
 }

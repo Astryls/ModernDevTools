@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
+using LudeonTK;
 using UnityEngine;
 using Verse;
 
@@ -92,17 +93,41 @@ namespace ModernDevTools
         // --- Draw helpers ---
 
         /// <summary>Solid opaque card: PanelBG fill + 1px BGL border.</summary>
-        public static void DrawCard(Rect r)
-        {
-            Widgets.DrawBoxSolid(r, PanelBG);
-            DrawBox(r, BGL, 1);
-        }
+        public static void DrawCard(Rect r) => DrawPlate(r, PanelBG, BGL);
 
         /// <summary>Recessed well: BGD fill + 1px BGL border.</summary>
-        public static void DrawWell(Rect r)
+        public static void DrawWell(Rect r) => DrawPlate(r, BGD, BGL);
+
+        /// <summary>
+        /// A filled rect with a 1px border - the suite's single most-drawn primitive.
+        ///
+        /// The obvious form (DrawBoxSolid + Widgets.DrawBox) costs FIVE GUI.DrawTexture calls: one fill
+        /// plus one per border edge. Drawing the border colour as a single filled rect and then the fill
+        /// colour inset by 1px produces the same ring in TWO calls - a 60% cut on the primitive that
+        /// dominates every panel in the mod.
+        ///
+        /// The fast path is deliberately limited to UIScale 1.0. Widgets.DrawBox snaps every edge with
+        /// UIScaling.AdjustRectToUIScaling (floor the mins, ceil the maxes) so the ring lands on device
+        /// pixels; at scale 1.0 that reduces to plain floor/ceil, so snapping the outer rect once and
+        /// insetting by a whole pixel is provably identical. At fractional scales the inset edge would
+        /// no longer sit on a device-pixel boundary and the border could render uneven or blurry, so
+        /// those keep vanilla's per-edge snapping. Appearance is the constraint; the draw saving is not
+        /// worth a single soft pixel.
+        /// </summary>
+        public static void DrawPlate(Rect r, Color fill, Color border)
         {
-            Widgets.DrawBoxSolid(r, BGD);
-            DrawBox(r, BGL, 1);
+            if (Prefs.UIScale == 1f)
+            {
+                Rect outer = UIScaling.AdjustRectToUIScaling(r);
+                if (outer.width > 2f && outer.height > 2f)
+                {
+                    Widgets.DrawBoxSolid(outer, border);
+                    Widgets.DrawBoxSolid(new Rect(outer.x + 1f, outer.y + 1f, outer.width - 2f, outer.height - 2f), fill);
+                    return;
+                }
+            }
+            Widgets.DrawBoxSolid(r, fill);
+            DrawBox(r, border, 1);
         }
 
         public static void DrawBox(Rect r, Color color, int thickness)
@@ -155,6 +180,24 @@ namespace ModernDevTools
             if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
             if (!enabled) return false;
             return Widgets.ButtonInvisible(r);
+        }
+
+        /// <summary>
+        /// Suite checkbox: accent fill when on, recessed well when off, with a hand-drawn tick (two
+        /// lines rather than a glyph, so it stays crisp at any size). Shared by the dev actions window
+        /// and the dev palette, which each had their own near-identical copy.
+        /// </summary>
+        public static void DrawCheck(Rect r, bool on)
+        {
+            Widgets.DrawBoxSolid(r, on ? Accent : BGD);
+            DrawBox(r, on ? Accent : BGL, 1);
+            if (!on) return;
+            float inset = Mathf.Max(3f, r.width * 0.22f);
+            var a = new Vector2(r.x + inset, r.y + r.height * 0.55f);
+            var b = new Vector2(r.x + r.width * 0.42f, r.yMax - inset);
+            var c = new Vector2(r.xMax - inset + 1f, r.y + inset - 1f);
+            Widgets.DrawLine(a, b, BGD, 2f);
+            Widgets.DrawLine(b, c, BGD, 2f);
         }
 
         /// <summary>A small on/off switch (draw-only; the caller handles the click on its row/rect).</summary>
@@ -210,6 +253,30 @@ namespace ModernDevTools
             }
 
             return Widgets.ButtonInvisible(r) ? !value : value;
+        }
+
+        /// <summary>
+        /// One analysis-module row: name, provenance sub-label and an on/off switch. Shared by the mod
+        /// settings page and the quick-access Modules window - they had byte-identical copies, which is
+        /// exactly the drift the UI parity contract exists to prevent. Returns true when the toggle was
+        /// clicked; the caller owns persisting the change.
+        /// </summary>
+        public static bool ModuleRow(Rect row, string label, string sourceTag, string tooltip, bool available, bool enabled)
+        {
+            Widgets.DrawBoxSolid(row, PanelBG);
+            if (enabled) StateStrip(row, Accent, 3f);
+            DrawBox(row, BGL, 1);
+            if (available && Mouse.IsOver(row)) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.04f));
+
+            Color nameCol = !available ? new Color(0.37f, 0.40f, 0.45f) : (enabled ? Stat : TextDim);
+            LabelFit(new Rect(row.x + 12f, row.y + 4f, row.width - 70f, 20f), label, nameCol);
+            LabelFit(new Rect(row.x + 12f, row.y + 24f, row.width - 70f, 18f), sourceTag, TextDim);
+
+            Rect toggleR = new Rect(row.xMax - 48f, row.center.y - 9f, 36f, 18f);
+            DrawToggle(toggleR, enabled);
+            if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(row, tooltip);
+
+            return available && Widgets.ButtonInvisible(toggleR);
         }
 
         /// <summary>Themed close button (an X drawn from two lines; no glyph). Returns true on click.</summary>

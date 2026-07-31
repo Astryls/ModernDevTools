@@ -30,6 +30,11 @@ namespace ModernDevTools
                 catch (Exception e) { Log.Warning("[Modern Dev Tools] skipped patch class " + t.Name + ": " + e.Message); }
             }
 
+            // Hardening patches are installed on demand (they default to off); hand Harmony over so
+            // HardeningPatches can apply/remove them as the settings change.
+            try { HardeningPatches.Init(harmony); }
+            catch (Exception e) { Log.Warning("[Modern Dev Tools] hardening init failed: " + e.Message); }
+
             TryShowUpdateNotes();
             try { CommunityData.LoadCache(); } catch { }
 
@@ -248,57 +253,9 @@ namespace ModernDevTools
         }
     }
 
-    // === Experimental window hardening (all gated by the setting; no-op when off) ===
-
-    /// <summary>Isolate a throwing window so it can't abort the whole window loop (freeze/black screen).</summary>
-    [HarmonyPatch(typeof(Window), nameof(Window.WindowOnGUI))]
-    public static class Patch_Window_WindowOnGUI_Harden
-    {
-        static Exception Finalizer(Exception __exception, Window __instance)
-        {
-            if (__exception == null || !WindowWatchdog.Enabled) return __exception; // off: behave like vanilla
-            WindowWatchdog.Notify(__instance, __exception, "WindowOnGUI");
-            return null; // suppress so the rest of the windows still draw this frame
-        }
-    }
-
-    /// <summary>Catch the "black box" case: vanilla logs "Exception filling window for X" per frame.</summary>
-    [HarmonyPatch(typeof(Log), nameof(Log.Error), new[] { typeof(string) })]
-    public static class Patch_Log_Error_FillDetector
-    {
-        static void Postfix(string text)
-        {
-            if (WindowWatchdog.Enabled) WindowWatchdog.HandleFillException(text);
-        }
-    }
-
-    /// <summary>Force-close persistently-broken windows at a safe point (after the window loop).</summary>
-    [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.WindowStackOnGUI))]
-    public static class Patch_WindowStackOnGUI_Drain
-    {
-        static void Postfix()
-        {
-            if (WindowWatchdog.Enabled) WindowWatchdog.DrainCloses();
-        }
-    }
-
-    // === Experimental world/map UI hardening (second toggle; no-op when off) ===
-
-    /// <summary>Isolate a throw in the world map UI so the world screen isn't left blank/broken.</summary>
-    [HarmonyPatch(typeof(WorldInterface), nameof(WorldInterface.WorldInterfaceOnGUI))]
-    public static class Patch_WorldInterfaceOnGUI_Harden
-    { static Exception Finalizer(Exception __exception) => UiHardening.GuardMapUi("world interface", __exception); }
-
-    [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_BeforeMainTabs))]
-    public static class Patch_MapInterfaceBefore_Harden
-    { static Exception Finalizer(Exception __exception) => UiHardening.GuardMapUi("map interface", __exception); }
-
-    [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_AfterMainTabs))]
-    public static class Patch_MapInterfaceAfter_Harden
-    { static Exception Finalizer(Exception __exception) => UiHardening.GuardMapUi("map interface", __exception); }
-
-    /// <summary>The bottom-right controls (time/date/weather/letters) commonly break on faction issues.</summary>
-    [HarmonyPatch(typeof(GlobalControls), nameof(GlobalControls.GlobalControlsOnGUI))]
-    public static class Patch_GlobalControlsOnGUI_Harden
-    { static Exception Finalizer(Exception __exception) => UiHardening.GuardMapUi("global controls", __exception); }
+    // === Experimental hardening ===
+    // The seven hardening patches that used to live here are now installed ON DEMAND by
+    // HardeningPatches, because both features default to OFF and their targets (Window.WindowOnGUI,
+    // WindowStack.WindowStackOnGUI, Log.Error) are among the hottest methods in the game - a guard
+    // clause makes the body free but not the dispatch. See Source/Hardening/HardeningPatches.cs.
 }
