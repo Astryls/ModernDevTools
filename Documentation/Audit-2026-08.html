@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Modern Dev Tools - Quadruple-Pass Audit</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Inter, Arial, sans-serif; font-size: 9.6pt; line-height: 1.45;
+         color: #16191d; margin: 0; }
+  h1 { font-size: 21pt; margin: 0 0 2px; letter-spacing: -0.4px; }
+  h2 { font-size: 13pt; margin: 20px 0 6px; padding-bottom: 4px; border-bottom: 2px solid #15191d;
+       page-break-after: avoid; }
+  h3 { font-size: 10.6pt; margin: 14px 0 4px; color: #0f2b45; page-break-after: avoid; }
+  h4 { font-size: 9.8pt; margin: 10px 0 3px; color: #333; page-break-after: avoid; }
+  p  { margin: 5px 0; }
+  code, .m { font-family: Consolas, "Courier New", monospace; font-size: 8.7pt;
+             background: #eef1f4; padding: 0 3px; border-radius: 2px; }
+  pre { background: #15191d; color: #dfe4ea; padding: 9px 11px; border-radius: 4px;
+        font-family: Consolas, monospace; font-size: 8.2pt; line-height: 1.4;
+        overflow-x: auto; white-space: pre-wrap; page-break-inside: avoid; }
+  pre .c { color: #7f8c99; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 8.5pt;
+          page-break-inside: auto; }
+  th { background: #15191d; color: #fff; text-align: left; padding: 5px 6px; font-weight: 600;
+       font-size: 8.3pt; }
+  td { padding: 5px 6px; border-bottom: 1px solid #dde2e8; vertical-align: top; }
+  tr { page-break-inside: avoid; }
+  tbody tr:nth-child(even) { background: #f6f8fa; }
+  .id { font-family: Consolas, monospace; font-weight: 700; white-space: nowrap; }
+  .cert { text-align: center; font-weight: 700; white-space: nowrap; }
+  .c95 { color: #0a6b2e; } .c80 { color: #1d6091; } .c60 { color: #96650b; } .c40 { color: #99400f; }
+  .sev { font-weight: 700; white-space: nowrap; font-size: 8.2pt; }
+  .s1 { color: #a01818; } .s2 { color: #b3660a; } .s3 { color: #1d6091; } .s4 { color: #5b6470; }
+  .lead { background: #f2f5f8; border-left: 4px solid #15191d; padding: 9px 12px; margin: 10px 0; }
+  .warn { background: #fff5e8; border-left: 4px solid #d08010; padding: 9px 12px; margin: 10px 0; }
+  .good { background: #eefaf1; border-left: 4px solid #1a8f45; padding: 9px 12px; margin: 10px 0; }
+  .crit { background: #fdf0f0; border-left: 4px solid #a01818; padding: 9px 12px; margin: 10px 0; }
+  ul, ol { margin: 5px 0 5px 0; padding-left: 19px; }
+  li { margin: 2.5px 0; }
+  .meta { color: #5b6470; font-size: 8.6pt; margin-bottom: 14px; }
+  .pb { page-break-before: always; }
+  .nb { page-break-inside: avoid; }
+  .tag { display: inline-block; background: #15191d; color: #fff; border-radius: 3px;
+         padding: 1px 6px; font-size: 7.6pt; font-weight: 600; letter-spacing: .3px; }
+  .tag.b { background: #1d6091; } .tag.g { background: #1a8f45; } .tag.o { background: #b3660a; }
+  .tag.r { background: #a01818; }
+  footer { margin-top: 22px; padding-top: 8px; border-top: 1px solid #ccd3da;
+           color: #5b6470; font-size: 8pt; }
+  .two { column-count: 2; column-gap: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Modern Dev Tools &mdash; Quadruple-Pass Audit</h1>
+<div class="meta">
+  Performance &middot; caching &middot; IMGUI/VRAM &middot; mod interoperability &middot; new capabilities<br>
+  Target: <code>astryl.ModernDevTools</code> v1.2 &middot; 49 C# files, 8,797 LOC &middot; RimWorld 1.6 / Unity Mono net472<br>
+  Method: full static read of every source file, cross-checked against decompiled <code>Assembly-CSharp</code>,
+  <code>HugsLib.dll</code> and <code>ArchotechLogs.dll</code>. <strong>No changes made.</strong> Nothing measured at runtime.
+</div>
+
+<div class="lead">
+<strong>Headline.</strong> The architecture is sound &mdash; the analysis pipeline is correctly cached
+(<code>ConditionalWeakTable</code> per message), the index builds are prewarmed off-thread, and row culling
+already exists in the log list. The problems are concentrated in three places:
+<strong>(1)</strong> per-frame recomputation of things that never change while a message stays selected;
+<strong>(2)</strong> the knowledge base has no viewport culling at all;
+<strong>(3)</strong> replacing the vanilla log window silently deletes the log-window UI of
+<em>HugsLib</em> (active, load order #19) and <em>Archotech Logs</em>. Finding&nbsp;R1 is, in my judgement, the
+single most important item in this document &mdash; larger than any performance item.
+<br><br>
+<strong>On VRAM:</strong> there is essentially nothing to reclaim. Verified below &mdash; the entire suite draws
+from one shared engine texture. The right target is <em>CPU-side IMGUI work</em>, not GPU memory.
+</div>
+
+<h2>Certainty legend</h2>
+<table>
+<thead><tr><th style="width:15%">Score</th><th style="width:30%">Means</th><th>Basis</th></tr></thead>
+<tbody>
+<tr><td class="cert c95">95&ndash;99</td><td>Verified in source</td><td>I read the exact code path in this mod and/or decompiled engine/mod source. Non-speculative.</td></tr>
+<tr><td class="cert c80">75&ndash;94</td><td>Strongly inferred</td><td>Code path verified; the <em>cost</em> or <em>consequence</em> is inferred from documented engine behaviour, not measured.</td></tr>
+<tr><td class="cert c60">50&ndash;74</td><td>Reasoned estimate</td><td>Mechanism plausible and consistent with the code, but depends on runtime behaviour I did not observe.</td></tr>
+<tr><td class="cert c40">&lt;50</td><td>Needs a spike</td><td>Would require a prototype or a decompile I did not complete before committing.</td></tr>
+</tbody>
+</table>
+
+<h2>Executive summary &mdash; ranked</h2>
+<table>
+<thead><tr><th style="width:6%">#</th><th style="width:34%">Finding</th><th style="width:9%">Class</th><th style="width:36%">Why it ranks here</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td class="id">R1</td><td>Replacing the log window silently removes <strong>HugsLib's log-window widget API</strong> (Share logs / Files / Copy) and every third-party widget registered through it</td><td class="sev s1">Compat</td><td>HugsLib is active at #19. <code>LogWindowExtensions</code> is the de-facto community standard for this. Total, silent feature loss, no error.</td><td class="cert c95">98</td></tr>
+<tr><td class="id">R2</td><td><strong>Archotech Logs</strong> loses its Diagnostics/Export/colorizer UI entirely; its main-button fallback opens a <em>second, divergent</em> log window</td><td class="sev s1">Compat</td><td>Its whole UI hangs off <code>EditWindow_Log</code> postfixes we prevent from ever running.</td><td class="cert c95">97</td></tr>
+<tr><td class="id">P5</td><td>Knowledge base has <strong>zero viewport culling</strong>; every filtered row draws and measures every pass</td><td class="sev s1">Perf</td><td>Harmony tab draws up to 300 cards &times; ~5 <code>Text.CalcHeight</code> each, 2&ndash;3 passes/frame.</td><td class="cert c95">98</td></tr>
+<tr><td class="id">P1&ndash;P4</td><td>Four per-frame recomputations of message-stable data (glossary regex sweep, impact assessment, stack-trace <code>CalcHeight</code>, rail counts)</td><td class="sev s1">Perf</td><td>All four are pure functions of the selected message. All four re-run on every OnGUI pass.</td><td class="cert c95">96</td></tr>
+<tr><td class="id">B4</td><td>Five hardening patches installed unconditionally for a <strong>default-off</strong> feature, incl. a finalizer on <code>Window.WindowOnGUI</code></td><td class="sev s2">Perf</td><td>Full Harmony dispatch on the hottest UI method in the game, to do nothing.</td><td class="cert c95">96</td></tr>
+<tr><td class="id">N1</td><td><strong>Yes, repeating log entries can be intercepted</strong> &mdash; and vanilla's dedupe has a real gap we can close</td><td class="sev s3">Feature</td><td><code>StackTraceUtility.ExtractStackTrace()</code> runs <em>before</em> the dedupe test; interleaved spam never dedupes at all.</td><td class="cert c80">92</td></tr>
+<tr><td class="id">B1</td><td><code>KnownIssueIndex.EnsureBuilt</code> publishes an empty list then fills it, unlocked, while the prewarm thread races it</td><td class="sev s2">Bug</td><td>Main thread can read a partial library &rarr; silently no diagnoses.</td><td class="cert c80">90</td></tr>
+<tr><td class="id">B2</td><td><code>SettingsPage.Draw</code> has no <code>try/finally</code> around <code>BeginScroll</code>/<code>EndScroll</code></td><td class="sev s2">Bug</td><td>One throw leaves the <em>global</em> <code>GUI.skin</code> scrollbar swapped for the rest of the session.</td><td class="cert c95">97</td></tr>
+<tr><td class="id">V1</td><td>VRAM is <strong>not</strong> a viable lever; draw-call count is</td><td class="sev s3">IMGUI</td><td>Every box is one <code>GUI.DrawTexture</code> of the shared <code>BaseContent.WhiteTex</code>. Mod-owned VRAM &asymp; a few KB.</td><td class="cert c95">97</td></tr>
+<tr><td class="id">A1</td><td>Modder entry point is real but thin: no API version, no knowledge-source hook, no window-ownership contract</td><td class="sev s3">API</td><td>Third parties currently cannot extend the two things they most want to extend.</td><td class="cert c95">95</td></tr>
+</tbody>
+</table>
+
+<div class="pb"></div>
+<h2>Pass 1 &mdash; Caching, polling, duplication</h2>
+
+<h3>1.1 Per-frame work that should be cached</h3>
+<p>Everything in this table is a pure function of the <em>selected message</em> or of data that cannot change
+mid-session, yet is recomputed on every OnGUI pass. RimWorld runs 2&ndash;3 OnGUI passes per frame
+(Layout, Repaint, plus each input event), so multiply every number by that.</p>
+
+<table>
+<thead><tr><th style="width:5%">#</th><th style="width:23%">Site</th><th style="width:40%">What repeats per pass</th><th style="width:12%">When it bites</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td class="id">P1</td><td><code>Window_KnowledgeBase</code> &rarr; <code>Glossary.AllTerms()</code></td>
+  <td>Allocates a fresh 26-entry <code>List&lt;KeyValuePair&gt;</code> and performs <strong>52 <code>.Translate()</code> calls</strong>. Called from <code>RailCount</code>, again from <code>DrawSources</code>, again from <code>DrawGlossary</code> &mdash; up to 3&times; per pass, purely to render a count badge.</td>
+  <td>KB open (always)</td><td class="cert c95">97</td></tr>
+<tr><td class="id">P2</td><td><code>Module_Glossary.DrawSection</code></td>
+  <td><code>BuildText()</code> concatenates message + every diagnosis into one large string, then <strong>26 compiled regexes</strong> sweep it. Rebuilt from scratch every pass.</td>
+  <td>Any message selected</td><td class="cert c95">96</td></tr>
+<tr><td class="id">P3</td><td><code>ImpactAssessor.Assess</code> via <code>DrawImpactBanner</code></td>
+  <td>Up to <strong>49 <code>IndexOf</code> scans</strong> over the full stack trace + message (19 tick signals &times;2 + 11 frame signals), plus a LINQ <code>.Any()</code>, plus <code>.Translate()</code> string building for the perf note.</td>
+  <td>Any message selected</td><td class="cert c95">96</td></tr>
+<tr><td class="id">P4</td><td><code>Window_ModernLog.DrawInspectorContent</code></td>
+  <td><code>Text.CalcHeight()</code> on the <strong>entire stack trace</strong> and on the full message body. Unity text measurement on a 40&ndash;80 line string is the single most expensive call in the inspector.</td>
+  <td>Any message selected</td><td class="cert c95">95</td></tr>
+<tr><td class="id">P5</td><td><code>Window_KnowledgeBase</code> &mdash; all 6 list tabs</td>
+  <td><strong>No viewport culling.</strong> <code>DrawLibrary</code>, <code>DrawCommunityBugs</code>, <code>DrawHarmony</code>, <code>DrawGlossary</code>, <code>DrawDependencies</code>, <code>DrawCompatibility</code> each iterate the whole filtered list and call <code>DrawIssueCard</code>, which does <strong>5 <code>Text.CalcHeight</code> calls per card</strong> &mdash; even for cards scrolled far off screen. Harmony tab caps at 300 rows &rarr; ~1,500 measurements/pass.</td>
+  <td>KB open, any list tab</td><td class="cert c95">98</td></tr>
+<tr><td class="id">P6</td><td><code>RebuildFiltered</code> &rarr; <code>KnownIssueIndex.TextMatchesAnyIgnored</code></td>
+  <td>Per message: <code>text.ToLowerInvariant()</code> (a full string copy) <em>and</em> a regex-driven <code>ExtractExceptionType</code>. With 1,000 queued messages that is 1,000 allocations + 1,000 regex runs <strong>per rebuild</strong>, and a rebuild is triggered by every single enqueued log line.</td>
+  <td>Log open + any ignore set + spam</td><td class="cert c80">94</td></tr>
+<tr><td class="id">P7</td><td><code>Window_ModernDevPalette.Draw</code></td>
+  <td><code>ResolveNodes()</code> calls <code>Dialog_Debug.GetNode(path)</code> <em>per pin, per frame</em>. Each call does <code>string.Split</code>, then per path segment a <code>FirstOrDefault</code> with a <strong>capturing closure</strong> (closure + delegate allocation) plus <code>TrySetupChildren()</code>. <code>DesiredWidth()</code> additionally re-measures every label in two fonts every Repaint.</td>
+  <td>Palette open</td><td class="cert c80">93</td></tr>
+<tr><td class="id">P9</td><td><code>Window_KnowledgeBase.CountDefs</code></td>
+  <td>Full scan of <code>DefDatabase&lt;KnownIssueDef&gt;</code> &times;4 per pass (twice in the rail, twice in Sources).</td>
+  <td>KB open</td><td class="cert c95">97</td></tr>
+</tbody>
+</table>
+
+<div class="good nb">
+<strong>Already correct &mdash; do not "fix" these.</strong> The log list <em>does</em> cull rows
+(<code>first</code>/<code>last</code> window in <code>DrawList</code>). The spawn grid culls rows.
+<code>LogAnalysisCache</code> is a well-chosen <code>ConditionalWeakTable</code> that auto-evicts with the
+message. <code>RebuildFiltered</code> is correctly revision-gated. <code>Compat()</code> is stamp-gated.
+Index prewarm is off-thread. Scroll heights are floored at viewport height, avoiding the
+known "short-frame latch" trap. <code>Palette.Accent</code> is frame-memoised.
+</div>
+
+<h3>1.2 Analysis-pipeline waste (per analysis, not per frame)</h3>
+<table>
+<thead><tr><th style="width:5%">#</th><th style="width:26%">Site</th><th style="width:52%">Issue</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td class="id">P8</td><td><code>ErrorContext.Culprits</code></td>
+  <td>Implemented as <code>RankedMods().Where(...)</code>, and <code>RankedMods()</code> performs a <strong>five-key LINQ <code>OrderBy</code> chain plus <code>ToList()</code></strong> on every access. Four modules (<code>Community</code>, <code>DependencyCheck</code>, <code>AboutIncompat</code>, <code>VersionMismatch</code>) each <code>foreach</code> it &rarr; four full sorts and four list allocations per analysed message. Rank once, cache, expose a read-only view.</td><td class="cert c95">97</td></tr>
+<tr><td class="id">P10</td><td>~100 <code>RegexOptions.Compiled</code> patterns</td>
+  <td>44 library defs (+ attribute regexes), 26 glossary, 17 community, 13 static. On Unity <strong>Mono</strong>, <code>Compiled</code> emits IL through <code>Reflection.Emit</code> at construction &mdash; a real startup cost, and the generated dynamic methods are never reclaimable. For short patterns matched a handful of times, interpreted regex is usually cheaper overall. Worth benchmarking before assuming <code>Compiled</code> is a win. Keep it for the hot text-scan patterns only.</td><td class="cert c60">75</td></tr>
+<tr><td class="id">P11</td><td><code>foreach (LogMessage m in Log.Messages)</code></td>
+  <td><code>Log.Messages</code> is declared <code>IEnumerable&lt;LogMessage&gt;</code>, so the <code>Queue&lt;T&gt;</code> struct enumerator is <strong>boxed</strong> on each rebuild. Two sites (<code>RebuildFiltered</code>, <code>BuildAllMessages</code>). Minor, but free to fix.</td><td class="cert c80">90</td></tr>
+<tr><td class="id">P12</td><td><code>FrameParser.TypeCache</code></td>
+  <td>Static <code>Dictionary&lt;string,Type&gt;</code>, unbounded and unsynchronised. Grows for the whole session with every distinct qualified type name seen. Cap it, or accept and document.</td><td class="cert c80">92</td></tr>
+</tbody>
+</table>
+
+<h3>1.3 Duplicated code</h3>
+<table>
+<thead><tr><th style="width:26%">Duplicate</th><th style="width:46%">Locations</th><th style="width:20%">Suggested home</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td>Unordered pair key</td><td><code>Window_KnowledgeBase.PairKey</code>, <code>AboutIncompatIndex.PairKey</code>, <code>Module_AboutIncompat.PairKey</code> &mdash; three byte-identical copies</td><td><code>ModIdUtil.PairKey</code></td><td class="cert c95">99</td></tr>
+<tr><td><strong>Issue-scoring algorithm</strong></td><td><code>KnownIssueIndex.Match</code> and <code>CommunityData.Match</code> implement the same weights (exType&nbsp;3 / regex&nbsp;3 / keyword&nbsp;2 / namespace&nbsp;2 / packageId&nbsp;2) over two different data shapes. A weight change must be made twice or the surfaces silently diverge.</td><td>One <code>IssueMatcher</code> over a shared <code>IMatchSignals</code></td><td class="cert c95">98</td></tr>
+<tr><td>Module row rendering</td><td><code>SettingsPage.DrawModuleRow</code> vs the inline loop in <code>Dialog_Modules.DrawModules</code> &mdash; ~20 identical lines. This is exactly the drift the UI-Parity contract exists to prevent.</td><td><code>Palette.ModuleRow</code></td><td class="cert c95">97</td></tr>
+<tr><td>Checkbox glyph</td><td><code>Window_ModernDevActions.DrawCheck</code> and <code>Window_ModernDevPalette.DrawCheck</code> (differ only by 1px padding)</td><td><code>Palette.DrawCheck</code></td><td class="cert c95">98</td></tr>
+<tr><td>Dead chevron</td><td><code>Window_ModernDevActions.DrawChevron</code> is private and <strong>never called</strong> &mdash; the class uses <code>Palette.DrawChevron</code>. Delete.</td><td>&mdash;</td><td class="cert c95">96</td></tr>
+<tr><td>Regex/lowercase helpers</td><td><code>Lower()</code> and <code>CompileRegexes()</code> exist in both <code>KnownIssueIndex</code> and <code>CommunityData</code>; <code>StripBom</code> in both <code>CommunityData</code> and <code>ModShippedIssues</code></td><td><code>TextUtil</code></td><td class="cert c95">98</td></tr>
+</tbody>
+</table>
+
+<h3>1.4 "Missing libraries"</h3>
+<p>I checked for genuinely absent infrastructure rather than assuming a package is needed.</p>
+<ul>
+<li><strong>JSON:</strong> the hand-rolled <code>Source/Community/Json.cs</code> (146 LOC) is the <em>correct</em> call. RimWorld ships no JSON library and adding Newtonsoft would mean shipping a DLL and inviting assembly-version conflicts. <span class="tag g">Keep as-is</span></li>
+<li><strong>Harmony:</strong> correctly referenced with <code>ExcludeAssets="runtime"</code> and declared as a mod dependency &mdash; <code>0Harmony.dll</code> is not shipped. <span class="tag g">Correct</span></li>
+<li><strong>Genuinely missing (internal):</strong> a shared <code>TextMetrics</code> memo cache keyed on <em>(string, width, font, fontSize, wordWrap)</em>. Its absence is the direct cause of P1&ndash;P5. This is the one piece of "framework" the mod actually lacks. <span class="tag o">Build it</span></li>
+<li><strong>Genuinely missing (internal):</strong> a per-analysis derived-data cache hanging off <code>LogAnalysis</code> (impact result, glossary terms, measured heights). Also the direct cause of P2&ndash;P4. <span class="tag o">Build it</span></li>
+</ul>
+
+<h3>1.5 "Multi-polling ticks"</h3>
+<div class="good">
+<strong>Clean.</strong> The mod registers <em>no</em> <code>GameComponentTick</code>, <code>MapComponentTick</code> or
+<code>ThingComp</code> tick. <code>GameComponent_ModSnapshot</code> is event-driven, not polled. There is no
+tick-rate cost at all when no window is open. The per-frame cost is entirely OnGUI-scoped and therefore
+only paid while a dev window is visible &mdash; which is the right design.
+The one exception is B4 below: three Harmony hooks that <em>do</em> run every frame regardless.
+</div>
+
+<h3>1.6 Correctness and robustness defects</h3>
+<table>
+<thead><tr><th style="width:5%">#</th><th style="width:22%">Site</th><th style="width:56%">Defect</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td class="id">B1</td><td><code>KnownIssueIndex.EnsureBuilt</code></td>
+  <td>Publishes <code>_all = new List&lt;Compiled&gt;()</code> <strong>then</strong> fills it, with no lock. The startup prewarm runs this on a background thread. A main-thread caller arriving mid-build sees <code>_all != null</code>, returns immediately, and iterates a list being mutated &rarr; either a swallowed <code>InvalidOperationException</code> (the <code>try/catch</code> in <code>Match</code> hides it) or a partial library. Symptom: an error inspected right after launch silently gets no diagnoses. Build into a local, assign under a lock &mdash; exactly the pattern <code>HarmonyIndex.Build()</code> already uses correctly.</td><td class="cert c80">90</td></tr>
+<tr><td class="id">B2</td><td><code>SettingsPage.Draw</code></td>
+  <td>No <code>try/finally</code> around <code>Palette.BeginScroll</code>/<code>EndScroll</code>. Every other call site pairs them correctly. If <code>DrawContent</code> throws, <code>GUI.skin.verticalScrollbar*</code> stays swapped <strong>globally</strong> and <code>BeginScrollView</code> is left unbalanced &mdash; corrupting every vanilla scrollbar for the rest of the session. Compounded by the known engine behaviour that a throwing window is force-closed by <code>WindowStack</code>, so the user sees settings vanish and every scrollbar go flat.</td><td class="cert c95">97</td></tr>
+<tr><td class="id">B3</td><td><code>Palette.BeginScroll</code></td>
+  <td>Saves the previous skin into <strong>single static fields, not a stack</strong> &mdash; it is not re-entrant. Today no call site nests, so it works. But <code>ErrorModule.DrawSection</code> is invoked <em>inside</em> the inspector's active scroll view, so the first third-party module that calls <code>Palette.BeginScroll</code> corrupts the restore. This is an API-surface hazard, not just a latent bug.</td><td class="cert c95">95</td></tr>
+<tr><td class="id">B4</td><td>5 hardening patches</td>
+  <td>Both hardening features default to <strong>off</strong>, yet the patches are always installed: a finalizer on <code>Window.WindowOnGUI</code> (runs for every window, every pass), a postfix on <code>WindowStack.WindowStackOnGUI</code> (every frame), a postfix on <code>Log.Error</code> (every error in the game), and three map/world OnGUI finalizers. A guard clause makes the body free; it cannot make the <em>dispatch</em> free, and a finalizer additionally forces the target into a try/catch. Move to settings-driven <code>Patch</code>/<code>Unpatch</code>, or at minimum a <code>Prepare()</code> gate.</td><td class="cert c95">96</td></tr>
+<tr><td class="id">B5</td><td><code>CommunityData</code> background thread</td>
+  <td>Parsed dictionaries are published through <code>volatile</code> reference assignment &mdash; correct. But the finally block calls <code>LogAnalysisCache.Clear()</code> off-thread, replacing a static field a main-thread <code>GetValue</code> may be using. Benign in practice (worst case one stale analysis) but worth a main-thread marshal for hygiene.</td><td class="cert c60">70</td></tr>
+</tbody>
+</table>
+
+<div class="pb"></div>
+<h2>Pass 2 &mdash; IMGUI usage, and the VRAM question answered</h2>
+
+<div class="crit">
+<strong>Direct answer: there is no meaningful VRAM to save, and no lower-VRAM alternative exists that
+preserves the aesthetic. The premise does not hold for this mod &mdash; and that is good news.</strong>
+</div>
+
+<h3>2.1 What the suite actually costs on the GPU</h3>
+<p>Verified against decompiled <code>Verse.Widgets</code>:</p>
+<pre><span class="c">// Verse/Widgets.cs:827 - the primitive behind every solid fill in the suite</span>
+public static void DrawBoxSolid(Rect rect, Color color) {
+    Color prev = GUI.color;
+    GUI.color = color;
+    GUI.DrawTexture(rect, BaseContent.WhiteTex);   <span class="c">// ONE shared texture, tinted by GUI.color</span>
+    GUI.color = prev;
+}
+
+<span class="c">// Verse/Widgets.cs:844 - a 1px border is FOUR separate draws of that same texture</span>
+public static void DrawBox(Rect rect, int thickness = 1, Texture2D lineTexture = null) {
+    GUI.DrawTexture(...left...);  GUI.DrawTexture(...right...);
+    GUI.DrawTexture(...top...);   GUI.DrawTexture(...bottom...);
+}</pre>
+
+<p>Consequences, all verified:</p>
+<ul>
+<li>Colour is a <code>GUI.color</code> tint, <strong>not</strong> a texture. The palette's ~14 colours allocate zero textures.</li>
+<li>Total GPU residency owned by this mod: 3 shipped icons (<code>Pin</code>, <code>Chevron</code>, <code>Close</code>) plus
+    <strong>three 2&times;2 textures</strong> created in <code>Palette.InitScroll</code> via
+    <code>SolidColorMaterials.NewSolidColorTexture</code>. That is a few kilobytes. There is no atlas, no
+    render texture, no material churn, no per-frame allocation.</li>
+<li>Therefore <em>every</em> "reduce VRAM" technique &mdash; atlasing, compression, texture pooling, render-texture
+    caching &mdash; targets something that does not exist here. Two of them would <em>increase</em> VRAM.</li>
+</ul>
+
+<div class="warn">
+<strong>The real cost is <code>Palette.DrawCard</code> = 5 draw calls</strong> (1 fill + 4 border edges), and the
+card is the mod's dominant primitive. Static count across the codebase: <strong>101 call sites</strong> of
+<code>DrawBoxSolid</code>/<code>DrawBox</code>/<code>DrawCard</code>/<code>DrawWell</code>.
+</div>
+
+<h3>2.2 Estimated per-pass draw budget</h3>
+<p>Counted statically from the draw code for a representative log window (20 visible rows, 4 diagnoses).
+This is an <em>estimate from code reading</em>, not a profiler capture.</p>
+<table>
+<thead><tr><th style="width:44%">Region</th><th style="width:32%">Composition</th><th style="width:24%"><code>GUI.DrawTexture</code> calls</th></tr></thead>
+<tbody>
+<tr><td>Window shell</td><td>fill + border</td><td>5</td></tr>
+<tr><td>Toolbars (3 chips, 3 toggles, 5 buttons, search)</td><td>6 + 6 + 5 + 5 each</td><td>~66</td></tr>
+<tr><td>Message list (well + 20 rows)</td><td>5 + 2/row</td><td>~45</td></tr>
+<tr><td>Inspector chrome (card, banner, 3 buttons, 2 wells)</td><td>5 + 6 + 15 + 10</td><td>~36</td></tr>
+<tr><td>2 source rows + 4 diagnosis cards + report card + glossary card</td><td>6 each</td><td>~48</td></tr>
+<tr><td colspan="2"><strong>Total per OnGUI pass (&times;2&ndash;3 per frame)</strong></td><td><strong>~200&ndash;260</strong></td></tr>
+</tbody>
+</table>
+
+<h3>2.3 Alternatives evaluated &mdash; with verdicts</h3>
+<table>
+<thead><tr><th style="width:21%">Technique</th><th style="width:44%">Assessment against "aesthetic and function cannot change"</th><th style="width:15%">Verdict</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td>UI Toolkit / UIElements</td><td>RimWorld's entire <code>Window</code> pipeline is IMGUI (<code>GUI.Window</code> + <code>GUIClip</code>). There is no hook to host a UIElements panel inside a <code>Window</code>, and mixing the two breaks clipping, hit-testing and z-order. Would also require rewriting every widget.</td><td class="sev s1"><span class="tag r">Reject</span></td><td class="cert c95">95</td></tr>
+<tr><td>Render-texture caching of static panels</td><td>Would <em>add</em> VRAM (one RT per panel), and breaks hover states, tooltips and text-field focus &mdash; a function change. The panels also change content constantly.</td><td class="sev s1"><span class="tag r">Reject</span></td><td class="cert c80">90</td></tr>
+<tr><td>Batching quads via <code>GL</code> / <code>Graphics.DrawMeshNow</code></td><td>Technically feasible and pixel-identical, but immediate GL inside nested <code>GUIClip</code> groups is exactly the class of thing that fails silently at non-1.0 UI scale. High risk, unquantified payoff.</td><td class="sev s2"><span class="tag o">Not now</span></td><td class="cert c60">65</td></tr>
+<tr><td><strong>Two-draw card</strong>: draw the border colour as one filled rect, then the fill colour inset by 1px</td><td>Pixel-identical 1px ring at UI scale 1.0, and cuts <code>DrawCard</code> from <strong>5 draws to 2</strong> (&minus;60% on the dominant primitive; whole-window budget ~260 &rarr; ~170). <em>Caveat:</em> <code>Widgets.DrawBox</code> snaps each edge with <code>UIScaling.AdjustRectToUIScaling</code>; the two-draw form does not, so it must be verified at 125% and 150% UI scale before adoption.</td><td class="sev s3"><span class="tag b">Prototype</span></td><td class="cert c80">85</td></tr>
+<tr><td><strong>Memoised text metrics</strong></td><td>Not a render change at all &mdash; and by every available account the dominant IMGUI cost is Unity text measurement, not quad submission. Zero visual risk.</td><td class="sev s3"><span class="tag g">Do first</span></td><td class="cert c95">94</td></tr>
+<tr><td><strong>Viewport culling in the KB</strong></td><td><code>BeginScrollView</code> clips pixels but does <em>not</em> skip draw code. Culling is invisible to the user and removes the largest single block of work in the mod.</td><td class="sev s3"><span class="tag g">Do first</span></td><td class="cert c95">98</td></tr>
+<tr><td>Reducing <code>StateStrip</code> / hover overlays</td><td>Each is 1 draw. Removing them would change the aesthetic. Leave alone.</td><td class="sev s4"><span class="tag">No change</span></td><td class="cert c95">99</td></tr>
+</tbody>
+</table>
+
+<div class="lead">
+<strong>Conclusion for Pass 2.</strong> "Run better than vanilla with less overhead" is achievable, but the
+route is <em>caching and culling</em>, not GPU memory. Vanilla's <code>EditWindow_Log</code> is a plain
+<code>Listing</code> over the message queue &mdash; it is cheap because it does very little. Our window does much
+more, so parity-or-better means paying for the extra features <em>once per selection</em> rather than once per
+pass. Items P1&ndash;P5 alone are, by my reading, the difference.
+</div>
+
+<div class="pb"></div>
+<h2>Pass 3 &mdash; Mod interoperability (deep scan)</h2>
+
+<h3>3.1 Complete inventory of external touch points</h3>
+<table>
+<thead><tr><th style="width:16%">Class</th><th style="width:60%">Surface</th><th style="width:16%">Risk</th></tr></thead>
+<tbody>
+<tr><td>Harmony patches</td><td><strong>16 targets.</strong> <code>UIRoot.CheckOpenLogWindow</code>, <code>DebugWindowsOpener</code> &times;4, <code>EditWindow_Log.SelectLastMessage</code>, <code>DebugActionNode.Enter</code>, <code>LogMessageQueue.Enqueue</code>/<code>Clear</code>, <code>Window.WindowOnGUI</code>, <code>Log.Error</code>, <code>WindowStack.WindowStackOnGUI</code>, <code>WorldInterface</code>, <code>MapInterface</code> &times;2, <code>GlobalControls</code></td><td class="sev s1">High &mdash; 5 are <code>Prefix</code>+<code>return false</code></td></tr>
+<tr><td>Private-field reflection</td><td><code>Dialog_Debug.roots</code>, <code>EditWindow_Log.canAutoOpen</code> &mdash; both bound once via <code>AccessTools</code>, both null-guarded with a logged warning. <span class="tag g">Well done</span></td><td class="sev s4">Low</td></tr>
+<tr><td>Reflection into other mods</td><td><code>ModernNotifications.Theme.Accent</code> (suite accent bridge), <code>Circinus.KnownIssues</code> (corpus). Both probe-once, cache, null-every-binding-on-failure, and warn loudly only on <em>contract drift</em>. <span class="tag g">This is the right pattern &mdash; generalise it</span></td><td class="sev s4">Low</td></tr>
+<tr><td>Reading other mods' data</td><td>About.xml (<code>incompatibleWith</code>, dependencies, supported versions), <code>ModsConfig</code> load order, <code>About/known-issues.json</code> shipped files, the live Harmony registry, and every loaded mod assembly's type namespaces</td><td class="sev s4">Low &mdash; all read-only</td></tr>
+<tr><td>Network</td><td>3 endpoints, opt-in, background, cached, offline fallback</td><td class="sev s4">Low</td></tr>
+</tbody>
+</table>
+
+<h3>3.2 <span class="tag r">R1</span> HugsLib &mdash; the biggest compat liability</h3>
+<div class="crit">
+HugsLib is <strong>active in this modlist at load order #19</strong>. Decompiling
+<code>HugsLib.Logs.LogWindowExtensions</code> confirms it exposes a <strong>public, XML-documented extension
+API</strong> that is the community's de-facto standard for adding buttons to the debug log:
+<pre>public static void AddLogWindowWidget(WidgetDrawer drawerDelegate,
+                                     WidgetAlignMode align = WidgetAlignMode.Left);
+
+public delegate void WidgetDrawer(Window logWindow, Rect widgetArea,
+                                  LogMessage selectedLogMessage, WidgetRow widgetRow);</pre>
+It is rendered by <code>HugsLib.Patches.EditWindow_Log_Patch</code>, a <strong>prefix on
+<code>EditWindow_Log.DoMessagesListing</code></strong>.
+</div>
+
+<p><strong>What breaks.</strong> Modern Dev Tools prefixes <code>UIRoot.CheckOpenLogWindow</code> and
+<code>DebugWindowsOpener.ToggleLogWindow</code> and returns <code>false</code> unconditionally. The auto-open
+path, the dev-toolbar button and the hotkey are the <em>only</em> ways vanilla opens
+<code>EditWindow_Log</code>. With our mod active, <strong><code>EditWindow_Log</code> is never constructed</strong>,
+so <code>DoMessagesListing</code> never runs, so <code>DrawLogWindowExtensions</code> never runs. Silently lost:</p>
+<ul>
+<li>HugsLib's <strong>"Share logs"</strong> button (<code>LogPublisher</code>) &mdash; the single most-used log
+    feature in the RimWorld support ecosystem. Every "post your HugsLib log" support request now fails.</li>
+<li>HugsLib's <strong>"Files"</strong> menu (open Player.log / save dir / mods dir).</li>
+<li>HugsLib's <strong>"Copy"</strong> button.</li>
+<li><strong>Every third-party widget</strong> any other mod registered through <code>AddLogWindowWidget</code>.</li>
+</ul>
+<p>No error, no warning, no message. The user simply concludes HugsLib broke.
+This is doubly notable because the Schematic records a deliberate decision <em>not</em> to clone
+HugsLib's log upload &mdash; correct on its own terms, but it assumed HugsLib's own button would still be
+reachable. It is not. <span class="cert c95">Certainty 98</span></p>
+
+<h4>Proposed fix &mdash; a HugsLib widget host (tiered)</h4>
+<table>
+<thead><tr><th style="width:8%">Tier</th><th style="width:56%">Approach</th><th style="width:20%">Aesthetic cost</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td class="id">T0</td><td><strong>Escape hatch.</strong> When HugsLib is active, add one suite-styled <em>"Open vanilla log"</em> button to Toolbar B that constructs <code>EditWindow_Log</code> directly. Restores 100% of HugsLib functionality for zero risk and zero reflection.</td><td>None &mdash; one more gray button</td><td class="cert c95">96</td></tr>
+<tr><td class="id">T1</td><td><strong>Host their widgets.</strong> Reflect the private static <code>LogWindowExtensions.widgets</code> list, read each entry's public <code>Drawer</code> and <code>Alignment</code> fields, and invoke the delegate with <em>our</em> window (the parameter is typed <code>Window</code>, so we qualify), our selected <code>LogMessage</code>, and a real <code>WidgetRow</code>. Draw them into a dedicated, labelled <em>"Add-ons"</em> strip at the bottom of the inspector.</td><td>Foreign buttons use vanilla <code>WidgetRow</code> styling. Containing them in their own strip keeps suite chrome uncontaminated &mdash; this is a deliberate, defensible boundary rather than a style break.</td><td class="cert c80">88</td></tr>
+<tr><td class="id">T2</td><td><strong>Reciprocal API.</strong> Ship our own <code>RegisterToolbarWidget</code> (see A1) <em>and</em> host HugsLib's. Then we are a superset, and we can invite HugsLib-targeting mods to register natively for full suite styling.</td><td>None</td><td class="cert c80">85</td></tr>
+</tbody>
+</table>
+<p>T0 should ship regardless &mdash; it is a handful of lines and it converts a silent total failure into a
+one-click detour. T1 is the quality answer.</p>
+
+<h3>3.3 <span class="tag r">R2</span> Archotech Logs &mdash; requested compat</h3>
+<p><code>kongkim.ArchotechLogs</code> (Workshop 3710696168, currently installed but inactive) is a direct
+functional neighbour: "a detailed log view and an advanced log export system". Decompiled, its entire UI
+hangs off the vanilla window:</p>
+<table>
+<thead><tr><th style="width:34%">Archotech class</th><th style="width:36%">Hook</th><th style="width:30%">Fate with MDT active</th></tr></thead>
+<tbody>
+<tr><td><code>LogWindowPatch</code></td><td>Postfix <code>EditWindow_Log.DoWindowContents</code> &mdash; draws <em>Diagnostics</em>, <em>Export</em>, <em>?</em>, colour-mode toggle</td><td class="sev s1">Never runs</td></tr>
+<tr><td><code>LogWindowSpamOverlayPatch</code></td><td>Postfix same method &mdash; repeat-count / hyperactive-loop banner</td><td class="sev s1">Never runs</td></tr>
+<tr><td><code>LogWindowCrashProtector</code></td><td>Finalizer on <code>DoMessagesListing</code></td><td class="sev s4">Moot (no conflict with our watchdog &mdash; different method, ours off by default)</td></tr>
+<tr><td><code>LogWindowSync_Patch</code></td><td>Postfix <code>EditWindow_Log.PostClose</code></td><td class="sev s4">Moot</td></tr>
+<tr><td><code>MainButtonWorker_LogShortcut</code></td><td><code>Activate()</code> calls <code>Find.WindowStack.Add(new EditWindow_Log())</code> <strong>directly</strong></td><td class="sev s2">Bypasses our patches &rarr; a <em>second</em> log window opens with divergent state</td></tr>
+</tbody>
+</table>
+<p><strong>Net user experience today:</strong> if their main-button setting <code>ShowGlobalLogButton</code> is on,
+they get two competing log windows. If it is off, Archotech Logs is <strong>completely unreachable</strong> and
+appears broken. <span class="cert c95">Certainty 97</span></p>
+
+<h4>Proposed Archotech compat (tiered)</h4>
+<ol>
+<li><span class="tag b">A-T0</span> <strong>Detect and disclose.</strong> On first run with
+    <code>kongkim.ArchotechLogs</code> active, show a one-time notice explaining both windows exist, and add a
+    <em>"Log window owner"</em> setting: <code>Modern</code> / <code>Vanilla (+ Archotech)</code> / <code>Both</code>.
+    Choosing <em>Vanilla</em> makes our prefixes return <code>true</code>, standing down cleanly.
+    <span class="cert c95">96</span></li>
+<li><span class="tag b">A-T1</span> <strong>Bridge the buttons.</strong> Add an <em>Archotech</em> group to the
+    inspector's add-on strip that opens <code>Dialog_ArchotechInfoView</code> and
+    <code>ArchotechExportWindow</code>, and mirrors <code>LogColorizer.UseArchotechColors</code>.
+    <strong>Blocker:</strong> <code>Dialog_ArchotechInfoView</code>'s constructor takes an
+    <code>EditWindow_Log</code>. Two routes: (a) pass a detached, never-added <code>EditWindow_Log</code>
+    instance purely as the ctor argument &mdash; only safe if the dialog never adds it to the stack or reads
+    per-instance state, which I did <em>not</em> verify; (b) ask kongkim for a parameterless overload.
+    <span class="cert c40">Route (a): 45 &mdash; needs a decompile of the dialog before committing</span></li>
+<li><span class="tag b">A-T2</span> <strong>Consume, don't duplicate.</strong> Archotech's
+    <code>SuspectAnalyzer</code>, <code>IssueClassifier</code>, <code>HarmonyTracker</code> and
+    <code>ModMapper</code> solve the <em>same</em> attribution problem we do. Rather than compete, ship a
+    <code>Module_ArchotechLogs : ErrorModule</code> that reflects its classifier and surfaces its verdict
+    as one more diagnosis with a low score &mdash; exactly the <code>Module_CircinusCorpus</code> pattern.
+    Zero coupling, zero overhead when absent. <span class="cert c60">65</span></li>
+</ol>
+
+<h3>3.4 Structural interop weaknesses</h3>
+<table>
+<thead><tr><th style="width:5%">#</th><th style="width:66%">Issue</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td class="id">R3</td><td><strong>All five window prefixes return <code>false</code> unconditionally</strong>, with no Harmony priority and no "has someone else already claimed this?" check. Two log-replacer mods would resolve non-deterministically by patch order. Declare an explicit <code>[HarmonyPriority]</code> and gate on a public ownership flag.</td><td class="cert c80">90</td></tr>
+<tr><td class="id">R4</td><td><strong>No public "who owns the log window" contract.</strong> Other mods cannot detect that the vanilla window is suppressed, cannot ask us to open, and cannot decorate us. This is what makes R1 and R2 silent rather than adaptable.</td><td class="cert c95">95</td></tr>
+<tr><td class="id">R5</td><td><code>Patch_SelectLastMessage</code> prefixes <code>EditWindow_Log.SelectLastMessage</code> and returns <code>false</code>. That method is <em>also</em> vanilla's own behaviour for the <code>openOnMessage</code> flow. If any path still shows the vanilla window (Archotech's main button does), we have broken its selection while not owning it.</td><td class="cert c80">92</td></tr>
+<tr><td class="id">R6</td><td>The <code>Log.Error</code> postfix (<code>Patch_Log_Error_FillDetector</code>) puts us on the error path of <em>every</em> mod in the game for a default-off feature &mdash; both a cost (B4) and an extra chance of ordering friction with other log-adjacent mods.</td><td class="cert c95">95</td></tr>
+<tr><td class="id">R7</td><td><code>Module_CircinusCorpus</code> is an excellent compat pattern but <strong>hardcoded</strong>. Generalise it into a declarative <em>reflection bridge</em> so Archotech, HugsLib and future neighbours are configuration, not new classes.</td><td class="cert c95">94</td></tr>
+</tbody>
+</table>
+
+<h3>3.5 "Can installed mods give us base-game-rooted features at near-zero cost?"</h3>
+<p>Scoped honestly: I surveyed the 909-mod list for the class that <em>shares our patch surface</em> rather
+than speculating across all of them. Only three are relevant, and all three argue for the same conclusion.</p>
+<table>
+<thead><tr><th style="width:22%">Mod</th><th style="width:10%">State</th><th style="width:50%">Opportunity</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td><strong>HugsLib</strong></td><td class="sev s3">Active #19</td><td>Host its widgets (R1-T1). Feels 100% base-game because it <em>is</em> the button users already know. Cost: one reflected list read at window open. This is the highest-value, lowest-overhead addition available.</td><td class="cert c95">96</td></tr>
+<tr><td><strong>Archotech Logs</strong></td><td class="sev s4">Installed, inactive</td><td>Diagnostics/Export bridge + optional consumption of its classifier (3.3).</td><td class="cert c60">65</td></tr>
+<tr><td><strong>Dubs Performance Analyzer</strong></td><td class="sev s4">Installed, inactive</td><td>It owns the per-patch <em>calls-per-frame</em> data our Harmony tab can only guess at. A reflection bridge could show "this method is patched by 3 mods and costs X ms/frame" &mdash; genuinely new information, and exactly the evidence our impact scoring currently lacks. Gate on <code>requiresPackageId</code>, so zero cost when absent.</td><td class="cert c40">50 &mdash; API surface unverified</td></tr>
+</tbody>
+</table>
+<p>The generalisable answer is <strong>R7</strong>: rather than hand-writing a compat class per neighbour, build
+one declarative reflection-bridge module type. Then each new integration is a def, not a release.</p>
+
+<div class="pb"></div>
+<h2>Pass 4 &mdash; New capabilities</h2>
+
+<h3>4.1 <span class="tag b">N1</span> Intercepting repeating log entries &mdash; yes, and there is a real gap to close</h3>
+<p>Verified against decompiled <code>Verse.Log</code> and <code>Verse.LogMessageQueue</code>. Four facts drive the design:</p>
+<pre><span class="c">// Verse/Log.cs - Error(), Warning() and Message() all share this shape</span>
+lock (logLock) {
+    messageQueue.Enqueue(
+        new LogMessage(type, text, StackTraceUtility.ExtractStackTrace()),  <span class="c">// (1) ALWAYS runs</span>
+        out var repeatsCapped);                                            <span class="c">//     even for repeat #500</span>
+    if (repeatsCapped) return;                                             <span class="c">// (2) cap is 99</span>
+    ...
+}
+Debug.LogError(text);   <span class="c">// (3) Unity -> synchronous Player.log write, until the cap</span>
+
+<span class="c">// Verse/LogMessageQueue.cs - (4) dedupe compares against lastMessage ONLY</span>
+if (lastMessage != null &amp;&amp; msg.CanCombineWith(lastMessage)) { ... }</pre>
+
+<ol>
+<li><strong><code>StackTraceUtility.ExtractStackTrace()</code> is evaluated before the dedupe test.</strong> Every
+    repeat pays a full managed frame walk plus a large string allocation. On Mono this is expensive, and it
+    is unavoidable through vanilla's own path. <code>new LogMessage</code> additionally does
+    <code>DateTime.Now.ToString(...)</code> per call.</li>
+<li>The repeat cap is <strong>99</strong>. Below it, every occurrence also does a synchronous
+    <code>Debug.Log*</code> &rarr; Player.log disk write.</li>
+<li>All of it is inside <code>lock (logLock)</code>, so tick-loop spam serialises through one lock.</li>
+<li><strong>The gap:</strong> dedupe only compares against <code>lastMessage</code> &mdash; it is strictly
+    <em>consecutive</em>. Two interleaved errors (A, B, A, B&hellip;) <strong>never combine</strong>, so they never
+    reach the cap, never stop writing to disk, and permanently churn the 1,000-entry queue. This is the
+    common real-world case: one broken pawn producing two errors per tick.</li>
+</ol>
+
+<h4>Proposed design &mdash; "Throttle repeating log spam" (toggleable)</h4>
+<pre>Prefix on Log.Error(string) / Log.Warning(string) / Log.Message(string):
+
+  1. If the feature is off  -> return true  (vanilla, untouched)
+  2. key = FNV-1a(text) + type            <span class="c">// no ToLower, no substring, zero allocation</span>
+  3. Look key up in a fixed 64-slot ring of {hash, count, firstFrame, lastFrame}
+  4. count &lt; Threshold (default 5)        -> return true   <span class="c">// first occurrences ALWAYS pass</span>
+  5. count &gt;= Threshold, within window     -> count++; return FALSE
+        skips: ExtractStackTrace, LogMessage alloc, Debug.Log*, Player.log write,
+               TryOpenLogWindow, and the pause-on-error tick pause
+  6. Every N suppressed (or on a timer) emit ONE summary line so nothing vanishes silently
+  7. Surface "suppressed x N" on the message in our inspector + impact banner</pre>
+
+<table>
+<thead><tr><th style="width:26%">Aspect</th><th style="width:62%">Assessment</th><th style="width:8%">Cert.</th></tr></thead>
+<tbody>
+<tr><td>Mechanism works</td><td>A Harmony prefix returning <code>false</code> on <code>Log.Error(string)</code> demonstrably skips the whole body. <code>Log.ErrorOnce</code> routes through <code>Error</code>, so it is covered too.</td><td class="cert c80">92</td></tr>
+<tr><td>Closes a real vanilla gap</td><td>The interleaved-spam case is genuinely unhandled by vanilla, and our ring buffer handles it. This is the part that is <em>new</em>, not just cheaper.</td><td class="cert c95">95</td></tr>
+<tr><td>Magnitude of the win</td><td><strong>Unmeasured.</strong> Removing stack extraction + a synchronous disk write per error <em>should</em> dominate during a storm, but I will not put a number on it without a profiler capture. Frame it to users as "removes the logging overhead of the symptom", never as "fixes the cause".</td><td class="cert c60">60</td></tr>
+<tr><td>Risk: never hide the first one</td><td>Non-negotiable. The diagnostic value is the first occurrence plus an accurate count. Threshold must be &ge;1 and the summary line mandatory.</td><td class="cert c95">99</td></tr>
+<tr><td>Risk: other mods' postfixes</td><td>Anything postfixing <code>Log.Error</code> stops seeing suppressed calls &mdash; including our own <code>WindowWatchdog</code> detector. Must be documented, and the watchdog must read our counter instead.</td><td class="cert c95">94</td></tr>
+<tr><td>Risk: we are on every error path</td><td>The prefix must be allocation-free, lock-free and exception-proof. A throw here would be catastrophic and self-concealing. Wrap in <code>try/catch</code> returning <code>true</code> (fail open to vanilla) on any fault, and latch off after repeated faults.</td><td class="cert c95">97</td></tr>
+<tr><td>Interaction with pause-on-error</td><td>Suppression also skips <code>Find.TickManager.Pause()</code>. That is arguably desirable (no repeated pausing) but it <em>is</em> a behaviour change &mdash; must be called out in the setting's description.</td><td class="cert c95">95</td></tr>
+</tbody>
+</table>
+
+<h3>4.2 <span class="tag b">A1</span> A robust open entry point for modders</h3>
+<p>What exists today is good and genuinely usable: <code>ErrorModuleDef</code> + <code>ErrorModule</code> (XML or
+code), <code>ModernDevToolsAPI.RegisterModule</code>, and the zero-dependency
+<code>About/known-issues.json</code> drop-in &mdash; that last one is an excellent piece of design, because it
+requires no reference, no LoadFolders and no C#. The gaps:</p>
+<table>
+<thead><tr><th style="width:28%">Gap</th><th style="width:56%">Proposal</th><th style="width:10%">Cert.</th></tr></thead>
+<tbody>
+<tr><td>No version contract</td><td><code>public const int ApiVersion = 2;</code> plus a frozen, commented contract block (the <code>Module_CircinusCorpus</code> doc-block style) so third parties can soft-bind by reflection and detect drift.</td><td class="cert c95">97</td></tr>
+<tr><td>Cannot register a knowledge source</td><td><code>RegisterKnowledgeSource(IKnownIssueSource)</code> &mdash; lets a mod supply issues dynamically (from its own settings, a server, or generated) rather than only a static JSON file. Feeds the same shared <code>IssueMatcher</code> from &sect;1.3.</td><td class="cert c95">94</td></tr>
+<tr><td>Cannot add UI</td><td><code>RegisterToolbarWidget(id, drawer)</code> for Toolbar B and an add-on strip in the inspector &mdash; deliberately modelled on HugsLib's <code>WidgetDrawer</code> signature so a mod can register once for both. This is the same hook that solves R1.</td><td class="cert c80">90</td></tr>
+<tr><td>No completion event</td><td><code>event Action&lt;LogAnalysis&gt; AnalysisCompleted</code> &mdash; enables exporters, telemetry, and Archotech/Circinus-style consumers without a module.</td><td class="cert c95">93</td></tr>
+<tr><td>No window-ownership query</td><td><code>LogWindowOwner</code> (who owns it), <code>OpenLog()</code>, <code>IsLogOpen</code>, and a <code>YieldLogWindow()</code> stand-down call. Directly resolves R3/R4/R5.</td><td class="cert c95">95</td></tr>
+<tr><td>Unsafe drawing contract</td><td><code>ErrorModule.DrawSection</code> currently hands out a raw y-cursor inside an active scroll view, where a module calling <code>Palette.BeginScroll</code> corrupts global skin state (B3). Fix B3, then document the contract explicitly: "you are inside a scroll view; do not begin another".</td><td class="cert c95">95</td></tr>
+</tbody>
+</table>
+
+<div class="pb"></div>
+<h2>Paths forward</h2>
+<p>Sequenced so that each phase is independently shippable and independently verifiable. Nothing here
+changes the aesthetic or the behaviour of any existing feature.</p>
+
+<table>
+<thead><tr><th style="width:6%">Phase</th><th style="width:30%">Work</th><th style="width:26%">Why this order</th><th style="width:9%">Effort</th><th style="width:9%">Risk</th><th style="width:12%">Payoff</th></tr></thead>
+<tbody>
+<tr><td class="id">0</td><td><strong>Correctness first.</strong> B1 (lock the index build), B2 (try/finally), B3 (make BeginScroll re-entrant), B5 (marshal the cache clear)</td><td>These are latent bugs, not optimisations. Fix before touching anything they sit under.</td><td>Small</td><td class="sev s4">Very low</td><td>Stability</td></tr>
+<tr><td class="id">1</td><td><strong>R1-T0 + A-T0.</strong> "Open vanilla log" button when HugsLib/Archotech is active, plus the log-window-owner setting and first-run notice</td><td>Converts two silent total-failure modes into a one-click detour. Handful of lines. Highest value per unit of risk in this whole document.</td><td>Small</td><td class="sev s4">Very low</td><td class="sev s1">Very high</td></tr>
+<tr><td class="id">2</td><td><strong>Cache pass.</strong> Shared <code>TextMetrics</code> memo; hang <code>ImpactResult</code>, glossary terms and measured heights off <code>LogAnalysis</code>; cache <code>RankedMods</code>; cache KB rail counts; cache palette node resolution</td><td>Fixes P1&ndash;P4, P7&ndash;P9 with one shared mechanism. Pure win, zero visual change.</td><td>Medium</td><td class="sev s4">Low</td><td class="sev s1">Very high</td></tr>
+<tr><td class="id">3</td><td><strong>Cull the knowledge base.</strong> Two-pass measure/draw with a cached per-row height, skipping rows outside the viewport</td><td>Largest single block of avoidable work in the mod. Independent of phase 2.</td><td>Medium</td><td class="sev s3">Low-med (layout)</td><td class="sev s1">Very high</td></tr>
+<tr><td class="id">4</td><td><strong>B4.</strong> Move the 5 hardening patches to settings-driven <code>Patch</code>/<code>Unpatch</code></td><td>Removes per-frame dispatch for a default-off feature. Must be driven from a tick/component context, never from inside a patch body.</td><td>Small-med</td><td class="sev s3">Medium</td><td class="sev s2">High</td></tr>
+<tr><td class="id">5</td><td><strong>API v2</strong> (&sect;4.2) and <strong>R1-T1</strong> (host HugsLib widgets) &mdash; same hook, ship together</td><td>The widget host is the API's first consumer, which proves the design.</td><td>Medium</td><td class="sev s3">Medium</td><td class="sev s1">Very high</td></tr>
+<tr><td class="id">6</td><td><strong>N1</strong> log-spam throttle, default <em>off</em> for one release, then default on</td><td>It sits on every mod's error path. Earn confidence before defaulting it on.</td><td>Medium</td><td class="sev s2">Med-high</td><td class="sev s2">High</td></tr>
+<tr><td class="id">7</td><td><strong>Dedupe pass</strong> (&sect;1.3) &mdash; unify the two issue matchers, hoist shared helpers, delete dead code</td><td>Best done after phases 2&ndash;5, so the refactor absorbs the new shapes rather than fighting them.</td><td>Medium</td><td class="sev s4">Low</td><td>Maintainability</td></tr>
+<tr><td class="id">8</td><td><strong>R7</strong> declarative reflection-bridge module; then A-T1/A-T2 and the Dubs bridge as defs</td><td>Turns every future integration from a code change into a def.</td><td>Medium</td><td class="sev s3">Medium</td><td class="sev s2">High</td></tr>
+<tr><td class="id">9</td><td><strong>Two-draw card</strong> prototype, verified at 100/125/150% UI scale</td><td>Real but smallest win, and the only item with genuine visual-regression risk. Last, and only if the screenshots are identical.</td><td>Small</td><td class="sev s2">Medium (visual)</td><td class="sev s3">Medium</td></tr>
+</tbody>
+</table>
+
+<h2>What I did not verify</h2>
+<div class="warn">
+Stated plainly so nothing here is mistaken for measurement.
+<ul>
+<li><strong>Nothing was profiled.</strong> Every performance claim is derived from reading code and counting
+    call sites. The ranking is by <em>expected</em> impact. Phase 2 and 3 should be validated with Dubs
+    Performance Analyzer before and after.</li>
+<li>The draw-call budget in &sect;2.2 is a static count, not a frame capture.</li>
+<li>Whether <code>RegexOptions.Compiled</code> is a net loss on this Mono runtime (P10) is <em>reasoning</em>,
+    not benchmarking. Do not act on it without a measurement.</li>
+<li>I did not decompile <code>Dialog_ArchotechInfoView</code>'s body, so route (a) of A-T1 is unproven.</li>
+<li>I did not verify Dubs Performance Analyzer's public API surface (&sect;3.5) at all.</li>
+<li>I did not enumerate which third-party mods in the 909-mod list call
+    <code>AddLogWindowWidget</code> &mdash; only that HugsLib itself registers three and the API is public.</li>
+<li>The two-draw card's behaviour at fractional UI scale is a stated risk, not a tested result.</li>
+</ul>
+</div>
+
+<footer>
+Modern Dev Tools &mdash; Quadruple-Pass Audit &middot; static analysis only, no code modified &middot;
+generated for review before any implementation work begins.
+</footer>
+
+</body>
+</html>
