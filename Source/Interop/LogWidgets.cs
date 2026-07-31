@@ -65,6 +65,14 @@ namespace ModernDevTools
 
         public const float TrayHeight = 30f;
 
+        /// <summary>
+        /// True only while hosted widgets are drawing. HardeningPatches installs a prefix on
+        /// Widgets.ButtonText that reads this and re-skins those buttons into the suite's flat gray,
+        /// so hosted controls match the rest of the window instead of arriving in vanilla tan.
+        /// Scoped as tightly as possible: everything outside this flag draws exactly as vanilla does.
+        /// </summary>
+        public static bool Drawing { get; private set; }
+
         /// <summary>Register a control to appear in the modern log's add-on tray.</summary>
         public static void Register(string id, LogWidgetDrawer drawer, LogWidgetAlign align = LogWidgetAlign.Left)
         {
@@ -189,10 +197,17 @@ namespace ModernDevTools
             var left = new WidgetRow(inner.x, inner.y, UIDirection.RightThenUp, inner.width, 4f);
             var right = new WidgetRow(inner.xMax, inner.y, UIDirection.LeftThenUp, inner.width, 4f);
 
-            DrawList(_native, window, inner, selected, left, right, null);
-            DrawList(_hugsCache, window, inner, selected, left, right, _hugsCache);
-
-            Text.Font = prevFont;
+            Drawing = true;
+            try
+            {
+                DrawList(_native, window, inner, selected, left, right, null);
+                DrawList(_hugsCache, window, inner, selected, left, right, _hugsCache);
+            }
+            finally
+            {
+                Drawing = false;
+                Text.Font = prevFont;
+            }
         }
 
         private static void DrawList(List<Entry> entries, Window window, Rect inner, LogMessage selected,

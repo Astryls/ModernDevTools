@@ -4,7 +4,9 @@ using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
+using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace ModernDevTools
 {
@@ -33,6 +35,7 @@ namespace ModernDevTools
         private static bool _windowOn;
         private static bool _mapUiOn;
         private static bool _throttleOn;
+        private static bool _trayStyleOn;
 
         /// <summary>Latched after any patch/unpatch failure so a broken state cannot retry every frame.</summary>
         private static bool _broken;
@@ -53,6 +56,11 @@ namespace ModernDevTools
         // Log.Error/Warning/Message - the error path of every mod in the game - and defaults to off.
         private static bool WantThrottle => LogThrottle.Enabled;
 
+        // The tray re-skin patches Widgets.ButtonText, which the whole game uses, so it is only
+        // installed once the log window actually has add-on widgets to host. Once true this stays true
+        // (registrations happen at startup), so it installs once and never churns.
+        private static bool WantTrayStyle => LogWidgets.Any;
+
         /// <summary>
         /// Reconcile installed patches with the settings. Cheap no-op in the common case (two bool
         /// compares), so it is safe to call every frame from the Root.Update postfix.
@@ -60,8 +68,9 @@ namespace ModernDevTools
         public static void SyncIfNeeded()
         {
             if (_broken || _harmony == null) return;
-            bool wantWindow = WantWindow, wantMap = WantMapUi, wantThrottle = WantThrottle;
-            if (wantWindow == _windowOn && wantMap == _mapUiOn && wantThrottle == _throttleOn) return;
+            bool wantWindow = WantWindow, wantMap = WantMapUi, wantThrottle = WantThrottle, wantTray = WantTrayStyle;
+            if (wantWindow == _windowOn && wantMap == _mapUiOn && wantThrottle == _throttleOn
+                && wantTray == _trayStyleOn) return;
 
             try
             {
@@ -79,6 +88,11 @@ namespace ModernDevTools
                 {
                     ApplyGroup(ThrottleTargets(), wantThrottle);
                     _throttleOn = wantThrottle;
+                }
+                if (wantTray != _trayStyleOn)
+                {
+                    ApplyGroup(TrayStyleTargets(), wantTray);
+                    _trayStyleOn = wantTray;
                 }
             }
             catch (Exception e)
@@ -129,6 +143,17 @@ namespace ModernDevTools
             Pre(AccessTools.Method(typeof(Log), nameof(Log.Error), new[] { typeof(string) }), nameof(LogError_ThrottlePrefix)),
             Pre(AccessTools.Method(typeof(Log), nameof(Log.Warning), new[] { typeof(string) }), nameof(LogWarning_ThrottlePrefix)),
             Pre(AccessTools.Method(typeof(Log), nameof(Log.Message), new[] { typeof(string) }), nameof(LogMessage_ThrottlePrefix)),
+        };
+
+        // The 7-argument overload is the funnel: the shorter public ButtonText overload calls straight
+        // into it, so patching this one covers every call path.
+        private static List<Target> TrayStyleTargets() => new List<Target>
+        {
+            Pre(AccessTools.Method(typeof(Widgets), nameof(Widgets.ButtonText), new[]
+                {
+                    typeof(Rect), typeof(string), typeof(bool), typeof(bool),
+                    typeof(Color), typeof(bool), typeof(TextAnchor?)
+                }), nameof(ButtonText_TrayStylePrefix)),
         };
 
         private static void ApplyGroup(List<Target> targets, bool install)
@@ -189,6 +214,37 @@ namespace ModernDevTools
 
         public static bool LogMessage_ThrottlePrefix(string text) =>
             !LogThrottle.Enabled || LogThrottle.ShouldLog(text, LogMessageType.Message);
+
+        /// <summary>
+        /// Re-skins buttons drawn by hosted log add-ons into the suite's flat gray, so HugsLib's
+        /// "Share logs" / "Files" / "Copy" match the rest of the window instead of arriving in vanilla
+        /// tan and green.
+        ///
+        /// Only fires while LogWidgets.Drawing is set - one tray, for a handful of frames - so every
+        /// other button in the game is untouched.
+        ///
+        /// Control-count safe: vanilla's ButtonTextWorker emits exactly one ButtonInvisible when
+        /// active (and none when inactive), and Palette.GrayButton does exactly the same, so swapping
+        /// the draw cannot shift any later IMGUI control id. WidgetRow computes the rect and advances
+        /// its own cursor before calling us, and registers its tooltip afterwards, so layout and
+        /// tooltips are unaffected. drawBackground:false means the caller wanted a bare text link, not
+        /// a button - that intent is preserved by falling through to vanilla.
+        /// </summary>
+        public static bool ButtonText_TrayStylePrefix(Rect rect, string label, bool drawBackground,
+                                                     bool doMouseoverSound, bool active, ref bool __result)
+        {
+            if (!LogWidgets.Drawing || !drawBackground) return true;
+            try
+            {
+                if (doMouseoverSound) MouseoverSounds.DoRegion(rect);
+                __result = Palette.GrayButton(rect, label, null, active);
+                return false;
+            }
+            catch
+            {
+                return true;   // anything unexpected: let vanilla draw it rather than lose the button
+            }
+        }
 
         public static Exception World_Finalizer(Exception __exception) => UiHardening.GuardMapUi("world interface", __exception);
         public static Exception MapBefore_Finalizer(Exception __exception) => UiHardening.GuardMapUi("map interface", __exception);
