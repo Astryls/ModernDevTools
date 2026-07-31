@@ -31,13 +31,21 @@ namespace ModernDevTools
         private static ConditionalWeakTable<LogMessage, LogAnalysis> _cache =
             new ConditionalWeakTable<LogMessage, LogAnalysis>();
 
+        // Clear() is called from the community-data BACKGROUND thread when a fetch completes. Rather
+        // than swap the table off-thread (racing a main-thread GetValue), we only raise a flag and let
+        // the next main-thread read do the swap. Keeps every table mutation on the main thread without
+        // needing a marshal queue or an extra per-frame Harmony hook.
+        private static volatile bool _dirty;
+
         public static LogAnalysis For(LogMessage msg)
         {
             if (msg == null) return null;
+            if (_dirty) { _dirty = false; _cache = new ConditionalWeakTable<LogMessage, LogAnalysis>(); }
             return _cache.GetValue(msg, Compute);
         }
 
-        public static void Clear() => _cache = new ConditionalWeakTable<LogMessage, LogAnalysis>();
+        /// <summary>Drop every cached analysis. Safe to call from any thread.</summary>
+        public static void Clear() => _dirty = true;
 
         private static LogAnalysis Compute(LogMessage msg)
         {

@@ -106,18 +106,18 @@ namespace ModernDevTools
             try
             {
                 Text.Font = GameFont.Small;
-                float titleW = Text.CalcSize("MDT_DevPaletteTitle".Translate()).x + 30f;
+                float titleW = TextMetrics.Size("MDT_DevPaletteTitle".Translate()).x + 30f;
                 float labelW = 0f;
                 for (int i = 0; i < nodes.Count; i++)
                 {
                     Text.Font = GameFont.Small;
-                    float lw = Text.CalcSize(DebugTree.PrettyLeaf(nodes[i])).x + 4f;
+                    float lw = TextMetrics.Size(DebugTree.PrettyLeaf(nodes[i])).x + 4f;
                     if (DebugTree.IsCheckbox(nodes[i])) lw += 20f;
                     string cat = DebugTree.PrettyPrefix(nodes[i]);
                     if (cat != null)
                     {
                         Text.Font = GameFont.Tiny;
-                        lw = Mathf.Max(lw, Text.CalcSize(cat).x + 4f);
+                        lw = Mathf.Max(lw, TextMetrics.Size(cat).x + 4f);
                     }
                     if (lw > labelW) labelW = lw;
                 }
@@ -150,13 +150,7 @@ namespace ModernDevTools
         {
             try { Draw(inRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] dev palette draw failed: " + e, 0x2E19C21); }
-            finally
-            {
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.WordWrap = true;
-            }
+            finally { Palette.ResetGuiState(); }
         }
 
         private void Draw(Rect inRect)
@@ -394,7 +388,7 @@ namespace ModernDevTools
                 Text.WordWrap = false;
                 Text.Anchor = TextAnchor.UpperLeft;
                 string draw = text ?? "";
-                if (Text.CalcSize(draw).x > r.width) draw = draw.Truncate(r.width);
+                if (TextMetrics.Size(draw).x > r.width) draw = draw.Truncate(r.width);
                 GUI.color = Palette.TextDim;
                 Widgets.Label(r, "<i>" + draw + "</i>");
             }

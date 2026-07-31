@@ -29,13 +29,7 @@ namespace ModernDevTools
         {
             try { Draw(inRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] update notes draw failed: " + e, 0x2E19C30); }
-            finally
-            {
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.WordWrap = true;
-            }
+            finally { Palette.ResetGuiState(); }
         }
 
         private void Draw(Rect inRect)
@@ -64,7 +58,7 @@ namespace ModernDevTools
             Palette.DrawWell(bodyOut);
             Rect bodyInner = bodyOut.ContractedBy(10f);
             string body = "MDT_UpdateNotesBody".Translate();
-            float bodyH = Mathf.Max(bodyInner.height, Text.CalcHeight(body, bodyInner.width - 16f));
+            float bodyH = Mathf.Max(bodyInner.height, TextMetrics.Height(body, bodyInner.width - 16f));
             Rect view = new Rect(0f, 0f, bodyInner.width - 16f, bodyH);
             Palette.BeginScroll(bodyInner, ref _scroll, view);
             try

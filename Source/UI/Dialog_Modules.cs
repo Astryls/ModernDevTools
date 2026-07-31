@@ -36,6 +36,13 @@ namespace ModernDevTools
 
         public override void DoWindowContents(Rect inRect)
         {
+            try { DrawAll(inRect); }
+            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] modules window draw failed: " + e, 0x2E19A40); }
+            finally { Palette.ResetGuiState(); }
+        }
+
+        private void DrawAll(Rect inRect)
+        {
             Widgets.DrawBoxSolid(inRect, Palette.BG);
             Palette.DrawBox(inRect, Palette.BGL, 1);
 
@@ -93,6 +100,8 @@ namespace ModernDevTools
             Rect listOut = new Rect(inner.x, y, inner.width, inner.yMax - y);
             Rect view = new Rect(0f, 0f, listOut.width - 16f, Mathf.Max(defs.Count * rowH, listOut.height));
             Palette.BeginScroll(listOut, ref _moduleScroll, view);
+            try
+            {
             float ry = 0f;
             foreach (ErrorModuleDef def in defs)
             {
@@ -122,7 +131,8 @@ namespace ModernDevTools
                 }
                 ry += rowH;
             }
-            Palette.EndScroll();
+            }
+            finally { Palette.EndScroll(); }
         }
 
         private void DrawRight(Rect area)
@@ -159,6 +169,8 @@ namespace ModernDevTools
                 Rect listOut = new Rect(inner.x, y, inner.width, inner.yMax - y);
                 Rect view = new Rect(0f, 0f, listOut.width - 16f, Mathf.Max(ignored.Count * rowH, listOut.height));
                 Palette.BeginScroll(listOut, ref _ignoreScroll, view);
+                try
+                {
                 float ry = 0f;
                 foreach (string defName in ignored)
                 {
@@ -172,7 +184,8 @@ namespace ModernDevTools
                         ModernDevToolsMod.UnignoreIssue(defName);
                     ry += rowH;
                 }
-                Palette.EndScroll();
+                }
+                finally { Palette.EndScroll(); }
             }
 
             // Community data (bottom)

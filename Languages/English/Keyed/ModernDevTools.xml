@@ -391,4 +391,16 @@
   <MDT_KbHarmonyPatchers>Patched by: {0}</MDT_KbHarmonyPatchers>
   <MDT_KbHarmonyShowing>Showing the first {0} of {1}.</MDT_KbHarmonyShowing>
 
+  <!-- Log window ownership / compatibility with mods that decorate the vanilla log -->
+  <MDT_VanillaLog>Vanilla log</MDT_VanillaLog>
+  <MDT_VanillaLogTip>Open RimWorld's original debug log window.\n\n{0} add their own buttons there, and those buttons only appear on the original window.</MDT_VanillaLogTip>
+  <MDT_CompatHint>{0} also add buttons to RimWorld's original debug log. Those buttons only appear on the original window - open it any time with the "Vanilla log" button.</MDT_CompatHint>
+  <MDT_CompatDismiss>Got it</MDT_CompatDismiss>
+  <MDT_CompatHugsLibDetail>Share logs, Files and Copy buttons, plus any log buttons other mods add through HugsLib.</MDT_CompatHugsLibDetail>
+  <MDT_CompatArchotechDetail>Diagnostics, Export and log colouring buttons.</MDT_CompatArchotechDetail>
+  <MDT_SectionLogWindow>Log window</MDT_SectionLogWindow>
+  <MDT_YieldLogWindow>Use the vanilla log window</MDT_YieldLogWindow>
+  <MDT_YieldLogWindowDesc>Hand the debug log back to RimWorld. The hotkey, the dev toolbar button and auto-open all open the original window again, so mods that add buttons to it work exactly as they would without this mod. The modern log stays reachable from the dev tools window.</MDT_YieldLogWindowDesc>
+  <MDT_LogDecorators>Detected on the vanilla log window: {0}</MDT_LogDecorators>
+
 </LanguageData>

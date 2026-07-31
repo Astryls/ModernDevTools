@@ -45,20 +45,23 @@ namespace ModernDevTools
             float contentW = body.width - 16f;   // reserve the scrollbar gutter unconditionally
             Rect view = new Rect(0f, 0f, contentW, Mathf.Max(_lastHeight, body.height));
 
-            Palette.BeginScroll(body, ref _scroll, view);
+            // try/finally is mandatory: without it a throw inside DrawContent leaves BeginScrollView
+            // unbalanced AND strands the swapped GUI.skin scrollbar styles, which are GLOBAL - every
+            // vanilla scrollbar in the game would render flat for the rest of the session. Vanilla
+            // force-closes a window whose OnGUI throws, so the user would see the page vanish and the
+            // whole UI change at once, with no obvious cause.
             float y = 0f;
-            DrawContent(contentW, ref y);
-            Palette.EndScroll();
+            Palette.BeginScroll(body, ref _scroll, view);
+            try { DrawContent(contentW, ref y); }
+            finally { Palette.EndScroll(); }
 
             _lastHeight = y;
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
-            GUI.color = Color.white;
+            Palette.ResetGuiState();
         }
 
         private static void DrawContent(float width, ref float y)
         {
+            DrawLogWindowCard(width, ref y);
             DrawGeneralCard(width, ref y);
             DrawModulesCard(width, ref y);
             DrawIgnoredCard(width, ref y);
@@ -80,6 +83,46 @@ namespace ModernDevTools
         {
             Palette.SectionHeader(new Rect(inner.x, inner.y, inner.width, HeaderH), label);
             return inner.y + HeaderH + HeaderGap;
+        }
+
+        // --- Log window ownership ---
+
+        /// <summary>
+        /// Lets the player hand the debug log back to vanilla. Shown always (so it is discoverable
+        /// even before a decorating mod is installed), with a live list of any detected decorators.
+        /// This is the settings-side half of the escape hatch; the log window's own "Vanilla log"
+        /// button is the in-context half.
+        /// </summary>
+        private static void DrawLogWindowCard(float width, ref float y)
+        {
+            float iw = width - CardPad * 2f;
+            string desc = "MDT_YieldLogWindowDesc".Translate();
+            float rowH = Palette.ToggleRowHeight(desc, iw);
+
+            string detected = LogWindowCompat.AnyDecorator
+                ? "MDT_LogDecorators".Translate(LogWindowCompat.DecoratorNames()).ToString() : null;
+            Text.Font = GameFont.Small;
+            float detH = detected != null ? TextMetrics.Height(detected, iw) + 8f : 0f;
+
+            Rect card = BeginCard(width, y, rowH + detH, out Rect inner);
+            float iy = DrawHeader(inner, "MDT_SectionLogWindow".Translate());
+
+            bool v = S.yieldLogWindow;
+            bool nv = Palette.ToggleRow(new Rect(inner.x, iy, inner.width, rowH), "MDT_YieldLogWindow".Translate(), v, desc);
+            if (nv != v) { S.yieldLogWindow = nv; Save(); }
+            iy += rowH;
+
+            if (detected != null)
+            {
+                iy += 8f;
+                Text.Font = GameFont.Small;
+                Text.WordWrap = true;
+                GUI.color = Palette.TextDim;
+                Widgets.Label(new Rect(inner.x, iy, inner.width, detH - 8f), detected);
+                GUI.color = Color.white;
+            }
+
+            y += card.height + CardGap;
         }
 
         // --- General (settings-only toggles) ---
@@ -107,7 +150,7 @@ namespace ModernDevTools
             float iw = width - CardPad * 2f;
             string intro = "MDT_SettingsIntro".Translate();
             Text.Font = GameFont.Small;
-            float introH = Text.CalcHeight(intro, iw);
+            float introH = TextMetrics.Height(intro, iw);
 
             var defs = DefDatabase<ErrorModuleDef>.AllDefsListForReading.OrderBy(d => d.order).ToList();
             float content = introH + 8f + defs.Count * ModuleRowH;
@@ -170,7 +213,7 @@ namespace ModernDevTools
             if (ignored.Count == 0)
             {
                 Text.Font = GameFont.Small;
-                emptyH = Text.CalcHeight("MDT_NoIgnored".Translate(), iw);
+                emptyH = TextMetrics.Height("MDT_NoIgnored".Translate(), iw);
                 content = emptyH;
             }
             else content = ignored.Count * IgnoredRowH;
@@ -221,7 +264,7 @@ namespace ModernDevTools
             float iw = width - CardPad * 2f;
             string status = Dialog_Modules.CommunityStatus();
             Text.Font = GameFont.Small;
-            float statusH = Text.CalcHeight(status, iw);
+            float statusH = TextMetrics.Height(status, iw);
 
             const float enableRowH = 24f;
             const float btnH = 26f;

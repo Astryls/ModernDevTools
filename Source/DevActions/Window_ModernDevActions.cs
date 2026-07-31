@@ -163,13 +163,7 @@ namespace ModernDevTools
         {
             try { DrawAll(inRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] dev window draw failed: " + e, 0x2E19C10); }
-            finally
-            {
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.WordWrap = true;
-            }
+            finally { Palette.ResetGuiState(); }
         }
 
         private void DrawAll(Rect inRect)

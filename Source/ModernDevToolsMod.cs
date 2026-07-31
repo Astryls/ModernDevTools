@@ -24,6 +24,12 @@ namespace ModernDevTools
         public bool experimentalWindowHardening = false;   // experimental: isolate/close UI-breaking windows
         public bool experimentalMapUiHardening = false;    // experimental: recover from broken world/map UI
 
+        // --- log-window ownership (see LogWindowCompat) ---
+        // Stand down and let the vanilla log window (and everything decorating it - HugsLib's widget
+        // API, Archotech Logs) behave as if this mod were not installed.
+        public bool yieldLogWindow = false;
+        public bool dismissedLogCompatHint = false;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -34,6 +40,8 @@ namespace ModernDevTools
             Scribe_Values.Look(ref dontAutoOpenAtMainMenu, "dontAutoOpenAtMainMenu", false);
             Scribe_Values.Look(ref experimentalWindowHardening, "experimentalWindowHardening", false);
             Scribe_Values.Look(ref experimentalMapUiHardening, "experimentalMapUiHardening", false);
+            Scribe_Values.Look(ref yieldLogWindow, "yieldLogWindow", false);
+            Scribe_Values.Look(ref dismissedLogCompatHint, "dismissedLogCompatHint", false);
             if (moduleEnabled == null) moduleEnabled = new Dictionary<string, bool>();
             if (ignoredIssues == null) ignoredIssues = new HashSet<string>();
         }

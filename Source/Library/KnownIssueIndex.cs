@@ -31,31 +31,50 @@ namespace ModernDevTools
             public string[] packageIdsLower;
         }
 
-        private static List<Compiled> _all;
+        private static volatile List<Compiled> _all;
+        private static readonly object _buildLock = new object();
 
+        /// <summary>
+        /// The compiled library. ALWAYS read through this (or a local snapshot of it) - never touch
+        /// _all directly, because the list is published only once it is fully populated.
+        /// </summary>
+        private static List<Compiled> All { get { EnsureBuilt(); return _all; } }
+
+        /// <summary>
+        /// Build once, thread-safely. The list is assembled into a LOCAL and published to the volatile
+        /// field only when complete: the startup prewarm runs this on a background thread, so publishing
+        /// an empty list first (the previous shape) let a main-thread caller see a non-null but partial
+        /// library - silently producing no diagnoses, or throwing mid-enumeration into a catch block that
+        /// hid the cause. Mirrors HarmonyIndex.Build's correct pattern.
+        /// </summary>
         public static void EnsureBuilt()
         {
             if (_all != null) return;
-            _all = new List<Compiled>();
-            try
+            lock (_buildLock)
             {
-                foreach (KnownIssueDef def in DefDatabase<KnownIssueDef>.AllDefsListForReading)
+                if (_all != null) return;
+                var built = new List<Compiled>();
+                try
                 {
-                    _all.Add(new Compiled
+                    foreach (KnownIssueDef def in DefDatabase<KnownIssueDef>.AllDefsListForReading)
                     {
-                        def = def,
-                        exTypesLower = Lower(def.exceptionTypes),
-                        keywordsLower = Lower(def.keywords),
-                        namespaces = def.namespaces?.ToArray() ?? Array.Empty<string>(),
-                        packageIdsLower = Lower(def.packageIds),
-                        regexes = CompileList(def, def.regexes),
-                        attributeRegex = CompileOne(def, def.attributeRegex)
-                    });
+                        built.Add(new Compiled
+                        {
+                            def = def,
+                            exTypesLower = Lower(def.exceptionTypes),
+                            keywordsLower = Lower(def.keywords),
+                            namespaces = def.namespaces?.ToArray() ?? Array.Empty<string>(),
+                            packageIdsLower = Lower(def.packageIds),
+                            regexes = CompileList(def, def.regexes),
+                            attributeRegex = CompileOne(def, def.attributeRegex)
+                        });
+                    }
                 }
-            }
-            catch (Exception e)
-            {
-                Log.WarningOnce("[Modern Dev Tools] Failed to build known-issue index: " + e.Message, 0x2E19A04);
+                catch (Exception e)
+                {
+                    Log.WarningOnce("[Modern Dev Tools] Failed to build known-issue index: " + e.Message, 0x2E19A04);
+                }
+                _all = built;   // publish only when complete
             }
         }
 
@@ -91,13 +110,13 @@ namespace ModernDevTools
         public static bool TextMatchesAnyIgnored(string messageText, ICollection<string> ignoredDefNames)
         {
             if (ignoredDefNames == null || ignoredDefNames.Count == 0) return false;
-            EnsureBuilt();
+            List<Compiled> all = All;
             try
             {
                 string text = messageText ?? "";
                 string textLower = text.ToLowerInvariant();
                 string exType = FrameParser.ExtractExceptionType(text)?.ToLowerInvariant();
-                foreach (Compiled c in _all)
+                foreach (Compiled c in all)
                 {
                     if (!ignoredDefNames.Contains(c.def.defName)) continue;
                     if (c.exTypesLower.Length > 0 && exType != null && c.exTypesLower.Contains(exType)) return true;
@@ -114,13 +133,13 @@ namespace ModernDevTools
         /// suppression flag. Benign entries are a tiny slice of the library.</summary>
         public static bool HasBenignMatch(ErrorContext ctx)
         {
-            EnsureBuilt();
+            List<Compiled> all = All;
             try
             {
                 string text = ctx.Text ?? "";
                 string textLower = text.ToLowerInvariant();
                 string exType = ctx.ExceptionType?.ToLowerInvariant();
-                foreach (Compiled c in _all)
+                foreach (Compiled c in all)
                 {
                     if (!c.def.benign) continue;
                     if (c.regexes.Length > 0 && c.regexes.Any(rx => rx.IsMatch(text))) return true;
@@ -134,7 +153,7 @@ namespace ModernDevTools
 
         public static List<KnownIssueMatch> Match(ErrorContext ctx)
         {
-            EnsureBuilt();
+            List<Compiled> all = All;
             var scored = new List<KeyValuePair<Compiled, int>>();
             try
             {
@@ -143,7 +162,7 @@ namespace ModernDevTools
                 string exType = ctx.ExceptionType?.ToLowerInvariant();
                 var pids = new HashSet<string>(ctx.ImplicatedPackageIds.Select(p => p.ToLowerInvariant()));
 
-                foreach (Compiled c in _all)
+                foreach (Compiled c in all)
                 {
                     int score = 0;
                     if (c.exTypesLower.Length > 0 && exType != null && c.exTypesLower.Contains(exType)) score += 3;

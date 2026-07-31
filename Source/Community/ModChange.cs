@@ -130,7 +130,7 @@ namespace ModernDevTools
                 float y = content.y + 40f;
                 GUI.color = Palette.TextDim;
                 Text.WordWrap = true;
-                float introH = Mathf.Ceil(Text.CalcHeight("MDT_ModsChangedIntro".Translate(), content.width));
+                float introH = Mathf.Ceil(TextMetrics.Height("MDT_ModsChangedIntro".Translate(), content.width));
                 Widgets.Label(new Rect(content.x, y, content.width, introH), "MDT_ModsChangedIntro".Translate());
                 GUI.color = Color.white;
                 y += introH + 8f;
@@ -164,7 +164,7 @@ namespace ModernDevTools
                 finally { Palette.EndScroll(); }
             }
             catch (Exception ex) { Log.ErrorOnce("[Modern Dev Tools] mod-changes draw failed: " + ex, 0x2E19C40); }
-            finally { GUI.color = Color.white; Text.Font = GameFont.Small; Text.Anchor = TextAnchor.UpperLeft; Text.WordWrap = true; }
+            finally { Palette.ResetGuiState(); }
         }
 
         private static string KindLabel(ChangeKind k)

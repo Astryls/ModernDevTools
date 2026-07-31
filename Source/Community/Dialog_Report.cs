@@ -53,7 +53,7 @@ namespace ModernDevTools
         {
             try { Draw(inRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] report dialog draw failed: " + e, 0x2E19C60); }
-            finally { GUI.color = Color.white; Text.Font = GameFont.Small; Text.Anchor = TextAnchor.UpperLeft; Text.WordWrap = true; }
+            finally { Palette.ResetGuiState(); }
         }
 
         private void Draw(Rect inRect)
@@ -108,13 +108,16 @@ namespace ModernDevTools
                 ? ReportBuilder.FullReportWithNote(_msg, _a, _sig, _summary)
                 : FixPreview();
             Rect inner = previewOut.ContractedBy(6f);
-            float th = Mathf.Max(Text.CalcHeight(preview, inner.width - 16f), inner.height);
+            float th = Mathf.Max(TextMetrics.Height(preview, inner.width - 16f), inner.height);
             Rect view = new Rect(0f, 0f, inner.width - 16f, th);
             Palette.BeginScroll(inner, ref _previewScroll, view);
-            GUI.color = Palette.TextDim;
-            Widgets.Label(new Rect(0f, 0f, view.width, th), preview);
-            GUI.color = Color.white;
-            Palette.EndScroll();
+            try
+            {
+                GUI.color = Palette.TextDim;
+                Widgets.Label(new Rect(0f, 0f, view.width, th), preview);
+                GUI.color = Color.white;
+            }
+            finally { Palette.EndScroll(); }
 
             // Buttons. Row 1 = report destinations: the culprit mod's own channel first (GitHub, else
             // Workshop/site), with the community database as an explicit "also". Row 2 = copy / close.

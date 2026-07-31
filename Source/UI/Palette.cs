@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -178,7 +179,7 @@ namespace ModernDevTools
                 Text.Font = GameFont.Small;
                 bool prevWrap = Text.WordWrap;
                 Text.WordWrap = true;
-                h += 4f + Text.CalcHeight(description, width);
+                h += 4f + TextMetrics.Height(description, width);
                 Text.WordWrap = prevWrap;
             }
             return h;
@@ -270,7 +271,12 @@ namespace ModernDevTools
         // BeginScroll with EndScroll (in a try/finally) so the skin is restored even on exceptions.
         private static bool _scrollInit;
         private static GUIStyle _flatBar, _flatThumb, _flatBtn;
-        private static GUIStyle _savedBar, _savedThumb, _savedUp, _savedDown;
+
+        // The saved skin styles form a STACK, not four single fields. ErrorModule.DrawSection hooks
+        // run INSIDE the inspector's already-active scroll view, so the first third-party module that
+        // begins its own scroll would clobber the outer save and leave the flat skin applied to every
+        // vanilla scrollbar in the game for the rest of the session.
+        private static readonly List<GUIStyle[]> _skinStack = new List<GUIStyle[]>();
 
         private static void InitScroll()
         {
@@ -297,10 +303,11 @@ namespace ModernDevTools
         public static void BeginScroll(Rect outRect, ref Vector2 scroll, Rect viewRect)
         {
             InitScroll();
-            _savedBar = GUI.skin.verticalScrollbar;
-            _savedThumb = GUI.skin.verticalScrollbarThumb;
-            _savedUp = GUI.skin.verticalScrollbarUpButton;
-            _savedDown = GUI.skin.verticalScrollbarDownButton;
+            _skinStack.Add(new[]
+            {
+                GUI.skin.verticalScrollbar, GUI.skin.verticalScrollbarThumb,
+                GUI.skin.verticalScrollbarUpButton, GUI.skin.verticalScrollbarDownButton
+            });
             GUI.skin.verticalScrollbar = _flatBar;
             GUI.skin.verticalScrollbarThumb = _flatThumb;
             GUI.skin.verticalScrollbarUpButton = _flatBtn;
@@ -311,11 +318,35 @@ namespace ModernDevTools
         public static void EndScroll()
         {
             Widgets.EndScrollView();
-            if (!_scrollInit) return;
-            GUI.skin.verticalScrollbar = _savedBar;
-            GUI.skin.verticalScrollbarThumb = _savedThumb;
-            GUI.skin.verticalScrollbarUpButton = _savedUp;
-            GUI.skin.verticalScrollbarDownButton = _savedDown;
+            PopSkin();
+        }
+
+        private static void PopSkin()
+        {
+            int n = _skinStack.Count;
+            if (n == 0) return;
+            GUIStyle[] saved = _skinStack[n - 1];
+            _skinStack.RemoveAt(n - 1);
+            GUI.skin.verticalScrollbar = saved[0];
+            GUI.skin.verticalScrollbarThumb = saved[1];
+            GUI.skin.verticalScrollbarUpButton = saved[2];
+            GUI.skin.verticalScrollbarDownButton = saved[3];
+        }
+
+        /// <summary>
+        /// Restore the engine's GUI defaults at the end of a draw pass. Call this from EVERY window's
+        /// finally block. Besides the usual color/font/anchor reset it unwinds any scroll-skin saves
+        /// stranded by an exception thrown between BeginScroll and EndScroll - without it, one throw
+        /// leaves the flat scrollbar skin applied game-wide (unwinding to the bottom of the stack
+        /// restores the pristine skin, because that entry was pushed by the outermost BeginScroll).
+        /// </summary>
+        public static void ResetGuiState()
+        {
+            while (_skinStack.Count > 0) PopSkin();
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.WordWrap = true;
         }
 
         // --- themed text / search field (dark well, accent-on-focus border, no vanilla frame) ---
@@ -385,9 +416,9 @@ namespace ModernDevTools
             bool prevWrap = Text.WordWrap;
             Text.WordWrap = false;
             string draw = text;
-            if (Text.CalcSize(text).x > r.width && !shortFallback.NullOrEmpty())
+            if (TextMetrics.Size(text).x > r.width && !shortFallback.NullOrEmpty())
                 draw = shortFallback;
-            if (Text.CalcSize(draw).x > r.width)
+            if (TextMetrics.Size(draw).x > r.width)
                 draw = draw.Truncate(r.width); // last resort
             GUI.color = color;
             Text.Anchor = TextAnchor.MiddleLeft;

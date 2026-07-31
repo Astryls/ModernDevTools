@@ -32,6 +32,14 @@ namespace ModernDevTools
 
         private float _inspH = 200f; // cached inspector content height for the scroll viewRect
 
+        // Compat-hint visibility, latched once per FRAME. The hint's own Dismiss button flips the
+        // setting that hides it, and OnGUI runs several passes per frame - so reading the setting
+        // directly would emit one fewer control on the passes after the click, shifting every later
+        // IMGUI control id and killing clicks in the list below it. Latching makes the control set
+        // identical across all passes of a frame; the hint disappears on the next frame instead.
+        private int _hintFrame = -1;
+        private bool _hintVisible;
+
         public Window_ModernLog()
         {
             doCloseX = false;
@@ -83,13 +91,7 @@ namespace ModernDevTools
             {
                 Log.ErrorOnce("[Modern Dev Tools] window draw failed: " + e, 0x2E19A30);
             }
-            finally
-            {
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.WordWrap = true;
-            }
+            finally { Palette.ResetGuiState(); }
         }
 
         private void DrawAll(Rect inRect)
@@ -113,6 +115,9 @@ namespace ModernDevTools
             // Toolbar B: search (left) + copy/clear (right)
             DrawToolbarB(new Rect(content.x, y, content.width, ToolbarH));
             y += ToolbarH + Gap;
+
+            // One-time disclosure that other mods decorate the vanilla log window.
+            y += DrawCompatHint(new Rect(content.x, y, content.width, 0f));
 
             // Body: message list (left) + inspector (right)
             Rect body = new Rect(content.x, y, content.width, content.yMax - y);
@@ -168,31 +173,23 @@ namespace ModernDevTools
 
         private void DrawToolbarB(Rect r)
         {
-            // Right: Clear then Copy all.
-            float clearW = BtnW("MDT_Clear".Translate());
-            float copyW = BtnW("MDT_CopyAll".Translate());
-            float modW = BtnW("MDT_Modules".Translate());
-            Rect clearR = new Rect(r.xMax - clearW, r.y, clearW, r.height);
-            Rect copyR = new Rect(clearR.x - Gap - copyW, r.y, copyW, r.height);
-            Rect modR = new Rect(copyR.x - Gap - modW, r.y, modW, r.height);
-            float updW = BtnW("MDT_CommUpdate".Translate());
-            Rect updR = new Rect(modR.x - Gap - updW, r.y, updW, r.height);
-            float kbW = BtnW("MDT_KbButton".Translate());
-            Rect kbR = new Rect(updR.x - Gap - kbW, r.y, kbW, r.height);
+            // Buttons lay out right-to-left off a single cursor, so adding or removing one cannot
+            // desync the rects. The search field then fills whatever is left.
+            float rx = r.xMax;
 
-            if (Palette.GrayButton(clearR, "MDT_Clear".Translate(), "MDT_ClearTip".Translate()))
+            if (RightButton(ref rx, r, "MDT_Clear".Translate(), "MDT_ClearTip".Translate()))
             {
                 Log.Clear();
                 LogState.ClearSelection();
                 LogState.ListScroll = Vector2.zero;
             }
-            if (Palette.GrayButton(copyR, "MDT_CopyAll".Translate(), "MDT_CopyAllTip".Translate()))
+            if (RightButton(ref rx, r, "MDT_CopyAll".Translate(), "MDT_CopyAllTip".Translate()))
                 Copy(BuildAllMessages());
-            if (Palette.GrayButton(modR, "MDT_Modules".Translate(), "MDT_ModulesTip".Translate()))
+            if (RightButton(ref rx, r, "MDT_Modules".Translate(), "MDT_ModulesTip".Translate()))
             {
                 if (!Find.WindowStack.IsOpen<Dialog_Modules>()) Find.WindowStack.Add(new Dialog_Modules());
             }
-            if (Palette.GrayButton(updR, "MDT_CommUpdate".Translate(), "MDT_CommUpdateTip".Translate()))
+            if (RightButton(ref rx, r, "MDT_CommUpdate".Translate(), "MDT_CommUpdateTip".Translate()))
             {
                 if (!ModernDevToolsMod.Settings.enableCommunityData)
                 {
@@ -202,14 +199,66 @@ namespace ModernDevTools
                 }
                 CommunityData.Update();
             }
-            if (Palette.GrayButton(kbR, "MDT_KbButton".Translate(), "MDT_KbButtonTip".Translate()))
+            if (RightButton(ref rx, r, "MDT_KbButton".Translate(), "MDT_KbButtonTip".Translate()))
             {
                 if (!Find.WindowStack.IsOpen<Window_KnowledgeBase>()) Find.WindowStack.Add(new Window_KnowledgeBase());
             }
 
+            // Escape hatch: other mods (HugsLib's widget API, Archotech Logs) hang their UI off the
+            // VANILLA log window, which never opens while we own the log. AnyDecorator is scanned once
+            // at startup, so this button's presence is constant across a frame's OnGUI passes - adding
+            // or dropping a control between passes would shift every later IMGUI control id.
+            if (LogWindowCompat.AnyDecorator
+                && RightButton(ref rx, r, "MDT_VanillaLog".Translate(),
+                               "MDT_VanillaLogTip".Translate(LogWindowCompat.DecoratorNames())))
+                LogWindowCompat.ToggleVanillaLog();
+
             // Left: search field filling the rest.
-            Rect searchR = new Rect(r.x, r.y, kbR.x - Gap - r.x, r.height);
-            DrawSearch(searchR);
+            DrawSearch(new Rect(r.x, r.y, rx - r.x, r.height));
+        }
+
+        /// <summary>Draw a toolbar button at the right-to-left cursor and advance it. Returns true on click.</summary>
+        private static bool RightButton(ref float rx, Rect r, string label, string tip)
+        {
+            float w = BtnW(label);
+            Rect br = new Rect(rx - w, r.y, w, r.height);
+            rx = br.x - Gap;
+            return Palette.GrayButton(br, label, tip);
+        }
+
+        /// <summary>
+        /// A one-time strip telling the player that other installed mods put their own buttons on the
+        /// vanilla log window. Without this the loss is completely silent - HugsLib's "Share logs"
+        /// simply stops existing and the player concludes HugsLib broke. Returns the height consumed
+        /// (0 when hidden), so the caller just adds it to its layout cursor.
+        /// </summary>
+        private float DrawCompatHint(Rect r)
+        {
+            int frame = Time.frameCount;
+            if (frame != _hintFrame) { _hintFrame = frame; _hintVisible = LogWindowCompat.ShowHint; }
+            if (!_hintVisible) return 0f;
+
+            Text.Font = GameFont.Small;
+            Text.WordWrap = true;
+            const float btnW = 90f;
+            float textW = r.width - 24f - btnW - 8f;
+            string text = "MDT_CompatHint".Translate(LogWindowCompat.DecoratorNames());
+            float textH = Mathf.Ceil(TextMetrics.Height(text, textW));
+            float h = Mathf.Max(textH, 26f) + 16f;
+
+            Rect card = new Rect(r.x, r.y, r.width, h);
+            Palette.DrawCard(card);
+            Palette.StateStrip(card, Palette.Accent, 3f);
+
+            GUI.color = Palette.TextDim;
+            Widgets.Label(new Rect(card.x + 12f, card.y + 8f, textW, textH), text);
+            GUI.color = Color.white;
+
+            if (Palette.GrayButton(new Rect(card.xMax - 12f - btnW, card.y + (h - 26f) / 2f, btnW, 26f),
+                                   "MDT_CompatDismiss".Translate()))
+                LogWindowCompat.DismissHint();
+
+            return h + Gap;
         }
 
         private void DrawSearch(Rect r)
@@ -273,7 +322,7 @@ namespace ModernDevTools
             {
                 string rep = "x" + msg.repeats;
                 Text.Font = GameFont.Small;
-                float rw = Text.CalcSize(rep).x + 10f;
+                float rw = TextMetrics.Size(rep).x + 10f;
                 Rect chip = new Rect(x, row.y + (RowH - 18f) / 2f, rw, 18f);
                 Widgets.DrawBoxSolid(chip, Palette.BGD);
                 Text.Anchor = TextAnchor.MiddleCenter;
@@ -356,7 +405,7 @@ namespace ModernDevTools
 
             // Message text
             string mt = msg.text ?? "";
-            float mth = Mathf.Ceil(Text.CalcHeight(mt, w - 12f));
+            float mth = Mathf.Ceil(TextMetrics.Height(mt, w - 12f));
             Rect mwell = new Rect(0f, y, w, mth + 10f);
             Palette.DrawWell(mwell);
             GUI.color = Palette.Stat;
@@ -420,7 +469,7 @@ namespace ModernDevTools
             // Stack trace
             y = Section(w, y, "MDT_SectionTrace".Translate());
             string tr = msg.StackTrace ?? "";
-            float trh = Mathf.Ceil(Text.CalcHeight(tr, w - 12f));
+            float trh = Mathf.Ceil(TextMetrics.Height(tr, w - 12f));
             Rect twell = new Rect(0f, y, w, trh + 10f);
             Palette.DrawWell(twell);
             GUI.color = Palette.TextDim;
@@ -437,7 +486,7 @@ namespace ModernDevTools
             bool known = ReportBuilder.AlreadyKnown(a);
             string blurb = known ? "MDT_ReportKnown".Translate() : "MDT_ReportBlurb".Translate();
             float innerW = w - 20f;
-            float blurbH = Mathf.Ceil(Text.CalcHeight(blurb, innerW));
+            float blurbH = Mathf.Ceil(TextMetrics.Height(blurb, innerW));
             float cardH = 8f + blurbH + 6f + 26f + 8f;
             Rect card = new Rect(0f, y, w, cardH);
             Palette.DrawCard(card);
@@ -475,13 +524,13 @@ namespace ModernDevTools
 
             string badge = imp.Benign ? "MDT_Benign".Translate() : (imp.Known ? "MDT_Known".Translate() : "MDT_Unknown".Translate());
             Color badgeCol = imp.Benign ? Palette.Good : (imp.Known ? Palette.Accent : Palette.TextDim);
-            float badgeW = Text.CalcSize(badge).x + 8f;
+            float badgeW = TextMetrics.Size(badge).x + 8f;
             Text.Anchor = TextAnchor.MiddleRight;
             GUI.color = badgeCol;
             Widgets.Label(new Rect(r.x, r.y, r.width - 10f, r.height), badge);
 
             string sevLabel = ImpactAssessor.LabelFor(imp.Level);
-            float sevW = Text.CalcSize(sevLabel).x;
+            float sevW = TextMetrics.Size(sevLabel).x;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = sev;
             Widgets.Label(new Rect(r.x + 12f, r.y, sevW + 6f, r.height), sevLabel);
@@ -511,14 +560,14 @@ namespace ModernDevTools
             if (!m.Installed) { tag = "MDT_StateNotInstalled".Translate(); tagCol = Palette.Warn; }
             else if (m.Active) { tag = "MDT_StateActive".Translate(); tagCol = Palette.Good; }
             else { tag = "MDT_StateInactive".Translate(); tagCol = Palette.TextDim; }
-            float tagW = Text.CalcSize(tag).x + 12f;
+            float tagW = TextMetrics.Size(tag).x + 12f;
 
             Rect nameR = new Rect(row.x + 12f, row.y + 8f, row.width - tagW - 16f, lh);
             bool hasLink = !m.Url.NullOrEmpty();
             Palette.LabelFit(nameR, m.Name, hasLink ? Palette.Accent : Palette.Stat);
             if (hasLink)
             {
-                float ulW = Mathf.Min(Text.CalcSize(m.Name).x, nameR.width);
+                float ulW = Mathf.Min(TextMetrics.Size(m.Name).x, nameR.width);
                 Widgets.DrawBoxSolid(new Rect(nameR.x, nameR.yMax - 5f, ulW, 1f), Palette.Accent);
                 if (Mouse.IsOver(nameR)) TooltipHandler.TipRegion(nameR, "MDT_OpenModPage".Translate().ToString() + "\n" + m.Url);
                 if (Widgets.ButtonInvisible(nameR)) Application.OpenURL(m.Url);
@@ -554,9 +603,9 @@ namespace ModernDevTools
             bool hasUrl = !d.Url.NullOrEmpty();
 
             float titleH = lh;
-            float descH = desc.Length > 0 ? Mathf.Ceil(Text.CalcHeight(desc, innerW)) : 0f;
+            float descH = desc.Length > 0 ? Mathf.Ceil(TextMetrics.Height(desc, innerW)) : 0f;
             string fixLine = fix.Length > 0 ? ("MDT_FixLabel".Translate().ToString() + " " + fix) : "";
-            float fixH = fixLine.Length > 0 ? Mathf.Ceil(Text.CalcHeight(fixLine, innerW)) : 0f;
+            float fixH = fixLine.Length > 0 ? Mathf.Ceil(TextMetrics.Height(fixLine, innerW)) : 0f;
             float urlH = hasUrl ? lh : 0f;
 
             float blockH = 8f + titleH + (descH > 0 ? 4f + descH : 0f) + (fixH > 0 ? 6f + fixH : 0f) + (urlH > 0 ? 4f + urlH : 0f) + 8f;
@@ -621,7 +670,7 @@ namespace ModernDevTools
         {
             Text.Font = GameFont.Small;
             Text.WordWrap = true;
-            float h = Mathf.Ceil(Text.CalcHeight(text, w));
+            float h = Mathf.Ceil(TextMetrics.Height(text, w));
             GUI.color = color;
             Widgets.Label(new Rect(0f, y, w, h), text);
             GUI.color = Color.white;
@@ -633,7 +682,7 @@ namespace ModernDevTools
             if (!ModChange.HasChanges) return;
             string lbl = "MDT_ModsChangedBtn".Translate(ModChange.Report.Count);
             Text.Font = GameFont.Small;
-            float w = Mathf.Max(60f, Text.CalcSize(lbl).x + 20f);
+            float w = Mathf.Max(60f, TextMetrics.Size(lbl).x + 20f);
             Rect btn = new Rect(rx - w, r.y, w, r.height);
             rx = btn.x - 8f;
             Widgets.DrawBoxSolid(btn, Color.Lerp(Palette.BGL, Palette.Warn, 0.28f));
@@ -663,7 +712,7 @@ namespace ModernDevTools
         private static float BtnW(string label)
         {
             Text.Font = GameFont.Small;
-            return Mathf.Max(60f, Text.CalcSize(label).x + 20f);
+            return Mathf.Max(60f, TextMetrics.Size(label).x + 20f);
         }
 
         private float DrawFilterChip(float x, float y, float h, string label, int count, Color strip, LogMessageType type)
@@ -671,7 +720,7 @@ namespace ModernDevTools
             bool show = LogState.VisibleType(type);
             string text = label + " (" + count + ")";
             Text.Font = GameFont.Small;
-            float tw = Text.CalcSize(text).x;
+            float tw = TextMetrics.Size(text).x;
             float wChip = 3f + 8f + tw + 10f;
             Rect chip = new Rect(x, y, wChip, h);
 
@@ -697,8 +746,8 @@ namespace ModernDevTools
         {
             Text.Font = GameFont.Small;
             string state = value ? "MDT_On".Translate() : "MDT_Off".Translate();
-            float tw = Text.CalcSize(label).x;
-            float sw = Text.CalcSize(state).x;
+            float tw = TextMetrics.Size(label).x;
+            float sw = TextMetrics.Size(state).x;
             float wBtn = 3f + 8f + tw + 8f + sw + 10f;
             Rect r = new Rect(rx - wBtn, y, wBtn, h);
             rx = r.x - 6f;

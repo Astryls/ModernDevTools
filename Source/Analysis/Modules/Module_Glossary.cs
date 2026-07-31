@@ -31,7 +31,7 @@ namespace ModernDevTools
             for (int i = 0; i < terms.Count; i++)
             {
                 labelH[i] = Text.LineHeight;
-                defH[i] = Mathf.Ceil(Text.CalcHeight(terms[i].Value, innerW));
+                defH[i] = Mathf.Ceil(TextMetrics.Height(terms[i].Value, innerW));
                 contentH += labelH[i] + 2f + defH[i] + (i < terms.Count - 1 ? 8f : 0f);
             }
 

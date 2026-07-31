@@ -75,13 +75,7 @@ namespace ModernDevTools
         {
             try { DrawAll(inRect); }
             catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] knowledge window draw failed: " + e, 0x2E19F00); }
-            finally
-            {
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.WordWrap = true;
-            }
+            finally { Palette.ResetGuiState(); }
         }
 
         private void DrawAll(Rect inRect)
@@ -292,7 +286,7 @@ namespace ModernDevTools
             Text.WordWrap = true;
             float lh = Text.LineHeight;
             float innerW = w - 24f;
-            float descH = Mathf.Ceil(Text.CalcHeight(desc, innerW));
+            float descH = Mathf.Ceil(TextMetrics.Height(desc, innerW));
             float h = 8f + lh + 2f + descH + 8f;
             Rect card = new Rect(0f, y, w, h);
             bool over = Mouse.IsOver(card);
@@ -602,7 +596,7 @@ namespace ModernDevTools
             Text.WordWrap = true;
             float lh = Text.LineHeight;
             float innerW = w - 24f;
-            float defH = Mathf.Ceil(Text.CalcHeight(def, innerW));
+            float defH = Mathf.Ceil(TextMetrics.Height(def, innerW));
             float h = 8f + lh + 4f + defH + 8f;
             Rect card = new Rect(0f, y, w, h);
             Palette.DrawCard(card);
@@ -633,12 +627,12 @@ namespace ModernDevTools
 
             bool hasTag = !tag.NullOrEmpty(), hasBody = !body.NullOrEmpty(), hasFix = !fix.NullOrEmpty(),
                  hasSig = !signals.NullOrEmpty(), hasUrl = !url.NullOrEmpty();
-            float titleH = Mathf.Ceil(Text.CalcHeight(title ?? "", innerW));
+            float titleH = Mathf.Ceil(TextMetrics.Height(title ?? "", innerW));
             float tagH = hasTag ? lh : 0f;
-            float bodyH = hasBody ? Mathf.Ceil(Text.CalcHeight(body, innerW)) : 0f;
+            float bodyH = hasBody ? Mathf.Ceil(TextMetrics.Height(body, innerW)) : 0f;
             string fixLine = hasFix ? ("MDT_FixLabel".Translate() + " " + fix) : "";
-            float fixH = hasFix ? Mathf.Ceil(Text.CalcHeight(fixLine, innerW)) : 0f;
-            float sigH = hasSig ? Mathf.Ceil(Text.CalcHeight(signals, innerW)) : 0f;
+            float fixH = hasFix ? Mathf.Ceil(TextMetrics.Height(fixLine, innerW)) : 0f;
+            float sigH = hasSig ? Mathf.Ceil(TextMetrics.Height(signals, innerW)) : 0f;
             float urlH = hasUrl ? lh : 0f;
 
             float cardH = 8f + titleH + (hasTag ? 2f + tagH : 0f) + (hasBody ? 6f + bodyH : 0f)
@@ -664,7 +658,7 @@ namespace ModernDevTools
                 Text.WordWrap = false;
                 GUI.color = Palette.Accent;
                 Widgets.Label(ur, url);
-                float ulW = Mathf.Min(Text.CalcSize(url).x, innerW);
+                float ulW = Mathf.Min(TextMetrics.Size(url).x, innerW);
                 Widgets.DrawBoxSolid(new Rect(ur.x, ur.yMax - 3f, ulW, 1f), Palette.Accent);
                 GUI.color = Color.white;
                 Text.WordWrap = true;
@@ -686,7 +680,7 @@ namespace ModernDevTools
             Text.Font = GameFont.Small;
             Text.WordWrap = true;
             Text.Anchor = TextAnchor.UpperLeft;
-            float h = Mathf.Ceil(Text.CalcHeight(text, w));
+            float h = Mathf.Ceil(TextMetrics.Height(text, w));
             GUI.color = Palette.TextDim;
             Widgets.Label(new Rect(0f, y, w, h), text);
             GUI.color = Color.white;
@@ -699,7 +693,7 @@ namespace ModernDevTools
             Text.WordWrap = true;
             string txt = "MDT_KbCommOff".Translate();
             float innerW = w - 24f;
-            float th = Mathf.Ceil(Text.CalcHeight(txt, innerW));
+            float th = Mathf.Ceil(TextMetrics.Height(txt, innerW));
             float h = 8f + th + 8f + 26f + 8f;
             Rect card = new Rect(0f, y, w, h);
             Palette.DrawCard(card);

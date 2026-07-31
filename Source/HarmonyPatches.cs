@@ -63,7 +63,8 @@ namespace ModernDevTools
         }
     }
 
-    /// <summary>Auto-open on error/warning: redirect vanilla's poll to open our window instead.</summary>
+    /// <summary>Auto-open on error/warning: redirect vanilla's poll to open our window instead.
+    /// Yields to vanilla when the player has handed the log window back (LogWindowCompat).</summary>
     [HarmonyPatch(typeof(UIRoot), "CheckOpenLogWindow")]
     public static class Patch_CheckOpenLogWindow
     {
@@ -71,6 +72,7 @@ namespace ModernDevTools
         {
             try
             {
+                if (!LogWindowCompat.ModernOwnsLog) return true;   // stand down: vanilla + its decorators
                 if (EditWindow_Log.wantsToOpen)
                 {
                     // Optional: don't auto-open the log at the main menu / during loading (startup errors).
@@ -101,7 +103,12 @@ namespace ModernDevTools
     {
         static bool Prefix()
         {
-            try { Window_ModernLog.Toggle(); return false; }
+            try
+            {
+                if (!LogWindowCompat.ModernOwnsLog) return true;
+                Window_ModernLog.Toggle();
+                return false;
+            }
             catch (Exception e)
             {
                 Log.ErrorOnce("[Modern Dev Tools] toggle redirect failed: " + e, 0x2E19A21);
@@ -121,10 +128,14 @@ namespace ModernDevTools
         {
             try
             {
+                // Mirror onto our state, but only SKIP vanilla when we actually own the window.
+                // The vanilla window can still be on screen (its own "Vanilla log" button, or another
+                // mod constructing it directly), and suppressing its selection while not owning it
+                // would break a window we are not responsible for.
                 LogState.Selected = Log.Messages.LastOrDefault();
                 LogState.InspectorScroll = UnityEngine.Vector2.zero;
                 LogState.ListScroll = new UnityEngine.Vector2(0f, float.MaxValue); // window clamps to bottom
-                return false;
+                return !LogWindowCompat.ModernOwnsLog || LogWindowCompat.VanillaLogOpen;
             }
             catch (Exception e)
             {
