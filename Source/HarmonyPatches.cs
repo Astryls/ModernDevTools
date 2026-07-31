@@ -48,6 +48,16 @@ namespace ModernDevTools
                 prewarm.Start();
             }
             catch { }
+
+            // Content fingerprints for the "mods changed since this save" check. Started here rather
+            // than at game load so it is normally finished before any save is written or compared -
+            // an unfinished scan is recorded as "unknown" and reports nothing, never a guess.
+            try
+            {
+                if (ModernDevToolsMod.Settings == null || ModernDevToolsMod.Settings.detectModChanges)
+                    ModFingerprint.Begin();
+            }
+            catch { }
         }
 
         private static void TryShowUpdateNotes()

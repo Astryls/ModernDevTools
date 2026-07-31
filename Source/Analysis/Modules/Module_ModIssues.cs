@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Verse;
 
@@ -33,6 +34,7 @@ namespace ModernDevTools
             }
 
             var matches = CommunityData.Match(ctx, pool);
+            matches = Scope(ctx, matches);
             int n = matches.Count;
             for (int i = 0; i < n; i++)
             {
@@ -52,6 +54,43 @@ namespace ModernDevTools
                     Score = 9 + (n - i)   // the author's own shipped fix ranks above community (8) and the library
                 });
             }
+        }
+
+        /// <summary>
+        /// A mod-shipped entry may only speak about ITS OWN mod's errors.
+        ///
+        /// Entries in this pool get the highest score in the whole scale AND FromLibrary=true (the
+        /// "Known issue" badge), so they are presented as authoritative. But the file lives in a third
+        /// party's About folder and is matched on message text alone - so a single broad keyword like
+        /// "NullReferenceException" in one mod's file would take the top diagnosis slot for every
+        /// unrelated error in the game and blame the wrong author. That is not a hypothetical: it is
+        /// the natural mistake for someone writing their first entry.
+        ///
+        /// An entry therefore applies only when at least one of these holds:
+        ///   * the error already implicates the mod that shipped the file, or
+        ///   * the entry declares its own packageIds/namespaces (so the author has stated the scope
+        ///     explicitly - which is how you legitimately describe an error thrown by a dependency), or
+        ///   * it came from the runtime API, where registration is a deliberate code-level act by an
+        ///     author who has our documentation in front of them.
+        /// </summary>
+        private static List<RemoteIssue> Scope(ErrorContext ctx, List<RemoteIssue> matches)
+        {
+            if (matches.Count == 0) return matches;
+
+            HashSet<string> implicated = null;
+            var kept = new List<RemoteIssue>(matches.Count);
+            foreach (RemoteIssue b in matches)
+            {
+                if (b.OwnerPackageId.NullOrEmpty() || b.HasExplicitScope) { kept.Add(b); continue; }
+
+                if (implicated == null)
+                {
+                    implicated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (string p in ctx.ImplicatedPackageIds) implicated.Add(p);
+                }
+                if (implicated.Contains(b.OwnerPackageId)) kept.Add(b);
+            }
+            return kept;
         }
     }
 }

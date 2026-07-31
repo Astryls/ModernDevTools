@@ -157,14 +157,26 @@ namespace ModernDevTools
         {
             float iw = width - CardPad * 2f;
             string desc = "MDT_NoMainMenuLogDesc".Translate();
+            string descMc = "MDT_SettingDetectModChangesTip".Translate();
             float rowH = Palette.ToggleRowHeight(desc, iw);
+            float rowMc = Palette.ToggleRowHeight(descMc, iw);
 
-            Rect card = BeginCard(width, y, rowH, out Rect inner);
+            Rect card = BeginCard(width, y, rowH + rowMc, out Rect inner);
             float iy = DrawHeader(inner, "MDT_SettingsGeneral".Translate());
 
             bool v = S.dontAutoOpenAtMainMenu;
             bool nv = Palette.ToggleRow(new Rect(inner.x, iy, inner.width, rowH), "MDT_NoMainMenuLog".Translate(), v, desc);
             if (nv != v) { S.dontAutoOpenAtMainMenu = nv; Save(); }
+            iy += rowH;
+
+            bool mc = S.detectModChanges;
+            bool nmc = Palette.ToggleRow(new Rect(inner.x, iy, inner.width, rowMc), "MDT_SettingDetectModChanges".Translate(), mc, descMc);
+            if (nmc != mc)
+            {
+                S.detectModChanges = nmc;
+                Save();
+                if (nmc) ModFingerprint.Begin(); else ModChange.Clear();
+            }
 
             y += card.height + CardGap;
         }

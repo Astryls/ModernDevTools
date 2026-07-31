@@ -14,6 +14,16 @@ namespace ModernDevTools
     public class RemoteIssue
     {
         public string Id, Title, Explanation, Fix, Url, Severity, ReportedBy;
+
+        /// <summary>packageId of the mod that SHIPPED this entry in its own About folder, or null for
+        /// entries from the community database / the runtime API. Set by ModShippedIssues and used to
+        /// stop a mod's own file from claiming an unrelated mod's error - see Module_ModIssues.</summary>
+        public string OwnerPackageId;
+
+        /// <summary>True when the entry names the mods or namespaces it applies to, rather than relying
+        /// purely on message text. Such an entry carries its own scope and needs no owner check.</summary>
+        public bool HasExplicitScope =>
+            (PackageIds != null && PackageIds.Length > 0) || (Namespaces != null && Namespaces.Length > 0);
         public string[] ExceptionTypes = System.Array.Empty<string>();
         public string[] Keywords = System.Array.Empty<string>();
         public string[] Namespaces = System.Array.Empty<string>();

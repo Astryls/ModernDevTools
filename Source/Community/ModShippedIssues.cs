@@ -58,6 +58,8 @@ namespace ModernDevTools
                             foreach (RemoteIssue ri in issues)
                             {
                                 if (ri.ReportedBy.NullOrEmpty()) ri.ReportedBy = mcp.Name;   // credit the shipping mod
+                                ri.OwnerPackageId = mcp.PackageId;   // and RECORD it, so the entry cannot
+                                                                     // silently claim another mod's error
                                 list.Add(ri);
                             }
                             if (issues.Count > 0)

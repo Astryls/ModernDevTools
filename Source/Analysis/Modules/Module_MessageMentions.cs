@@ -12,12 +12,19 @@ namespace ModernDevTools
     public class Module_MessageMentions : ErrorModule
     {
         // Exact vanilla grammars (Verse.ModMetaData): the owner mod is capture group 1.
+        //
+        // GREEDY, not lazy. Vanilla builds these as "Mod " + name + <fixed literal>, so the literal
+        // occurs once, at the end - and greedy therefore captures the whole name. A lazy (.+?) stops at
+        // the FIRST occurrence of the literal, so a mod whose own name contains it ("Vanilla Textures
+        // Expanded has a dependency ..." is fine, but e.g. a mod literally named "... dependency ...")
+        // would be reported under a truncated name that matches no installed mod - which then gets
+        // shown as an unresolved culprit that does not exist.
         private static readonly Regex OwnerDepUrl =
-            new Regex(@"^Mod (.+?) dependency \(([^)]+)\) needs to have", RegexOptions.Compiled);
+            new Regex(@"^Mod (.+) dependency \(([^)]+)\) needs to have", RegexOptions.Compiled);
         private static readonly Regex OwnerBadPackageId =
-            new Regex(@"^Mod (.+?) <packageId> \(([^)]+)\) is not in valid format", RegexOptions.Compiled);
+            new Regex(@"^Mod (.+) <packageId> \(([^)]+)\) is not in valid format", RegexOptions.Compiled);
         private static readonly Regex OwnerHasDependency =
-            new Regex(@"^Mod (.+?) has a dependency", RegexOptions.Compiled);
+            new Regex(@"^Mod (.+) has a dependency", RegexOptions.Compiled);
 
         private static readonly Regex DottedToken =
             new Regex(@"\b([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)\b", RegexOptions.Compiled);

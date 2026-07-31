@@ -25,7 +25,7 @@
     <regexes>
       <li>dependency \(.*\) needs to have</li>
     </regexes>
-    <attributeRegex>^Mod (.+?) dependency</attributeRegex>
+    <attributeRegex>^Mod (.+) dependency \(</attributeRegex>
   </ModernDevTools.KnownIssueDef>
 
   <ModernDevTools.KnownIssueDef>
@@ -38,7 +38,7 @@
     <keywords>
       <li>is not in valid format</li>
     </keywords>
-    <attributeRegex>^Mod (.+?) &lt;packageId&gt;</attributeRegex>
+    <attributeRegex>^Mod (.+) &lt;packageId&gt; \(</attributeRegex>
   </ModernDevTools.KnownIssueDef>
 
   <ModernDevTools.KnownIssueDef>
@@ -51,7 +51,7 @@
     <keywords>
       <li>has a dependency</li>
     </keywords>
-    <attributeRegex>^Mod (.+?) has a dependency</attributeRegex>
+    <attributeRegex>^Mod (.+) has a dependency</attributeRegex>
   </ModernDevTools.KnownIssueDef>
 
   <!-- ===== Exceptions ===== -->
@@ -188,10 +188,13 @@
     <description>A def or patch names a C# class that is not loaded, so RimWorld cannot build that def and the content it defines will not appear.</description>
     <fix>The mod that provides that class is missing or failed to load, or a soft dependency is not installed. Install the required mod. If the class belongs to the named mod itself, its code did not load, so look for an earlier assembly load error.</fix>
     <priority>1</priority>
+    <!-- Verbatim: Verse/DirectXmlToObject.cs:251 ("Could not find type named X from node Y");
+         Verse/DirectXmlLoader.cs:184 ("Type X is not a Def type or could not be found, in file ...").
+         "found no type named" removed (audit 2026-11): no such string exists anywhere in
+         Assembly-CSharp - the engine only ever says "Could not find type named". -->
     <keywords>
       <li>could not find type named</li>
       <li>is not a def type</li>
-      <li>found no type named</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
@@ -254,17 +257,21 @@
   <ModernDevTools.KnownIssueDef>
     <defName>MDT_MissingTranslation</defName>
     <label>missing translation key</label>
-    <description>A translation problem: the game had no active language for a lookup, a translated string blew up while formatting its arguments, or a translation file tried to translate a field that does not allow it. A simple missing key never logs anything - the game silently falls back to English.</description>
-    <fix>Harmless to play. If it names a mod's language file, report the key or field to that mod's author. The formatting variant means a translation has the wrong number of {0} placeholders for its arguments.</fix>
+    <description>A translation problem: the game had no active language for a lookup, a translated string blew up while formatting its arguments, or the active language's translation files contain errors. A simple missing key never logs anything - the game silently falls back to English.</description>
+    <fix>Harmless to play. The formatting variant means a translation has the wrong number of {0} placeholders for its arguments. For the file-error count, open the translation report (Options - generate translation report) to see which key or field is at fault, then tell that language pack's author.</fix>
     <ignorable>true</ignorable>
     <!-- Verbatim: Verse/Translator.cs:36/:76 ("No active language! Cannot translate from key");
-         :94 ("Exception translating '<text>': <ex>"); Verse/DefInjectionPackage.cs:506/:560
-         ("Tried to translate field ... doesn't have [TranslationCanChangeCount]...").
-         All three previous keywords were phantoms; a missing key logs NOTHING in vanilla (audit 2026-08). -->
+         :94 ("Exception translating '<text>': <ex>"); Verse/LoadedLanguage.cs:566 ("Translation data for
+         language X has N errors. Generate translation report for more info.").
+         A missing key logs NOTHING in vanilla (audit 2026-08).
+         "tried to translate field" removed (audit 2026-11): that text is appended to
+         DefInjectionPackage.loadErrors, and loadErrors entries are NEVER passed to Log - only their
+         COUNT is, via the LoadedLanguage.cs:566 warning above. Existing in the source is not the same
+         as reaching the log; the aggregate warning is the only thing a player can actually match. -->
     <keywords>
       <li>cannot translate from key</li>
       <li>exception translating</li>
-      <li>tried to translate field</li>
+      <li>generate translation report for more info</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
@@ -276,10 +283,14 @@
     <description>A mod's XML patch did not apply, usually because its target no longer exists or another mod changed it first, so the patched change did not happen.</description>
     <fix>Often a load-order or compatibility issue between the named mod and another. Update the mod, adjust load order, or report the patch failure to the author.</fix>
     <priority>1</priority>
+    <!-- Verbatim: Verse/PatchOperation.cs:63 ("[{modIdentifier}] Patch operation {this} failed") and :55
+         ("Attempted to use PatchOperation directly; patch will always fail").
+         "failed to find a node" removed (audit 2026-11): no such string exists in Assembly-CSharp.
+         "xpath" removed (audit 2026-11): PatchOperationPathed.ToString() is $"{base.ToString()}({xpath})",
+         which interpolates the VALUE of the xpath field, never the word "xpath". -->
     <keywords>
       <li>patch operation</li>
-      <li>failed to find a node</li>
-      <li>xpath</li>
+      <li>patch will always fail</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
@@ -583,25 +594,26 @@
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
-  <ModernDevTools.KnownIssueDef>
-    <defName>MDT_Incompatible</defName>
-    <label>mod compatibility or load-order warning</label>
-    <description>A mod declared it is incompatible with another, or that it should load before or after another mod, and that condition is not met.</description>
-    <fix>Follow the message: remove one of the two mods, or move the named mod earlier or later in your load order. A mod-list sorter can do this for you.</fix>
-    <priority>1</priority>
-    <!-- These warnings are rendered from Core translation keys (ModsConfig.GetModWarnings), so the match
-         strings are the ENGLISH KEYED VALUES, not C# literals: Core Keyed "ModIncompatibleWithTip" ("This mod
-         is incompatible with: {0}."), "ModMustLoadBefore"/"ModMustLoadAfter" ("This must be loaded
-         before/after: {0}."), "ModUnsatisfiedDependency" ("This requires the following mods to work: {0}."),
-         "ModWithSameIdAlreadyActive". "should be loaded before/after" were phantoms (audit 2026-08). -->
-    <keywords>
-      <li>incompatible with</li>
-      <li>must be loaded before</li>
-      <li>must be loaded after</li>
-      <li>requires the following mods to work</li>
-      <li>another active mod uses the same id</li>
-    </keywords>
-  </ModernDevTools.KnownIssueDef>
+  <!-- REMOVED (audit 2026-11): MDT_Incompatible, "mod compatibility or load-order warning".
+
+       Every one of its five keywords came from a Core Keyed VALUE rendered by
+       Verse/ModsConfig.cs:513 GetModWarnings() - "ModIncompatibleWithTip", "ModMustLoadBefore",
+       "ModMustLoadAfter", "ModUnsatisfiedDependency", "ModWithSameIdAlreadyActive". The strings are
+       real, but GetModWarnings()'s only caller is RimWorld/Page_ModsConfig.cs:337, which caches them
+       for the mod-list tooltip. None of them is ever passed to Log. The entry could therefore never
+       match genuine vanilla output - while its broadest keyword, the ordinary English phrase
+       "incompatible with", would happily match any mod's own free-form prose and then present that
+       match as curated knowledge (FromLibrary lights the "Known issue" badge).
+
+       The earlier audit verified that these strings EXIST in Core. That is a weaker test than the one
+       that matters: a match string must be provably REACHABLE FROM Log. See the house rule at the top
+       of this file.
+
+       Nothing is lost. The same information is produced correctly, and proactively, by two always-on
+       modules that read About.xml and ModsConfig directly instead of waiting for the engine to log
+       something it never logs: Module_DependencyCheck (unmet requirements + load-order violations, via
+       ModDependencyIndex) and Module_AboutIncompat (declared incompatibilities, via
+       AboutIncompatIndex). -->
 
   <ModernDevTools.KnownIssueDef>
     <defName>MDT_DefInstantiate</defName>

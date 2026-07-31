@@ -13,11 +13,36 @@ namespace ModernDevTools
     /// </summary>
     public class Module_DependencyCheck : ErrorModule
     {
+        /// <summary>
+        /// Verbatim fragments of engine messages that mean "something referenced a def/type that was
+        /// not there" - the classic symptom of an unmet dependency or a bad load order.
+        ///
+        /// AUDIT 2026-11: this list had never been checked against the engine source the way
+        /// Defs/KnownIssueDefs.xml had, and three of its eight entries were phantoms - strings no
+        /// vanilla site emits:
+        ///   "could not find def named"                  -> the engine says "Failed to find &lt;Type&gt; named X.
+        ///                                                  There are N defs of this type loaded."
+        ///                                                  (Verse/DefDatabase.cs:217), or, for filters,
+        ///                                                  "could not find thing def named"
+        ///                                                  (Verse/ThingFilter.cs:321/:544).
+        ///   "found no type named"                       -> the engine only says "Could not find type named".
+        ///   "could not instantiate or initialize a def" -> the engine names the component
+        ///                                                  ("Could not instantiate a ThingComp...").
+        /// Because this list is an OR-gate, a phantom is a silent FALSE NEGATIVE rather than a false
+        /// claim - but "could not find def named" was standing in for the single most common cascade
+        /// error in RimWorld, so the summary that names the mods with unmet dependencies was simply not
+        /// appearing for it. Each entry below is now anchored to a verified Log call site.
+        /// </summary>
         private static readonly string[] MissingRefSignals =
         {
-            "could not find def named", "could not load reference to", "could not find type named",
-            "found no type named", "cross-reference", "could not resolve cross-reference",
-            "is not a def type", "could not instantiate or initialize a def"
+            "defs of this type loaded",             // Verse/DefDatabase.cs:217 (DefDatabase<T>.GetNamed)
+            "could not find thing def named",       // Verse/ThingFilter.cs:321, :544
+            "could not resolve cross-reference",    // Verse/DirectXmlCrossRefLoader.cs:90/:96/:438
+            "could not load reference to",          // Verse/ScribeExtractor.cs:56
+            "could not find type named",            // Verse/DirectXmlToObject.cs:251
+            "is not a def type",                    // Verse/DirectXmlLoader.cs:184 ("is not a Def type or...")
+            "could not instantiate",                // ThingWithComps.cs:212, HediffWithComps.cs:413, et al.
+            "cross-reference"                       // broad, but only ever appears in the real messages
         };
 
         public override void Diagnose(ErrorContext ctx)

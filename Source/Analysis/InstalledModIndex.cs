@@ -77,15 +77,12 @@ namespace ModernDevTools
                 foreach (ModMetaData meta in ModLister.AllInstalledMods)
                 {
                     if (meta == null) continue;
-                    if (!meta.PackageId.NullOrEmpty() && !idx.ByPackageId.ContainsKey(meta.PackageId))
-                        idx.ByPackageId[meta.PackageId] = meta;
-                    if (!meta.Name.NullOrEmpty() && !idx.ByName.ContainsKey(meta.Name))
-                        idx.ByName[meta.Name] = meta;
+                    if (!meta.PackageId.NullOrEmpty()) Put(idx.ByPackageId, meta.PackageId, meta);
+                    if (!meta.Name.NullOrEmpty()) Put(idx.ByName, meta.Name, meta);
                     try
                     {
                         string folder = meta.RootDir?.Name;
-                        if (!folder.NullOrEmpty() && !idx.ByFolder.ContainsKey(folder))
-                            idx.ByFolder[folder] = meta;
+                        if (!folder.NullOrEmpty()) Put(idx.ByFolder, folder, meta);
                     }
                     catch { }
                     idx.AddNormKeys(meta);
@@ -112,6 +109,24 @@ namespace ModernDevTools
             }
 
             return idx;
+        }
+
+        /// <summary>Index a mod under a key, PREFERRING AN ACTIVE MOD over an inactive one.
+        ///
+        /// Display names and folder names are not unique across installed mods - an old local copy of a
+        /// mod sitting alongside the Workshop one is the everyday case. First-writer-wins meant a lookup
+        /// could return the INACTIVE copy, and that copy then answers every question asked about the
+        /// result: Module_VersionMismatch reads ITS About.xml, so a stale local folder could produce a
+        /// confident "this mod does not support 1.6" about a mod that supports it fine. The running mod
+        /// is the one the error came from, so it wins.</summary>
+        private static void Put(Dictionary<string, ModMetaData> map, string key, ModMetaData meta)
+        {
+            if (!map.TryGetValue(key, out ModMetaData existing)) { map[key] = meta; return; }
+            if (existing == null) { map[key] = meta; return; }
+            bool existingActive;
+            bool candidateActive;
+            try { existingActive = existing.Active; candidateActive = meta.Active; } catch { return; }
+            if (candidateActive && !existingActive) map[key] = meta;
         }
 
         public ModMetaData PackageId(string pid) =>
