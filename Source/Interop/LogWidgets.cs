@@ -72,14 +72,24 @@ namespace ModernDevTools
             _native.Add(new Entry { Id = id ?? drawer.Method?.Name ?? "widget", Drawer = drawer, Align = align });
         }
 
+        // Latched per frame. The log window sizes its BODY around whether a tray exists, so if this
+        // flipped between OnGUI passes the message list would resize mid-frame, change which rows it
+        // culls, and shift every IMGUI control id after it - silently dropping clicks. It can genuinely
+        // flip: a hosted widget that throws is removed on the spot (see DrawList).
+        private static int _anyFrame = -1;
+        private static bool _anyCached;
+
         /// <summary>True when anything would draw in the tray (so the window can reserve space).</summary>
         public static bool Any
         {
             get
             {
-                if (_native.Count > 0) return true;
+                int f = Time.frameCount;
+                if (f == _anyFrame) return _anyCached;
+                _anyFrame = f;
                 RefreshHugsLib();
-                return _hugsCache.Count > 0;
+                _anyCached = _native.Count > 0 || _hugsCache.Count > 0;
+                return _anyCached;
             }
         }
 

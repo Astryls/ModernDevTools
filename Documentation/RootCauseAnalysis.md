@@ -278,3 +278,100 @@ Weights: `WeightStackBase`, `WeightMessageOwner`, `WeightMessagePath`, `WeightKn
 
 `Title`, `Explanation`, `Fix`, `Url`, `Source` (stable id / mute key), `Score` (higher shows first),
 `Ignorable`.
+
+---
+
+# Public API (v2)
+
+Everything below is a frozen contract on `ModernDevTools.ModernDevToolsAPI`. Check
+`ModernDevToolsAPI.ApiVersion` before using anything added after v1. Members are only ever **added**
+between versions; existing signatures never change.
+
+You do **not** need an assembly reference — bind by reflection and your mod works with or without
+Modern Dev Tools installed:
+
+```csharp
+var api = AccessTools.TypeByName("ModernDevTools.ModernDevToolsAPI");
+api?.GetMethod("OpenModernLog")?.Invoke(null, null);
+```
+
+| Member | Since | What it does |
+|---|---|---|
+| `RegisterModule(ErrorModule)` | v1 | Add an analysis module in code. |
+| `Invalidate()` | v1 | Rebuild modules/sources and drop cached analyses. |
+| `ApiVersion` | v2 | Integer contract version. |
+| `RegisterKnowledgeSource(IKnownIssueSource)` | v2 | Supply known-issue entries at runtime. |
+| `RegisterLogWidget(id, drawer, alignRight)` | v2 | Add a control to the log window's add-on tray. |
+| `AnalysisCompleted` | v2 | Event raised once per analysed message (never per frame). |
+| `ModernOwnsLogWindow` | v2 | Whether we currently answer the log hotkey/toolbar/auto-open. |
+| `IsModernLogOpen` / `OpenModernLog()` | v2 | Query / open the modern log. |
+| `YieldLogWindow()` | v2 | Ask us to stand down to the vanilla log permanently. |
+
+## Adding a button to the log window
+
+The drawer signature is **identical to HugsLib's** `LogWindowExtensions.WidgetDrawer`:
+
+```csharp
+void MyButton(Window logWindow, Rect area, LogMessage selected, WidgetRow row)
+{
+    if (row.ButtonText("Do the thing")) { /* ... */ }
+}
+
+ModernDevToolsAPI.RegisterLogWidget("mymod.button", MyButton);
+```
+
+**If you already support HugsLib you do not need to call this.** Modern Dev Tools discovers widgets
+registered through `HugsLib.Logs.LogWindowExtensions.AddLogWindowWidget` and hosts them automatically,
+so HugsLib's own *Share logs*, *Files* and *Copy* buttons — and yours — appear in our tray.
+
+## Bridging another mod's knowledge (no C#)
+
+If another mod can already say something useful about an error, expose two public static methods on it
+and point a `Module_ReflectionBridge` def at them — no reference, no code, and zero cost when that mod
+is absent.
+
+```csharp
+// In the OTHER mod:
+public static class KnownIssues
+{
+    public static string Describe(string messageText, string stackTrace);      // sentence, or null
+    public static string ImplicatedMod(string messageText, string stackTrace); // packageId/name, or null
+}
+```
+
+```xml
+<ModernDevTools.ErrorModuleDef>
+  <defName>MDT_Bridge_YourMod</defName>
+  <label>your mod's diagnostics</label>
+  <description>Shown only when Your Mod is active.</description>
+  <workerClass>ModernDevTools.Module_ReflectionBridge</workerClass>
+  <requiresPackageId>you.yourmod</requiresPackageId>
+  <order>150</order>
+  <modExtensions>
+    <li Class="ModernDevTools.ReflectionBridgeExtension">
+      <typeName>YourMod.KnownIssues</typeName>
+      <describeMethod>Describe</describeMethod>
+      <implicatedModMethod>ImplicatedMod</implicatedModMethod>
+      <score>0.5</score>
+    </li>
+  </modExtensions>
+</ModernDevTools.ErrorModuleDef>
+```
+
+The bridge probes once. If the type is absent it goes silent forever (the normal path, logged nothing).
+If the type is present but the methods don't match `(string, string)`, that is reported **once and
+loudly** — a bridge that goes quietly dormant is exactly the failure this mod exists to catch.
+
+Keep `score` below 1: the house scale reserves single digits for real fixes, and a context note that
+outranks an actual fix is worse than no note.
+
+## Who owns the log window
+
+Modern Dev Tools replaces the vanilla debug log, which means mods that decorate `EditWindow_Log` would
+otherwise lose their UI silently. Two guarantees:
+
+1. A **"Vanilla log"** button appears in our toolbar whenever a decorating mod is detected, so the
+   original window (and everything on it) is always one click away.
+2. The player can hand the log back entirely — *Mod settings → Log window → Use the vanilla log window*
+   — after which every one of our log redirects returns to vanilla. `YieldLogWindow()` sets the same
+   switch from code.

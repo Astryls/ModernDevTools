@@ -24,6 +24,10 @@ namespace ModernDevTools
     /// the layout uses anyway.
     ///
     /// Set Text.Font (and WordWrap) BEFORE calling, exactly as you would for the vanilla call.
+    ///
+    /// MAIN THREAD ONLY. The dictionaries are not synchronised, and the underlying Unity measurement is
+    /// main-thread-only anyway - every caller is draw code, so this is a documented constraint rather
+    /// than a lock we pay for on every lookup.
     /// </summary>
     public static class TextMetrics
     {

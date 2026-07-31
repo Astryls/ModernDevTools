@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -38,6 +39,13 @@ namespace ModernDevTools
 
         public static void Draw(Rect inRect)
         {
+            try { DrawInner(inRect); }
+            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] settings page draw failed: " + e, 0x2E19A50); }
+            finally { Palette.ResetGuiState(); }
+        }
+
+        private static void DrawInner(Rect inRect)
+        {
             Widgets.DrawBoxSolid(inRect, Palette.BG);
             Palette.DrawBox(inRect, Palette.BGL, 1);
 
@@ -56,7 +64,6 @@ namespace ModernDevTools
             finally { Palette.EndScroll(); }
 
             _lastHeight = y;
-            Palette.ResetGuiState();
         }
 
         private static void DrawContent(float width, ref float y)
