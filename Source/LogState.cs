@@ -15,7 +15,30 @@ namespace ModernDevTools
     public static class LogState
     {
         // Selection + view state (persist across open/close, like vanilla statics).
-        public static LogMessage Selected;
+        private static LogMessage _selected;
+
+        /// <summary>The message shown in the inspector.</summary>
+        public static LogMessage Selected
+        {
+            get { return _selected; }
+            set
+            {
+                if (_selected == value) return;
+                _selected = value;
+                Action<LogMessage> handler = SelectionChanged;
+                if (handler == null) return;
+                try { handler(value); }
+                catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] a selection-changed handler threw: " + e.Message, 0x2E19A60); }
+            }
+        }
+
+        /// <summary>
+        /// Raised when the inspected message changes. Interop layers subscribe to mirror the selection
+        /// into surfaces other mods read - notably EditWindow_Log's private static selectedMessage,
+        /// which Archotech Logs' diagnostics view reads directly rather than asking its host window.
+        /// An event rather than a direct call so this core type stays independent of the interop layer.
+        /// </summary>
+        public static event Action<LogMessage> SelectionChanged;
         public static bool ShowMessages = true;
         public static bool ShowWarnings = true;
         public static bool ShowErrors = true;

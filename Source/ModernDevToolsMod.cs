@@ -58,7 +58,7 @@ namespace ModernDevTools
     /// </summary>
     public class ModernDevToolsMod : Mod
     {
-        public const string Version = "1.2";   // bump on each release to trigger the update-notes popup
+        public const string Version = "1.3";   // bump on each release to trigger the update-notes popup
 
         public static ModernDevToolsMod Instance;
         public static ModernDevToolsSettings Settings;

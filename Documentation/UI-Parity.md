@@ -35,3 +35,17 @@ on the Modules window.
 - Size every text rect by measurement (`Text.CalcHeight`, `Palette.ToggleRowHeight`) — never a hardcoded
   pixel height — and reserve the scrollbar gutter unconditionally so descriptions never clip and the
   layout doesn't reflow-flicker.
+
+## Settings cards added in 1.3
+
+| Card | Setting | On settings page | In Modules window | Notes |
+|---|---|---|---|---|
+| Log window | `yieldLogWindow` | yes | no | Ownership is a global, one-time choice, not a quick toggle. The in-context half is the log's own "Vanilla log" button. Also renders the live list of detected decorator mods. |
+| Log spam | `throttleRepeatingLogs` | yes | no | Sits on every mod's error path; deliberately kept off the quick-access surface so it is a considered change. |
+
+Parity rule is unchanged and still holds: **settings page ⊇ Modules window**. Both new cards are
+settings-page-only, which is the permitted direction. Nothing was added to the Modules window.
+
+Both surfaces now share `Palette.ModuleRow` (rendering) and `SettingsPage.ToggleModule` (the state
+change plus cache invalidation), so the module list can no longer drift between them — previously they
+held byte-identical copies of both.

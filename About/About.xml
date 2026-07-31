@@ -39,6 +39,17 @@ Everything the mod knows, in one searchable window opened from the log: known is
 [*]All opt-in, fetched in the background, and cached for offline use.
 [/list]
 
+[h1]✦ Plays well with other log mods[/h1]
+Replacing the debug log should not quietly break the mods that decorate it.
+[list]
+[*][b]HugsLib buttons keep working[/b]: HugsLib's [i]Share logs[/i], [i]Files[/i] and [i]Copy[/i] normally live on RimWorld's original log window. They appear in an add-on tray along the bottom of the modern log instead, restyled to match, along with any log button another mod adds through HugsLib.
+[*][b]Archotech Logs[/b]: its Diagnostics and Export windows open straight from that tray, and follow whichever message you have selected.
+[*][b]Always an escape hatch[/b]: a [i]Vanilla log[/i] button opens RimWorld's original window at any time, and a setting hands the log back to vanilla completely if you would rather another mod own it.
+[/list]
+
+[h1]✦ Optional: throttle log spam[/h1]
+When an error repeats endlessly, RimWorld still builds a full stack trace and writes to the log file for every single repeat, and it only collapses repeats that arrive back to back, so two errors alternating are never collapsed at all. Turn the throttle on to stop writing a line after the first few. The first few always come through, the number held back is shown next to the message, and it counts toward the error's severity, so nothing is hidden from you. It hides symptoms, not causes.
+
 [h1]✦ A modern dev actions window[/h1]
 [list]
 [*][b]Three tabs, one clean window[/b]: Actions, Output, and Settings, in the same dark style, opened from the same buttons and hotkeys.
@@ -61,6 +72,7 @@ Two optional safety nets, off by default and clearly labeled experimental. RimWo
 
 [h1]✦ For mod authors[/h1]
 Every part of the analysis is a module. Add your own attribution or fixes in XML, or in C# through a small public API. Ship your own known-issue entries so the log explains [i]your[/i] mod's errors in plain language, and helps players understand the root cause before they open a bug report. The known-issue XML and the community database use the same matching model, so you learn it once. Every module is sandboxed, so nothing you add can break the log.
+Add a button to the log window with a signature identical to HugsLib's, so one method works with both. Bridge another mod's diagnostics into the log entirely from XML, with no code and no hard dependency. Or listen for completed analyses to drive your own tooling.
 A full step-by-step guide with copy-paste examples ships with the mod at [b]Documentation/RootCauseAnalysis.md[/b] (also on GitHub), and the in-game Modules window links to it.
 
 [h1]✦ Requirements[/h1]

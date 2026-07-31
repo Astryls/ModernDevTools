@@ -22,6 +22,11 @@ namespace ModernDevTools
         private static readonly Regex AtTypeMethod =
             new Regex(@"\bat\s+([A-Za-z_][\w.`+<>]*)\.([A-Za-z_][\w`<>]*)\s*[\(\[]", RegexOptions.Compiled);
 
+        // Bounded: this is keyed on every distinct qualified type name seen in any stack trace, so on a
+        // long session with many different errors it would otherwise grow for the whole run. Cap-then-
+        // clear rather than LRU - the working set is the handful of types in the errors actually being
+        // inspected, so a clear is rare and costs one round of re-resolution.
+        private const int TypeCacheCap = 4096;
         private static readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
         // Root namespace segments owned by the engine / bundled libraries. A mod that IL-merges one
@@ -76,6 +81,7 @@ namespace ModernDevTools
                 int lastDot = qualified.LastIndexOf('.');
                 if (lastDot > 0) t = TryResolve(qualified.Substring(0, lastDot));
             }
+            if (TypeCache.Count >= TypeCacheCap) TypeCache.Clear();
             TypeCache[qualified] = t;
             return t;
         }

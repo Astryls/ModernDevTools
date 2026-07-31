@@ -102,6 +102,42 @@ namespace ModernDevTools
             for (int i = 0; i < 5; i++) Log.Error(Prefix + "repeated error - this line is logged five times to test repeat collapsing.");
         }
 
+        // --- log-spam throttle tests -------------------------------------------------------------
+        // These exist because the throttle is otherwise untestable: "Log repeated error x5" hits the
+        // threshold exactly and suppresses nothing. Both actions log 200 lines, which is deliberately
+        // enough to be felt - with the throttle OFF they write 200 stack traces to Player.log.
+
+        private const int SpamCount = 200;
+
+        [DebugAction(Category, "Log spam x200 (same line)", allowedGameStates = Anywhere, displayPriority = 893)]
+        private static void LogSpamSameLine()
+        {
+            // Vanilla DOES collapse this one: LogMessageQueue combines a message with lastMessage, and
+            // every line here is identical and consecutive. Expect a single row reading x99 (vanilla's
+            // repeat cap) or, with the throttle on, x5+195.
+            for (int i = 0; i < SpamCount; i++)
+                Log.Error(Prefix + "spam test - identical line repeated " + SpamCount + " times.");
+        }
+
+        [DebugAction(Category, "Log spam x200 (two interleaved lines)", allowedGameStates = Anywhere, displayPriority = 892)]
+        private static void LogSpamInterleaved()
+        {
+            // THE CASE VANILLA CANNOT HANDLE, and the whole reason the throttle exists.
+            // LogMessageQueue only ever compares against lastMessage, so dedupe is strictly
+            // CONSECUTIVE. Alternating two lines means neither ever matches lastMessage: nothing
+            // collapses, nothing reaches the 99-repeat cap, and all 400 entries extract a full stack
+            // trace and write to disk. This is the real-world shape of one broken pawn raising two
+            // errors per tick.
+            //
+            // Throttle OFF -> 400 separate rows, each x1.
+            // Throttle ON  -> two rows, each x5 plus a suppressed count, and a periodic summary line.
+            for (int i = 0; i < SpamCount; i++)
+            {
+                Log.Error(Prefix + "interleaved spam A - vanilla cannot collapse this because it never repeats consecutively.");
+                Log.Error(Prefix + "interleaved spam B - the alternating partner of line A.");
+            }
+        }
+
         // --- nested calls so the thrown exception has a few mod-owned frames ---
 
         private static void ThrowInner(int depth)
