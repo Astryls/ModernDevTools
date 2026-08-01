@@ -103,10 +103,18 @@
     <description>The game tried to load an image that is not there. The item, pawn, or UI element that needs it will show a pink and black placeholder.</description>
     <fix>The named mod is missing a texture or points at the wrong path. If you renamed or moved files, undo that; otherwise reinstall the mod. If it only happens with another mod active, a patch is pointing at a texture that does not exist.</fix>
     <priority>1</priority>
-    <!-- Verbatim: Verse/ContentFinder.cs:54 ("Could not load <T> at '<path>' in any active mod or in base
-         resources." - T is Texture2D for textures). -->
+    <!-- Verbatim, THREE distinct grammars - only the first was covered until test run #232 turned up the
+         other two live:
+           Verse/ContentFinder.cs:54     "Could not load <T> at '<path>' in any active mod or in base
+                                          resources." (T is Texture2D for textures)
+           Verse/Graphic_Collection.cs:47 "Collection cannot init: No textures found at path <path>"
+           Verse/Graphic_Multi.cs:108     "Failed to find any textures at <path> while constructing <graphic>"
+         A single missing texture usually surfaces as ONE of these depending on which Graphic class the
+         def asks for, so covering only ContentFinder missed most real cases. -->
     <keywords>
       <li>could not load texture</li>
+      <li>collection cannot init</li>
+      <li>failed to find any textures at</li>
     </keywords>
     <regexes>
       <li>Could not load .*Texture</li>
@@ -190,10 +198,13 @@
     <priority>1</priority>
     <!-- Verbatim: Verse/DirectXmlToObject.cs:251 ("Could not find type named X from node Y");
          Verse/DirectXmlLoader.cs:184 ("Type X is not a Def type or could not be found, in file ...").
+         Verse/ParseHelper.cs:227 ("Could not find a type named X") - note the "a", a SEPARATE grammar
+         found live in test run #232; the keyword without it does not match this site.
          "found no type named" removed (audit 2026-11): no such string exists anywhere in
-         Assembly-CSharp - the engine only ever says "Could not find type named". -->
+         Assembly-CSharp - the engine only ever says "Could not find [a] type named". -->
     <keywords>
       <li>could not find type named</li>
+      <li>could not find a type named</li>
       <li>is not a def type</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
@@ -219,10 +230,13 @@
     <description>Two defs share the same name, so RimWorld keeps only one and the other is silently overridden. This can make a mod behave as if a feature is missing.</description>
     <fix>Two mods define the same thing, or a patch adds a def that already exists. This is usually a mod conflict; report both mod names to the authors, or remove one.</fix>
     <priority>1</priority>
-    <!-- Verbatim: Verse/DefDatabase.cs:79 ("Adding duplicate <T> name: <defName>"). The previous three
-         keywords ("was defined twice" etc.) were phantom strings; no vanilla site emits them (audit 2026-08). -->
+    <!-- Verbatim: Verse/DefDatabase.cs:79 ("Adding duplicate <T> name: <defName>") and :33
+         ("Mod X has multiple <T>s named Y. Skipping.") - the second grammar was missing until it showed
+         up live in test run #232. The previous three keywords ("was defined twice" etc.) were phantom
+         strings; no vanilla site emits them (audit 2026-08). -->
     <keywords>
       <li>adding duplicate</li>
+      <li>has multiple</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
@@ -283,14 +297,29 @@
     <description>A mod's XML patch did not apply, usually because its target no longer exists or another mod changed it first, so the patched change did not happen.</description>
     <fix>Often a load-order or compatibility issue between the named mod and another. Update the mod, adjust load order, or report the patch failure to the author.</fix>
     <priority>1</priority>
-    <!-- Verbatim: Verse/PatchOperation.cs:63 ("[{modIdentifier}] Patch operation {this} failed") and :55
+    <!-- Provenance, two emitters:
+         VANILLA - Verse/PatchOperation.cs:63 ("[{modIdentifier}] Patch operation {this} failed") and :55
          ("Attempted to use PatchOperation directly; patch will always fail").
-         "failed to find a node" removed (audit 2026-11): no such string exists in Assembly-CSharp.
-         "xpath" removed (audit 2026-11): PatchOperationPathed.ToString() is $"{base.ToString()}({xpath})",
-         which interpolates the VALUE of the xpath field, never the word "xpath". -->
+
+         XML EXTENSIONS (imranfish.xmlextensions) - a Finalizer on ApplyWorker of all five vanilla pathed
+         operations (PatchOperationAdd/AddModExtension/Insert/Remove/Replace) in
+         Source.HarmonyPatches.PatchOperationPathed_DefaultPatches, which reports:
+             {TypeName}(xpath="{xpath}"): Failed to find a node with the given xpath
+             {TypeName}(xpath="{xpath}"): Error
+         Verified by decompiling the shipped 1.6 assembly, confirmed live in test run #232.
+
+         CORRECTION (audit 2026-11, same day): these two keywords were briefly REMOVED after checking
+         them against Assembly-CSharp alone and finding nothing. That check was right about vanilla and
+         wrong about reality - XML Extensions is a near-ubiquitous dependency that intercepts patch
+         failures for the WHOLE modlist, so in practice it, not vanilla, is what a player sees when a
+         patch misses. The rule is "provably emitted by identified code, with provenance", not "present
+         in Assembly-CSharp". Naming the emitter in a comment is fine; the entry itself still never
+         names a third-party mod to the player. -->
     <keywords>
       <li>patch operation</li>
       <li>patch will always fail</li>
+      <li>failed to find a node with the given xpath</li>
+      <li>(xpath="</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
 
@@ -300,9 +329,15 @@
     <description>While loading, the game could not find something it referenced by name. In a save this usually means a mod that was present before is now missing or changed.</description>
     <fix>If this happened loading a save, a mod was removed or updated since the save was made. Re-add the missing mod, or accept that the referenced content is gone. At startup it points to a missing dependency or a load-order problem.</fix>
     <priority>1</priority>
-    <!-- Verbatim: Verse/ScribeExtractor.cs:56/:60 ("Could not load reference to <T> named <name>..."). -->
+    <!-- Verbatim: Verse/ScribeExtractor.cs:56/:60 ("Could not load reference to <T> named <name>...") and
+         Verse/Scribe_Collections.cs:404 ("Null key while loading dictionary of <K> and <V>. label=<label>").
+         The second was added after test run #232 showed it twice, from two unrelated mods, each time
+         IMMEDIATELY FOLLOWING a "Could not load reference to" line for the same def type - it is the
+         downstream symptom of that failure: the key resolved to null, so the dictionary entry is dropped.
+         Same cause, same fix, so it belongs to this entry rather than looking like a separate bug. -->
     <keywords>
       <li>could not load reference to</li>
+      <li>null key while loading dictionary</li>
     </keywords>
   </ModernDevTools.KnownIssueDef>
 

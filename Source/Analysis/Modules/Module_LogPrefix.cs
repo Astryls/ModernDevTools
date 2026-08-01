@@ -20,6 +20,15 @@ namespace ModernDevTools
         private static readonly Regex BracketTag =
             new Regex(@"\[([^\[\]\r\n]{2,60})\]", RegexOptions.Compiled);
 
+        // Unity rich-text markup, which mods routinely wrap their log prefix in - e.g.
+        //   <color=#FFA500FF>[Map Mode Framework]</color> BiomesKitWorldLayer ... not found.
+        // Without stripping this the tag is not at index 0, so the strongest signal we have ("this mod
+        // PRINTED the line", weight 5) silently degrades to a passing mention (weight 2.5) and the real
+        // author of the message can lose the top culprit slot to something named later in the text.
+        // Found live in test run #232.
+        private static readonly Regex RichText =
+            new Regex(@"</?(?:color|b|i|size|material|quad)(?:=[^>]*)?>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         public override void ContributeAttribution(ErrorContext ctx)
         {
             string text = ctx.Text;
@@ -27,6 +36,7 @@ namespace ModernDevTools
 
             int nl = text.IndexOf('\n');
             string firstLine = nl >= 0 ? text.Substring(0, nl) : text;
+            firstLine = RichText.Replace(firstLine, "").TrimStart();
 
             foreach (Match m in BracketTag.Matches(firstLine))
             {
