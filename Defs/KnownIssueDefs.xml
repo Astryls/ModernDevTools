@@ -241,16 +241,50 @@
   </ModernDevTools.KnownIssueDef>
 
   <ModernDevTools.KnownIssueDef>
+    <defName>MDT_ApparelNoLayers</defName>
+    <label>an apparel item has no layers</label>
+    <description>A piece of apparel does not say which body layer it sits on, so the game cannot work out what it covers or what it can be worn with. The item will behave oddly when worn or drawn.</description>
+    <fix>A missing apparel.layers list in a mod's apparel def. Look for an earlier "Config error in ...: apparel has no layers" line in this log - that one names the exact item, and the mod that defines it is the one to report to. Harmless to keep playing; the item is just misconfigured.</fix>
+    <priority>1</priority>
+    <!-- Verbatim: RimWorld/ApparelProperties.cs:113
+         ("Failed to get last layer on apparel item (see your config errors)").
+         Added in the same audit that narrowed MDT_XmlError's "config error" keyword: this line used to
+         be swallowed by that entry and explained as malformed XML. It is a distinct, well-understood
+         fault with its own remedy, and it pairs with the vanilla config error
+         "<def>: <def> apparel has no layers" (RimWorld/ThingDefGenerator_*/ApparelProperties ConfigErrors),
+         which names the item this message cannot. -->
+    <keywords>
+      <li>failed to get last layer on apparel item</li>
+      <li>apparel has no layers</li>
+    </keywords>
+  </ModernDevTools.KnownIssueDef>
+
+  <ModernDevTools.KnownIssueDef>
     <defName>MDT_XmlError</defName>
     <label>XML error in a mod</label>
     <description>A mod's XML is malformed or uses a field the game does not recognise, so the affected def or patch is skipped.</description>
-    <fix>This is a bug in the named mod's data files. If you edited any XML, revert it. Otherwise report the exact message to the mod author; there is nothing to fix on your end.</fix>
+    <fix>This is a bug in a mod's data files, not something you did. If the message names a def, look it up to find the mod that defines it, then report the exact message to that mod's author. If you edited any XML yourself, revert it.</fix>
     <!-- Verbatim: Verse/DefDatabase.cs:199 + Verse/LoadedModManager.cs:278 ("Config error in ...");
          Verse/LoadedModManager.cs:258 ("Could not load defs for mod <id>: <ex>" - a whole defs file failed).
          "unknown field" removed: the only vanilla hits are dev-tool tweakvalue messages (EditWindow_TweakValues),
-         which this entry would have mis-explained. "xmlnodewriter" was a phantom (audit 2026-08). -->
+         which this entry would have mis-explained. "xmlnodewriter" was a phantom (audit 2026-08).
+
+         KEYWORD NARROWED "config error" -> "config error in " (audit 2026-11, found live in run #252).
+         The loose form also matched RimWorld/ApparelProperties.cs:113,
+             Log.ErrorOnce("Failed to get last layer on apparel item (see your config errors)")
+         which is a POINTER TO config errors, not a config error - so a runtime apparel failure was
+         explained as "XML error in a mod". The real emitters all use the grammar "Config error in <def>: ",
+         so requiring the trailing " in " keeps every true positive and drops the referential phrase.
+         General lesson: a keyword must match the error's OWN grammar, not prose that merely mentions the
+         same words.
+
+         FIX TEXT REWORDED (same audit): it said "the named mod", but this entry can match lines where
+         attribution finds nobody - and the inspector then showed "No mod is clearly implicated" directly
+         above a sentence referring to "the named mod". With no mod named, a reader binds that phrase to
+         whatever mod name is nearest on screen. Never write copy that presupposes an attribution the
+         analysis may not have produced. -->
     <keywords>
-      <li>config error</li>
+      <li>config error in </li>
       <li>could not parse</li>
       <li>could not load defs for mod</li>
     </keywords>
