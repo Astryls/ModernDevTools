@@ -34,6 +34,10 @@ namespace ModernDevTools
         /// <summary>True when the save carried a snapshot this build can actually compare against.</summary>
         public static bool Usable;
 
+        /// <summary>True when we are working from a PRE-FINGERPRINT snapshot: only added/removed mods
+        /// can be determined, never "updated". Surfaced in the UI so the list is not read as complete.</summary>
+        public static bool PresenceOnly;
+
         /// <summary>True while the content scan is still running, so "updated" results are incomplete.</summary>
         public static bool Pending;
 
@@ -43,16 +47,29 @@ namespace ModernDevTools
         private static bool _armed;
 
         /// <summary>Take the snapshot loaded from a save and produce the diff. Called once per game load.</summary>
-        public static void Arm(Dictionary<string, string> saved, int savedVersion)
+        public static void Arm(Dictionary<string, string> saved, int savedVersion, Dictionary<string, string> legacy = null)
         {
             Clear();
             try
             {
-                if (saved == null || saved.Count == 0) return;                       // new game / no snapshot
-                if (savedVersion != ModFingerprint.AlgorithmVersion) return;          // written by a different
-                                                                                      // hashing rule: not comparable,
-                                                                                      // so we say nothing at all
-                _saved = saved;
+                if (saved != null && saved.Count > 0 && savedVersion == ModFingerprint.AlgorithmVersion)
+                {
+                    _saved = saved;
+                }
+                else
+                {
+                    // The pre-1.3 snapshot stored folder write-time TICKS, which are not comparable with
+                    // fingerprints - comparing them would flag every mod in the list. But its KEYS are
+                    // still perfectly good packageIds, and presence needs no fingerprint at all.
+                    //
+                    // Discarding the whole node threw away usable evidence with the untrustworthy part:
+                    // in test run #232 a save whose mods had genuinely been removed (RimVali FFA,
+                    // WorkShift, Faction Colonies) produced a wall of cross-reference errors while this
+                    // panel stayed silent - the one case it exists for. So fall back to presence-only.
+                    _saved = FromLegacy(legacy);
+                    if (_saved == null) return;      // nothing usable on either side: say nothing
+                    PresenceOnly = true;
+                }
                 _armed = true;
                 Usable = true;
                 Recompute();
@@ -83,8 +100,41 @@ namespace ModernDevTools
             Unverified = 0;
             Usable = false;
             Pending = false;
+            PresenceOnly = false;
             _saved = null;
             _armed = false;
+        }
+
+        /// <summary>Convert a pre-1.3 snapshot (packageId -> folder write-time ticks) into the current
+        /// shape, keeping ONLY the identity. Every fingerprint is left empty, so Recompute can report
+        /// added/removed but is structurally incapable of claiming "updated" from this data.</summary>
+        private static Dictionary<string, string> FromLegacy(Dictionary<string, string> legacy)
+        {
+            if (legacy == null || legacy.Count == 0) return null;
+            var d = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var kv in legacy)
+            {
+                string norm = ModFingerprint.NormalizeId(kv.Key);
+                if (norm == null || d.ContainsKey(norm)) continue;
+                d[norm] = "|" + (ResolveName(kv.Key) ?? ResolveName(norm) ?? norm);
+            }
+            return d.Count > 0 ? d : null;
+        }
+
+        /// <summary>Best-effort display name for a packageId that is NOT currently loaded (it may still
+        /// be installed but inactive). Deliberately the EXACT, postfix-sensitive lookup: the
+        /// ignorePostfix variant returns ElementAtOrDefault(0) across every copy sharing an id, which is
+        /// the local copy whenever a mod exists both locally and on Steam - i.e. potentially a different
+        /// mod than the one meant. Falling back to the raw packageId is honest; guessing is not.</summary>
+        private static string ResolveName(string pid)
+        {
+            if (pid.NullOrEmpty()) return null;
+            try
+            {
+                string n = ModLister.GetModWithIdentifier(pid)?.Name;
+                return n.NullOrEmpty() ? null : n;
+            }
+            catch { return null; }
         }
 
         /// <summary>Current running mods keyed the same way the snapshot is: normalized packageId ->
@@ -181,7 +231,9 @@ namespace ModernDevTools
 
             Report = report;
             Unverified = unverified;
-            Pending = !ModFingerprint.Ready;
+            // In presence-only mode no fingerprint can ever arrive for the saved side, so waiting on the
+            // scan would just re-run this diff forever for a result that cannot change.
+            Pending = !PresenceOnly && !ModFingerprint.Ready;
         }
     }
 
@@ -194,6 +246,7 @@ namespace ModernDevTools
     public class GameComponent_ModSnapshot : GameComponent
     {
         private Dictionary<string, string> saved = new Dictionary<string, string>();
+        private Dictionary<string, string> savedLegacy = new Dictionary<string, string>();
         private int savedVersion;
 
         public GameComponent_ModSnapshot(Game game) { }
@@ -208,10 +261,18 @@ namespace ModernDevTools
             }
             // Deliberately a NEW node name. The pre-1.3 snapshot stored folder write-time ticks under
             // "mdtModSnapshot"; comparing those against fingerprints would flag every mod in the list.
-            // Leaving the old node unread lets Scribe discard it.
             Scribe_Values.Look(ref savedVersion, "mdtSnapshotVersion", 0);
             Scribe_Collections.Look(ref saved, "mdtModSnapshotV2", LookMode.Value, LookMode.Value);
             if (saved == null) saved = new Dictionary<string, string>();
+
+            // Read the legacy node on LOAD only - its keys still identify which mods the save was made
+            // with, which is enough for added/removed. Guarded so we never WRITE it back: saving it
+            // would resurrect the timestamp format we just retired.
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                Scribe_Collections.Look(ref savedLegacy, "mdtModSnapshot", LookMode.Value, LookMode.Value);
+                if (savedLegacy == null) savedLegacy = new Dictionary<string, string>();
+            }
         }
 
         public override void FinalizeInit()
@@ -225,7 +286,7 @@ namespace ModernDevTools
                     return;
                 }
                 ModFingerprint.Begin();               // no-op if it already ran at startup
-                ModChange.Arm(saved, savedVersion);
+                ModChange.Arm(saved, savedVersion, savedLegacy);
             }
             catch (Exception e) { Log.Warning("[Modern Dev Tools] mod-change init failed: " + e.Message); }
         }
@@ -321,6 +382,7 @@ namespace ModernDevTools
 
         private static string FooterNote()
         {
+            if (ModChange.PresenceOnly) return "MDT_ModsChangedPresenceOnly".Translate();
             if (ModChange.Pending) return "MDT_ModsChangedPending".Translate();
             if (ModChange.Unverified > 0) return "MDT_ModsChangedUnverified".Translate(ModChange.Unverified);
             return null;

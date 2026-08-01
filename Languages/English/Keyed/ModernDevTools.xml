@@ -288,6 +288,7 @@
   <MDT_EvidenceUpdated>{0}\n\nThe files in this mod's folder differ from the ones recorded when the save was made: a file was added, removed, renamed, or changed size. Timestamps are not used, so re-downloads and file copies do not trigger this.</MDT_EvidenceUpdated>
   <MDT_EvidenceRemoved>{0}\n\nThis mod was active when the save was made and is not loaded now.</MDT_EvidenceRemoved>
   <MDT_EvidenceAdded>{0}\n\nThis mod is loaded now and was not active when the save was made.</MDT_EvidenceAdded>
+  <MDT_ModsChangedPresenceOnly>This save was made before mod contents were fingerprinted, so only mods that were added or removed can be listed. Updated mods cannot be detected on this save; save once and the next load will have the full picture.</MDT_ModsChangedPresenceOnly>
   <MDT_ModsChangedPending>Still comparing mod contents in the background - the "updated" list may be incomplete.</MDT_ModsChangedPending>
   <MDT_ModsChangedUnverified>{0} mod(s) could not be compared (official content, or a folder that could not be fully read). They are not listed either way.</MDT_ModsChangedUnverified>
   <MDT_SettingDetectModChanges>Detect mods changed since a save</MDT_SettingDetectModChanges>

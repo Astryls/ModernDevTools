@@ -65,6 +65,11 @@ namespace ModernDevTools
     {
         public const string Version = "1.3";   // bump on each release to trigger the update-notes popup
 
+        /// <summary>Prefix on every log line this mod emits itself. Module_StackTrace uses it to tell
+        /// "we REPORTED this error" from "we CAUSED it" - see IsSelfReport there. Keep every internal
+        /// Log.* call starting with this exact string.</summary>
+        public const string LogPrefix = "[Modern Dev Tools]";
+
         public static ModernDevToolsMod Instance;
         public static ModernDevToolsSettings Settings;
         public static int IgnoreVersion;   // bumped when the ignore set changes (gates the list rebuild)
