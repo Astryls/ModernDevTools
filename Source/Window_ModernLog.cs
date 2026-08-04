@@ -332,6 +332,27 @@ namespace ModernDevTools
             Palette.StateStrip(row, TypeColor(msg.type), 3f);
 
             float x = row.x + 3f + 6f;
+
+            // Timestamp column. Fixed width (measured once, memoised) so the message text of every row
+            // starts on the same pixel - a ragged left edge on a 1000-row list is unreadable.
+            if (ShowStamps)
+            {
+                string ts = LogTimestamps.Of(msg);
+                if (!ts.NullOrEmpty())
+                {
+                    float sw = StampWidth();
+                    Text.Font = GameFont.Small;
+                    Text.WordWrap = false;
+                    Text.Anchor = TextAnchor.MiddleLeft;
+                    GUI.color = Palette.TextDim;
+                    Widgets.Label(new Rect(x, row.y, sw, row.height), ts);
+                    GUI.color = Color.white;
+                    Text.Anchor = TextAnchor.UpperLeft;
+                    Text.WordWrap = true;
+                    x += sw + 8f;
+                }
+            }
+
             // Repeat chip. When the throttle held further repeats back we show them as "+N" rather than
             // silently understating the count - a hidden repeat count would defeat the whole point of
             // the log, and the throttle is only defensible if it is honest about what it suppressed.
@@ -418,6 +439,23 @@ namespace ModernDevTools
             GUI.color = TypeColor(msg.type);
             Widgets.Label(new Rect(0f, y, w, lh), head);
             GUI.color = Color.white;
+
+            // Timestamp, right-aligned in the same row. A repeated line carries the time it was FIRST
+            // seen (LogMessageQueue folds repeats into the retained message), so it is labelled as such
+            // rather than reading as the time of the latest occurrence.
+            if (ShowStamps)
+            {
+                string ts = LogTimestamps.Of(msg);
+                if (!ts.NullOrEmpty())
+                {
+                    Text.Anchor = TextAnchor.MiddleRight;
+                    GUI.color = Palette.TextDim;
+                    Widgets.Label(new Rect(0f, y, w, lh),
+                                  msg.repeats > 1 ? "MDT_FirstSeenAt".Translate(ts) : "MDT_LoggedAt".Translate(ts));
+                    GUI.color = Color.white;
+                }
+            }
+
             Text.Anchor = TextAnchor.UpperLeft;
             Text.WordWrap = true;
             y += lh + 6f;
@@ -803,6 +841,24 @@ namespace ModernDevTools
                 case LogMessageType.Warning: LogState.ShowWarnings = value; break;
                 default: LogState.ShowMessages = value; break;
             }
+        }
+
+        /// <summary>Whether the timestamp column/label is shown (player setting, on by default).</summary>
+        private static bool ShowStamps
+        {
+            get
+            {
+                ModernDevToolsSettings s = ModernDevToolsMod.Settings;
+                return (s == null || s.showTimestamps) && LogTimestamps.Available;
+            }
+        }
+
+        /// <summary>Width of the timestamp column. Measured from the widest possible "HH:mm:ss" so the
+        /// column never reflows as the clock ticks; TextMetrics memoises, so this is a dictionary hit.</summary>
+        private static float StampWidth()
+        {
+            Text.Font = GameFont.Small;
+            return Mathf.Ceil(TextMetrics.Size("00:00:00").x) + 2f;
         }
 
         private static Color TypeColor(LogMessageType t) =>

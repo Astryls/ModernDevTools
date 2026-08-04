@@ -229,6 +229,10 @@ namespace ModernDevTools
             sb.AppendLine("Modern Dev Tools report");
             sb.AppendLine("Signature: #" + sig);
             sb.AppendLine("RimWorld: " + SafeVersion());
+            // Always included when the engine has it, regardless of the display setting - "when did this
+            // start" is diagnostic data, and a report is read by someone who was not there.
+            string ts = LogTimestamps.Of(msg);
+            if (!ts.NullOrEmpty()) sb.AppendLine((msg.repeats > 1 ? "First logged: " : "Logged: ") + ts);
             sb.AppendLine(TypeWord(msg.type) + (msg.repeats > 1 ? " (x" + msg.repeats + ")" : ""));
             sb.AppendLine(msg.text);
             sb.AppendLine();

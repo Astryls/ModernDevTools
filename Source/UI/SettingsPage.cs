@@ -124,19 +124,26 @@ namespace ModernDevTools
             float iw = width - CardPad * 2f;
             string desc = "MDT_YieldLogWindowDesc".Translate();
             float rowH = Palette.ToggleRowHeight(desc, iw);
+            string descTs = "MDT_ShowTimestampsDesc".Translate();
+            float rowTs = Palette.ToggleRowHeight(descTs, iw);
 
             string detected = LogWindowCompat.AnyDecorator
                 ? "MDT_LogDecorators".Translate(LogWindowCompat.DecoratorNames()).ToString() : null;
             Text.Font = GameFont.Small;
             float detH = detected != null ? TextMetrics.Height(detected, iw) + 8f : 0f;
 
-            Rect card = BeginCard(width, y, rowH + detH, out Rect inner);
+            Rect card = BeginCard(width, y, rowH + rowTs + detH, out Rect inner);
             float iy = DrawHeader(inner, "MDT_SectionLogWindow".Translate());
 
             bool v = S.yieldLogWindow;
             bool nv = Palette.ToggleRow(new Rect(inner.x, iy, inner.width, rowH), "MDT_YieldLogWindow".Translate(), v, desc);
             if (nv != v) { S.yieldLogWindow = nv; Save(); }
             iy += rowH;
+
+            bool ts = S.showTimestamps;
+            bool nts = Palette.ToggleRow(new Rect(inner.x, iy, inner.width, rowTs), "MDT_ShowTimestamps".Translate(), ts, descTs);
+            if (nts != ts) { S.showTimestamps = nts; Save(); }
+            iy += rowTs;
 
             if (detected != null)
             {

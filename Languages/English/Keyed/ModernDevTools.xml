@@ -428,4 +428,10 @@
   <MDT_ArchotechExport>Export</MDT_ArchotechExport>
   <MDT_ArchotechExportTip>Open Archotech Logs' log export window.</MDT_ArchotechExportTip>
 
+  <!-- Log timestamps -->
+  <MDT_ShowTimestamps>Show timestamps</MDT_ShowTimestamps>
+  <MDT_ShowTimestampsDesc>Show the time each line was logged, in the list and on the selected message. RimWorld records this when the message is created. A repeated line keeps the time it was first seen, so it is labelled that way.</MDT_ShowTimestampsDesc>
+  <MDT_LoggedAt>logged {0}</MDT_LoggedAt>
+  <MDT_FirstSeenAt>first seen {0}</MDT_FirstSeenAt>
+
 </LanguageData>

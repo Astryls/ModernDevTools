@@ -339,6 +339,17 @@ namespace ModernDevTools
         private static bool _scrollInit;
         private static GUIStyle _flatBar, _flatThumb, _flatBtn;
 
+        // MANAGED references to the three scrollbar textures. These are not a convenience: assigning a
+        // Texture2D to GUIStyleState.background parks the only reference to it behind GUIStyle's native
+        // pointer, and GUIStyle is NOT a UnityEngine.Object, so Resources.UnloadUnusedAssets() cannot
+        // trace it and destroys the texture. RimWorld runs that sweep through
+        // MemoryUtility.UnloadUnusedUnityAssets() on every new game, every save load and every return to
+        // the main menu. Before this, the textures were locals in InitScroll() and _scrollInit latched
+        // true forever, so after the first sweep the styles pointed at destroyed textures and the
+        // scrollbar drew NOTHING for the rest of the session - which reads to the player as "the scroll
+        // bar disappears once the log gets big", because a long log means a long session.
+        private static Texture2D _texTrack, _texThumb, _texThumbHover;
+
         // The saved skin styles form a STACK, not four single fields. ErrorModule.DrawSection hooks
         // run INSIDE the inspector's already-active scroll view, so the first third-party module that
         // begins its own scroll would clobber the outer save and leave the flat skin applied to every
@@ -347,24 +358,46 @@ namespace ModernDevTools
 
         private static void InitScroll()
         {
-            if (_scrollInit) return;
-            _scrollInit = true;
-            var track = SolidColorMaterials.NewSolidColorTexture(new Color(1f, 1f, 1f, 0.04f));
-            var thumb = SolidColorMaterials.NewSolidColorTexture(new Color(0.55f, 0.58f, 0.62f, 0.55f));
-            var thumbHover = SolidColorMaterials.NewSolidColorTexture(new Color(0.72f, 0.75f, 0.80f, 0.75f));
-            _flatBar = new GUIStyle { fixedWidth = 8f };
-            _flatBar.normal.background = track;
-            // Unity sizes a scrollbar thumb as (visible/total)*track + ThumbSize(), where
-            // ThumbSize() = thumb.fixedHeight if set, else thumb.padding.vertical (see
-            // UnityEngine.SliderHandler.VerticalThumbRect / ThumbSize). With both zero the thumb
-            // is PURELY proportional and shrinks toward 0px on very long content (a ~1000-line
-            // log), so it visually disappears. The 24px vertical padding gives the thumb a
-            // minimum grabbable length while it still grows proportionally on short content.
-            _flatThumb = new GUIStyle { fixedWidth = 8f, border = new RectOffset(0, 0, 0, 0), padding = new RectOffset(0, 0, 12, 12) };
-            _flatThumb.normal.background = thumb;
-            _flatThumb.hover.background = thumbHover;
-            _flatThumb.active.background = thumbHover;
-            _flatBtn = new GUIStyle();
+            // Unity overloads == so a DESTROYED texture compares equal to null while the C# reference is
+            // still non-null. That is precisely the state an unload sweep leaves us in, so this is the
+            // check that has to gate the cache - not a plain bool latch.
+            if (_scrollInit && _texTrack != null && _texThumb != null && _texThumbHover != null) return;
+
+            _texTrack = KeepTexture(new Color(1f, 1f, 1f, 0.04f));
+            _texThumb = KeepTexture(new Color(0.55f, 0.58f, 0.62f, 0.55f));
+            _texThumbHover = KeepTexture(new Color(0.72f, 0.75f, 0.80f, 0.75f));
+
+            if (!_scrollInit)
+            {
+                _scrollInit = true;
+                _flatBar = new GUIStyle { fixedWidth = 8f };
+                // Unity sizes a scrollbar thumb as size*ValuesPerPixel() + ThumbSize(), where
+                // ThumbSize() = thumb.fixedHeight if set, else thumb.padding.vertical (verified against
+                // decompiled UnityEngine.SliderHandler.VerticalThumbRect / ThumbSize). With both zero the
+                // thumb is PURELY proportional and shrinks toward 0px on very long content. The 24px of
+                // vertical padding is the thumb's floor; it still grows proportionally on short content.
+                _flatThumb = new GUIStyle { fixedWidth = 8f, border = new RectOffset(0, 0, 0, 0), padding = new RectOffset(0, 0, 12, 12) };
+                _flatBtn = new GUIStyle();
+            }
+
+            // Re-point the styles at the live textures (first build, and after every rebuild).
+            _flatBar.normal.background = _texTrack;
+            _flatThumb.normal.background = _texThumb;
+            _flatThumb.hover.background = _texThumbHover;
+            _flatThumb.active.background = _texThumbHover;
+        }
+
+        /// <summary>
+        /// A solid-colour texture that survives RimWorld's asset unload sweeps. HideAndDontSave takes it
+        /// out of Resources.UnloadUnusedAssets() entirely; the static field the caller stores it in is
+        /// the belt to that braces. Returns null off the main thread (vanilla refuses to build textures
+        /// there) - callers then draw an untinted bar rather than throwing.
+        /// </summary>
+        private static Texture2D KeepTexture(Color c)
+        {
+            Texture2D t = SolidColorMaterials.NewSolidColorTexture(c);
+            if (t != null) t.hideFlags = HideFlags.HideAndDontSave;
+            return t;
         }
 
         public static void BeginScroll(Rect outRect, ref Vector2 scroll, Rect viewRect)

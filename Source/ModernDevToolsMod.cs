@@ -38,6 +38,11 @@ namespace ModernDevTools
         // per session (metadata only, no file contents are read), so it gets an off switch.
         public bool detectModChanges = true;
 
+        // Wall-clock time per log line, read from the engine's own LogMessage.timestamp. On by default:
+        // knowing WHEN a line arrived is what separates "this happened when I clicked that" from
+        // "this has been spamming since startup". Off for anyone who wants the narrow list back.
+        public bool showTimestamps = true;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -52,6 +57,7 @@ namespace ModernDevTools
             Scribe_Values.Look(ref dismissedLogCompatHint, "dismissedLogCompatHint", false);
             Scribe_Values.Look(ref throttleRepeatingLogs, "throttleRepeatingLogs", false);
             Scribe_Values.Look(ref detectModChanges, "detectModChanges", true);
+            Scribe_Values.Look(ref showTimestamps, "showTimestamps", true);
             if (moduleEnabled == null) moduleEnabled = new Dictionary<string, bool>();
             if (ignoredIssues == null) ignoredIssues = new HashSet<string>();
         }

@@ -40,6 +40,7 @@ on the Modules window.
 
 | Card | Setting | On settings page | In Modules window | Notes |
 |---|---|---|---|---|
+| Log window | `showTimestamps` | yes | no | Pure display preference for the log list; nothing else in the mod branches on it (the copied report always carries the timestamp when the engine has one). |
 | Log window | `yieldLogWindow` | yes | no | Ownership is a global, one-time choice, not a quick toggle. The in-context half is the log's own "Vanilla log" button. Also renders the live list of detected decorator mods. |
 | Log spam | `throttleRepeatingLogs` | yes | no | Sits on every mod's error path; deliberately kept off the quick-access surface so it is a considered change. |
 
