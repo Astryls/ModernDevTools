@@ -474,23 +474,36 @@ namespace ModernDevTools
 
         private static void DrawThingIcon(Rect r, ThingDef def)
         {
-            if (def == null)
+            Texture2D tex = null;
+            if (def != null)
             {
-                Texture t = TexButton.OpenDebugActionsMenu;
-                if (t != null) { GUI.color = new Color(0.75f, 0.78f, 0.82f); GUI.DrawTexture(r, t, ScaleMode.ScaleToFit); GUI.color = Color.white; }
+                try { tex = Widgets.GetIconFor(def); }
+                catch { tex = null; }
+                // GetIconFor hands back the magenta placeholder when the def's texture failed to load -
+                // routine once a mod repoints a vanilla def's uiIconPath/texPath at art it does not
+                // actually ship. Treat that as "no icon" so the cell shows the neutral glyph rather than
+                // a broken-texture tile.
+                if (tex == BaseContent.BadTex) tex = null;
+            }
+
+            if (tex != null)
+            {
+                GUI.color = def.uiIconColor;
+                GUI.DrawTexture(r, tex, ScaleMode.ScaleToFit);
+                GUI.color = Color.white;
                 return;
             }
-            try
+
+            // Fallback covers BOTH a node that is not a thing spawner AND a thing whose icon would not
+            // resolve. The previous version drew nothing at all in the second case: the cell came out
+            // empty, which reads as a broken entry when the entry is usually fine.
+            Texture t = TexButton.OpenDebugActionsMenu;
+            if (t != null)
             {
-                Texture2D tex = Widgets.GetIconFor(def);
-                if (tex != null)
-                {
-                    GUI.color = def.uiIconColor;
-                    GUI.DrawTexture(r, tex, ScaleMode.ScaleToFit);
-                    GUI.color = Color.white;
-                }
+                GUI.color = new Color(0.75f, 0.78f, 0.82f);
+                GUI.DrawTexture(r, t, ScaleMode.ScaleToFit);
+                GUI.color = Color.white;
             }
-            catch { }
         }
 
         // DrawCheck now lives on Palette (both dev windows had a near-identical copy). The former

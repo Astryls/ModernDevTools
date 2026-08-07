@@ -282,9 +282,9 @@ namespace ModernDevTools
                     Rect row = new Rect(inner.x, iy, inner.width, IgnoredRowH - 6f);
                     Widgets.DrawBoxSolid(row, Palette.PanelBG);
                     Palette.DrawBox(row, Palette.BGL, 1);
-                    KnownIssueDef kd = DefDatabase<KnownIssueDef>.GetNamedSilentFail(defName);
-                    string label = kd != null && !kd.label.NullOrEmpty() ? kd.LabelCap.ToString() : defName;
+                    string label = ModernDevToolsMod.IgnoredLabel(defName);
                     Palette.LabelFit(new Rect(row.x + 10f, row.y, row.width - 80f, row.height), label, Palette.Stat);
+                    if (label != defName) TooltipHandler.TipRegion(row, defName);
                     if (Palette.GrayButton(new Rect(row.xMax - 68f, row.y + 3f, 62f, row.height - 6f), "MDT_Remove".Translate()))
                         ModernDevToolsMod.UnignoreIssue(defName);
                     iy += IgnoredRowH;

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -117,6 +118,34 @@ namespace ModernDevTools
         }
 
         public static IEnumerable<string> IgnoredIssues => Settings?.ignoredIssues ?? Enumerable.Empty<string>();
+
+        /// <summary>
+        /// Human-readable label for an ignore key, for the Ignored list in both settings surfaces.
+        ///
+        /// The key is whatever produced the diagnosis, and that is NOT always a KnownIssueDef: library
+        /// entries use a KnownIssueDef defName, but a diagnosis raised by a module carries that module's
+        /// identifier (MDT_Module_*), and a community entry carries "community:&lt;id&gt;". Both call sites
+        /// used to fall straight back to the raw string, so ignoring a version-mismatch or community
+        /// diagnosis put a bare "MDT_Module_VersionMismatch" in the player's settings - which reads as a
+        /// broken translation. Shared by SettingsPage and Dialog_Modules to hold the parity contract.
+        /// </summary>
+        public static string IgnoredLabel(string key)
+        {
+            if (key.NullOrEmpty()) return "";
+            KnownIssueDef kd = DefDatabase<KnownIssueDef>.GetNamedSilentFail(key);
+            if (kd != null && !kd.label.NullOrEmpty()) return kd.LabelCap.ToString();
+
+            ErrorModuleDef md = DefDatabase<ErrorModuleDef>.GetNamedSilentFail(key);
+            // Module_CircinusCorpus reports "MDT_Module_CircinusCorpus" while its def is "MDT_CircinusCorpus".
+            if (md == null && key.StartsWith("MDT_Module_", StringComparison.Ordinal))
+                md = DefDatabase<ErrorModuleDef>.GetNamedSilentFail("MDT_" + key.Substring("MDT_Module_".Length));
+            if (md != null && !md.label.NullOrEmpty()) return md.LabelCap.ToString();
+
+            if (key.StartsWith("community:", StringComparison.Ordinal))
+                return "MDT_IgnoredCommunityEntry".Translate(key.Substring("community:".Length)).ToString();
+
+            return key;
+        }
 
         public override string SettingsCategory() => "Modern Dev Tools";
 

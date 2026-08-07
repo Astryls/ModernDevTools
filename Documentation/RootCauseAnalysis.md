@@ -104,6 +104,24 @@ That's it — one file in your `About/` folder. No dependency, no LoadFolders, n
 to your mod's name if you leave it out. You can validate against `known-issues.schema.json` in the community
 database repo. (`About/ModernDevTools.json` is also accepted if you prefer a namespaced filename.)
 
+### Scope: your file answers for *your* mod
+
+A shipped `known-issues.json` is trusted highly — it is the author's own answer, and it outranks every other
+knowledge source. That trust is deliberately bounded. An entry applies only when:
+
+- the error already implicates the mod that shipped the file, **or**
+- the entry names its own scope explicitly, via `packageIds` or `namespaces`.
+
+Without that rule a single mod shipping `"keywords": ["NullReferenceException"]` would take the top
+explanation slot for every unrelated error in the game, and the player would be told the wrong mod is at
+fault. If you need an entry to fire on an error whose stack does *not* mention your mod — a def your mod
+injects into someone else's system, say — put your own `packageIds` or `namespaces` on that entry and it
+will apply normally.
+
+No field changed shape here; entries that already name their scope behave exactly as before. Sources
+registered in C# through `RegisterKnowledgeSource` are exempt, because registering one is a deliberate
+code-level act by a mod that is already loaded and running.
+
 ---
 
 ## Path 2 — Ship a `KnownIssueDef` (XML defs)
