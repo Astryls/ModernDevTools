@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using LudeonTK;
 using Verse;
 
@@ -18,25 +19,53 @@ namespace ModernDevTools
     /// </summary>
     public static class ActionSearchIndex
     {
-        private struct Entry { public DebugActionNode Node; public string LabelLower; }
+        private struct Entry
+        {
+            public DebugActionNode Node;
+            /// <summary>Lowercased node label PLUS the def's display label when the node spawns a def.
+            /// Both must be searchable: the node label is what vanilla stored (a defName for spawn
+            /// menus), the display label is what our grid actually draws on screen.</summary>
+            public string HayLower;
+            /// <summary>Same haystack reduced to letters and digits. This is what lets a player type
+            /// what they READ - "simple research bench" - and still hit SimpleResearchBench, whose
+            /// defName has no spaces. Without it the spaces alone are enough to lose the item.</summary>
+            public string HaySquashed;
+        }
 
         private static readonly Dictionary<string, List<Entry>> _cache = new Dictionary<string, List<Entry>>();
 
-        /// <summary>Matches in the given context, filtered by substring over cached lowercased labels.</summary>
+        /// <summary>Matches in the given context, over BOTH the node label and the def's display label,
+        /// raw and whitespace/punctuation-insensitive.</summary>
         public static List<DebugActionNode> Filter(string contextKey, DebugActionNode searchRoot, string search, int cap = 400)
         {
             var res = new List<DebugActionNode>();
             List<Entry> entries = Ensure(contextKey, searchRoot);
             string needle = (search ?? "").ToLowerInvariant();
+            string squashed = Squash(needle);
             for (int i = 0; i < entries.Count; i++)
             {
-                if (entries[i].LabelLower.IndexOf(needle, StringComparison.Ordinal) >= 0)
-                {
-                    res.Add(entries[i].Node);
-                    if (res.Count >= cap) break;
-                }
+                Entry e = entries[i];
+                bool hit = e.HayLower.IndexOf(needle, StringComparison.Ordinal) >= 0
+                           || (squashed.Length > 0 && e.HaySquashed.IndexOf(squashed, StringComparison.Ordinal) >= 0);
+                if (!hit) continue;
+                res.Add(e.Node);
+                if (res.Count >= cap) break;
             }
             return res;
+        }
+
+        /// <summary>Lowercase, keeping only letters and digits. Collapses "Simple research bench",
+        /// "SimpleResearchBench" and "simple-research-bench" onto one comparable form.</summary>
+        private static string Squash(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+            }
+            return sb.ToString();
         }
 
         private static List<Entry> Ensure(string contextKey, DebugActionNode searchRoot)
@@ -60,7 +89,15 @@ namespace ModernDevTools
                 while (queue.Count > 0 && list.Count < 8000 && guard++ < 40000)
                 {
                     DebugActionNode n = queue.Dequeue();
-                    list.Add(new Entry { Node = n, LabelLower = (DebugTree.Label(n) ?? "").ToLowerInvariant() });
+                    string nodeLabel = DebugTree.Label(n) ?? "";
+                    string shown = DebugTree.DisplayLabelFor(n);
+                    string hay = shown.NullOrEmpty() ? nodeLabel : nodeLabel + "\u0001" + shown;
+                    list.Add(new Entry
+                    {
+                        Node = n,
+                        HayLower = hay.ToLowerInvariant(),
+                        HaySquashed = Squash(hay),
+                    });
                     // Recurse only into already-built subtrees (BuiltChildren never invokes a childGetter),
                     // so collapsed grids contribute their folder node but not their thousands of items.
                     foreach (DebugActionNode child in DebugTree.BuiltChildren(n)) queue.Enqueue(child);

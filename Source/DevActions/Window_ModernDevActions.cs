@@ -27,6 +27,8 @@ namespace ModernDevTools
         private Vector2 _scroll;
         private string _searchKey;
         private List<DebugActionNode> _searchResults;
+        private string _gridSortKey;
+        private List<DebugActionNode> _gridSorted;
         private bool _focusSearch;
         private int _openedFrame;   // frame the window opened / switched tabs; focus is deferred past it
         private bool _restorePalette;   // the dev palette was hidden on open and should reappear on close
@@ -355,8 +357,41 @@ namespace ModernDevTools
 
         // --- thing spawn grid ---
 
+        /// <summary>
+        /// Order the grid by the label it actually DRAWS. Vanilla sorts spawn nodes by defName
+        /// (DebugThingPlaceHelper labels every node with one), so a def whose label differs from its
+        /// defName - and every def a mod renames - sits nowhere near where its on-screen name says it
+        /// should be, and browsing alphabetically walks straight past it.
+        ///
+        /// Memoised on (path, search, count): the child list is rebuilt from the node graph every frame,
+        /// and re-sorting several thousand nodes per frame is not free.
+        /// </summary>
+        private List<DebugActionNode> SortedByDisplay(List<DebugActionNode> nodes)
+        {
+            string key = DebugTree.PathOf(_node) + "\u0001" + (_search ?? "") + "\u0001" + nodes.Count;
+            if (key == _gridSortKey && _gridSorted != null) return _gridSorted;
+
+            var keyed = new List<KeyValuePair<string, DebugActionNode>>(nodes.Count);
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                DebugActionNode n = nodes[i];
+                string shown = DebugTree.DisplayLabelFor(n);
+                keyed.Add(new KeyValuePair<string, DebugActionNode>(
+                    shown.NullOrEmpty() ? DebugTree.Label(n) : shown, n));
+            }
+            keyed.Sort((a, b) => string.Compare(a.Key, b.Key, StringComparison.CurrentCultureIgnoreCase));
+
+            var sorted = new List<DebugActionNode>(keyed.Count);
+            for (int i = 0; i < keyed.Count; i++) sorted.Add(keyed[i].Value);
+            _gridSortKey = key;
+            _gridSorted = sorted;
+            return sorted;
+        }
+
         private void DrawGrid(Rect rect, List<DebugActionNode> nodes)
         {
+            nodes = SortedByDisplay(nodes);
+
             // hint line
             GUI.color = Palette.TextDim;
             Text.Font = GameFont.Small;
@@ -407,13 +442,17 @@ namespace ModernDevTools
             Text.Anchor = TextAnchor.UpperCenter;
             Text.WordWrap = false;
             GUI.color = broken ? Palette.Bad : Palette.Stat;
-            string label = def != null ? def.LabelCap.ToString() : DebugTree.Label(node);
+            string shown = DebugTree.DisplayLabelFor(node);
+            string tech = DebugTree.Label(node);
+            string label = shown.NullOrEmpty() ? tech : shown.CapitalizeFirst();
             Widgets.Label(new Rect(cell.x + 2f, cell.y + 56f, cell.width - 4f, 30f), label.Truncate(cell.width - 8f));
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.WordWrap = true;
 
-            TooltipHandler.TipRegion(cell, DebugTree.Label(node));
+            // Show the defName under the display label. Once a mod renames a vanilla def these are two
+            // different names for the same thing, and the defName is the one that identifies it.
+            TooltipHandler.TipRegion(cell, label == tech ? tech : label + "\n" + tech);
             if (Widgets.ButtonInvisible(cell)) DebugTree.RunLeaf(node, this);
         }
 

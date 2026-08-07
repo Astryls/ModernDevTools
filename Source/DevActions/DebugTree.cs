@@ -240,6 +240,34 @@ namespace ModernDevTools
             return hits >= check * 0.6f;
         }
 
+        /// <summary>
+        /// The human-readable label RimWorld shows for the def behind a spawn node, or null when the node
+        /// is not a def spawner.
+        ///
+        /// This exists because vanilla labels spawn nodes with the DEF NAME - DebugThingPlaceHelper does
+        /// `new DebugActionNode(localDef.defName, ...)` - while our grid cells display `def.LabelCap`.
+        /// Anything that only reads node.label is therefore searching and sorting a string the player never
+        /// sees. That is what made "simple research bench" fail to find SimpleResearchBench (the defName has
+        /// no spaces), and what made a vanilla def look like it had vanished once another mod renamed it.
+        /// Callers should treat this as the primary name and node.label as the secondary/technical one.
+        /// </summary>
+        public static string DisplayLabelFor(DebugActionNode node)
+        {
+            try
+            {
+                ThingDef t = ThingForNode(node);
+                if (t != null && !t.label.NullOrEmpty()) return t.label;
+                string s = node?.label;
+                if (s.NullOrEmpty()) return null;
+                // Pawn spawn menus are built the same way (node label = PawnKindDef defName), so they had
+                // the identical defect.
+                PawnKindDef k = DefDatabase<PawnKindDef>.GetNamedSilentFail(s);
+                if (k != null && !k.label.NullOrEmpty()) return k.label;
+            }
+            catch { }
+            return null;
+        }
+
         public static ThingDef ThingForNode(DebugActionNode node)
         {
             string s = node?.label;
