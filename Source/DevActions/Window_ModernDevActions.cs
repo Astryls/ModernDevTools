@@ -445,7 +445,7 @@ namespace ModernDevTools
             string shown = DebugTree.DisplayLabelFor(node);
             string tech = DebugTree.Label(node);
             string label = shown.NullOrEmpty() ? tech : shown.CapitalizeFirst();
-            Widgets.Label(new Rect(cell.x + 2f, cell.y + 56f, cell.width - 4f, 30f), label.Truncate(cell.width - 8f));
+            Widgets.Label(new Rect(cell.x + 2f, cell.y + 56f, cell.width - 4f, 30f), TextMetrics.Fit(label, cell.width - 8f));
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.WordWrap = true;

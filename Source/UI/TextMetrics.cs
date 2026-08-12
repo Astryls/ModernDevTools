@@ -70,6 +70,7 @@ namespace ModernDevTools
 
         private static readonly Dictionary<Key, float> _heights = new Dictionary<Key, float>();
         private static readonly Dictionary<Key, Vector2> _sizes = new Dictionary<Key, Vector2>();
+        private static readonly Dictionary<Key, string> _fits = new Dictionary<Key, string>();
 
         private static Key MakeKey(string text, int width)
         {
@@ -112,12 +113,53 @@ namespace ModernDevTools
             return v;
         }
 
+        /// <summary>
+        /// Memoised single-line ellipsis fit - the replacement for vanilla GenText.Truncate(width) in
+        /// every per-frame path. The no-cache vanilla Truncate shrinks ONE CHARACTER AT A TIME, paying
+        /// one Text.CalcSize plus two string allocations per character removed: a 300-char log line
+        /// against a ~550px column is ~200 measurements and ~100KB of garbage per call, and it ran per
+        /// visible row per OnGUI pass (2-3 passes/frame). That - not message count - was what made the
+        /// modern log feel heavy on giant modlists, whose error lines are almost all wider than the
+        /// column. This computes the fit once per (text, width, font state) with a binary search
+        /// (~8 measurements), then serves it as a dictionary hit forever after.
+        /// Same contract as Size/Height: set Text.Font (and WordWrap) BEFORE calling.
+        /// </summary>
+        public static string Fit(string text, float width)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            Key k = MakeKey(text, Mathf.RoundToInt(width));
+            if (_fits.TryGetValue(k, out string s)) return s;
+            s = ComputeFit(text, width);
+            if (_fits.Count >= Cap) _fits.Clear();
+            _fits[k] = s;
+            return s;
+        }
+
+        private static string ComputeFit(string text, float width)
+        {
+            if (Size(text).x <= width) return text;   // shares the memoised Size entry
+            // Longest prefix whose "prefix..." form fits. Rendered width is monotonically
+            // non-decreasing in prefix length, so binary search is valid. Measurements here are raw
+            // Text.CalcSize on purpose: the ~8 transient prefixes per fit are never asked for again,
+            // and caching them would only churn the size cache. Matches vanilla Truncate's output
+            // shape ("..." suffix; bare "..." when nothing fits).
+            int lo = 0, hi = text.Length - 1;
+            while (lo < hi)
+            {
+                int mid = (lo + hi + 1) >> 1;
+                if (Text.CalcSize(text.Substring(0, mid) + "...").x <= width) lo = mid;
+                else hi = mid - 1;
+            }
+            return text.Substring(0, lo) + "...";
+        }
+
         /// <summary>Drop everything. Only needed if a mod swaps the font ASSETS at runtime (fontSize
         /// changes are already part of the key); exposed so such a mod can call it.</summary>
         public static void Invalidate()
         {
             _heights.Clear();
             _sizes.Clear();
+            _fits.Clear();
         }
     }
 }

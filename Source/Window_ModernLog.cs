@@ -373,7 +373,7 @@ namespace ModernDevTools
                 x += rw + 6f;
             }
 
-            Palette.LabelFit(new Rect(x, row.y, row.xMax - x - 6f, row.height), FirstLine(msg.text), Palette.Stat);
+            Palette.LabelFit(new Rect(x, row.y, row.xMax - x - 6f, row.height), FirstLine(msg), Palette.Stat);
 
             if (Widgets.ButtonInvisible(row))
             {
@@ -874,7 +874,23 @@ namespace ModernDevTools
             }
         }
 
-        private static string FirstLine(string text)
+        // First-line cache. The row draw runs per visible row per OnGUI pass, and Substring on a long
+        // modded error line is a fresh allocation each time - ~100 per frame of pure garbage on a full
+        // window. A message's text never changes (repeats fold into the same instance), so the first
+        // line is computed once per message; the weak table evicts it with the message itself.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LogMessage, string> _firstLines =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<LogMessage, string>();
+
+        private static string FirstLine(LogMessage msg)
+        {
+            if (msg == null) return "";
+            if (_firstLines.TryGetValue(msg, out string cached)) return cached;
+            string line = ComputeFirstLine(msg.text);
+            try { _firstLines.Add(msg, line); } catch (ArgumentException) { /* benign add race */ }
+            return line;
+        }
+
+        private static string ComputeFirstLine(string text)
         {
             if (text.NullOrEmpty()) return "";
             int nl = text.IndexOf('\n');

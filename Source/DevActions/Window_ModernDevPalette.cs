@@ -446,8 +446,7 @@ namespace ModernDevTools
                 Text.Font = GameFont.Tiny;
                 Text.WordWrap = false;
                 Text.Anchor = TextAnchor.UpperLeft;
-                string draw = text ?? "";
-                if (TextMetrics.Size(draw).x > r.width) draw = draw.Truncate(r.width);
+                string draw = TextMetrics.Fit(text ?? "", r.width);
                 GUI.color = Palette.TextDim;
                 Widgets.Label(r, "<i>" + draw + "</i>");
             }

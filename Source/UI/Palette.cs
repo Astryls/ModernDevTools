@@ -518,8 +518,7 @@ namespace ModernDevTools
             string draw = text;
             if (TextMetrics.Size(text).x > r.width && !shortFallback.NullOrEmpty())
                 draw = shortFallback;
-            if (TextMetrics.Size(draw).x > r.width)
-                draw = draw.Truncate(r.width); // last resort
+            draw = TextMetrics.Fit(draw, r.width); // memoised; returns draw unchanged when it fits
             GUI.color = color;
             Text.Anchor = TextAnchor.MiddleLeft;
             Widgets.Label(r, draw);
