@@ -8,17 +8,38 @@ using Verse;
 namespace ModernDevTools
 {
     /// <summary>
-    /// The modern replacement for RimWorld's debug log. Left: a clean, filterable, searchable
-    /// message list. Right: an inspector that attributes the selected error to the likely culprit
-    /// mod and surfaces curated guidance from the shipped knowledge library, with the full stack
-    /// trace beneath. Full vanilla parity: filtering, clear, copy, auto-open, pause-on-error.
+    /// The modern replacement for RimWorld's debug log.
+    ///
+    /// LAYOUT: three columns ("sidebar" study C). LEFT is a permanent navigation column - the type
+    /// filters with their counts, the three behaviour switches, and the tool buttons - each in an
+    /// iOS grouped-list plate. MIDDLE is search plus the message list, with the add-on tray pinned
+    /// under it. RIGHT is the inspector: attribution, curated guidance and the stack trace.
+    ///
+    /// Why a sidebar: the previous layout put eleven controls across two toolbar rows above the
+    /// list, where every one of them had to be short enough to fit a chip and none of them could
+    /// afford a label. Giving them a column buys them room to be readable, hands the entire middle
+    /// column back to the messages, and means the filter counts are always on screen instead of
+    /// competing with the toolbar for width. Full vanilla parity is unchanged: filtering, clear,
+    /// copy, auto-open, pause-on-error.
     /// </summary>
     public class Window_ModernLog : Window
     {
-        private const float Pad = 10f;
-        private const float Gap = 8f;
+        private const float Pad = 12f;
+        private const float Gap = 10f;
         private const float RowH = 26f;
-        private const float ToolbarH = 28f;
+        private const float BarH = 28f;
+
+        // Sidebar geometry.
+        private const float SideW = 212f;
+        private const float SidePad = 12f;
+        private const float GroupRowH = 32f;
+        private const float HeaderH = 22f;
+        private const float SwitchW = 38f;
+        private const float SwitchH = 22f;
+
+        // Below this much room for the middle column the inspector stands down and the list takes
+        // the space; the sidebar is never dropped, because it is the only route to the filters.
+        private const float InspectorNeeds = 600f;
 
         private readonly List<LogMessage> _filtered = new List<LogMessage>();
         private int _cErr, _cWarn, _cMsg;
@@ -32,13 +53,14 @@ namespace ModernDevTools
 
         private float _inspH = 200f; // cached inspector content height for the scroll viewRect
 
-        // Compat-hint visibility, latched once per FRAME. The hint's own Dismiss button flips the
-        // setting that hides it, and OnGUI runs several passes per frame - so reading the setting
-        // directly would emit one fewer control on the passes after the click, shifting every later
-        // IMGUI control id and killing clicks in the list below it. Latching makes the control set
-        // identical across all passes of a frame; the hint disappears on the next frame instead.
+        // Visibility latched once per FRAME. OnGUI runs several passes per frame, and a control that
+        // appears or disappears between passes shifts every later IMGUI control id - which kills
+        // clicks in the list below it. Latching makes the control set identical across all passes of
+        // a frame; the change lands on the next frame instead.
         private int _hintFrame = -1;
         private bool _hintVisible;
+        private int _modsFrame = -1;
+        private bool _modsVisible;
 
         public Window_ModernLog()
         {
@@ -57,7 +79,7 @@ namespace ModernDevTools
         protected override float Margin => 0f;
 
         public override Vector2 InitialSize =>
-            new Vector2(Mathf.Min(UI.screenWidth * 0.66f, 1180f), Mathf.Min(UI.screenHeight * 0.62f, 780f));
+            new Vector2(Mathf.Min(UI.screenWidth * 0.72f, 1280f), Mathf.Min(UI.screenHeight * 0.66f, 800f));
 
         // --- static open/close plumbing (used by the Harmony redirects) ---
 
@@ -96,114 +118,108 @@ namespace ModernDevTools
 
         private void DrawAll(Rect inRect)
         {
-            Widgets.DrawBoxSolid(inRect, Palette.BG);
-            Palette.DrawBox(inRect, Palette.BGL, 1);
+            Spatial.Surface(inRect, Palette.BG);
 
             Rect content = inRect.ContractedBy(Pad);
-            float y = content.y;
-
-            // Header (title + shown-count). The close X is drawn by the base window at top-right.
-            DrawHeader(new Rect(content.x, y, content.width, ToolbarH));
-            y += ToolbarH + Gap;
-
             RebuildFiltered();
 
-            // Toolbar A: filters (left) + state toggles (right)
-            DrawToolbarA(new Rect(content.x, y, content.width, ToolbarH));
-            y += ToolbarH + Gap;
+            // Latch the two conditional surfaces for the whole frame.
+            int frame = Time.frameCount;
+            if (frame != _hintFrame) { _hintFrame = frame; _hintVisible = LogWindowCompat.ShowHint; }
+            if (frame != _modsFrame) { _modsFrame = frame; _modsVisible = ModChange.HasChanges; }
 
-            // Toolbar B: search (left) + copy/clear (right)
-            DrawToolbarB(new Rect(content.x, y, content.width, ToolbarH));
-            y += ToolbarH + Gap;
+            float midAvail = content.width - SideW - Gap;
+            float inspW = midAvail >= InspectorNeeds ? Mathf.Clamp(midAvail * 0.42f, 330f, 430f) : 0f;
 
-            // One-time disclosure that other mods decorate the vanilla log window.
-            y += DrawCompatHint(new Rect(content.x, y, content.width, 0f));
+            Rect sidebar = new Rect(content.x, content.y, SideW, content.height);
+            Rect middle = new Rect(sidebar.xMax + Gap, content.y,
+                                   content.width - SideW - Gap - (inspW > 0f ? inspW + Gap : 0f),
+                                   content.height);
+            Rect inspector = new Rect(middle.xMax + Gap, content.y, inspW, content.height);
 
-            // Add-on tray along the bottom, hosting HugsLib-registered log buttons (Share logs, Files,
-            // Copy, plus anything other mods added) and anything registered through our own API. Without
-            // it those controls are unreachable, because the vanilla window they normally live on never
-            // opens while we own the log. Any is frame-stable (registrations happen at startup), so the
-            // reserved space cannot change between OnGUI passes.
-            bool tray = LogWidgets.Any;
-            float trayH = tray ? LogWidgets.TrayHeight + Gap : 0f;
+            try { DrawSidebar(sidebar); }
+            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] sidebar draw failed: " + e, 0x2E19A34); }
 
-            // Body: message list (left) + inspector (right)
-            Rect body = new Rect(content.x, y, content.width, content.yMax - y - trayH);
-            float inspW = Mathf.Clamp(body.width * 0.38f, 330f, 470f);
-            Rect listRect = new Rect(body.x, body.y, body.width - inspW - Gap, body.height);
-            Rect inspRect = new Rect(listRect.xMax + Gap, body.y, inspW, body.height);
+            try { DrawMiddle(middle); }
+            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] list column draw failed: " + e, 0x2E19A31); }
 
-            try { DrawList(listRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] list draw failed: " + e, 0x2E19A31); }
-
-            try { DrawInspector(inspRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] inspector draw failed: " + e, 0x2E19A32); }
-
-            if (tray)
+            if (inspW > 0f)
             {
-                try { LogWidgets.Draw(this, new Rect(content.x, body.yMax + Gap, content.width, LogWidgets.TrayHeight), LogState.Selected); }
-                catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] add-on tray draw failed: " + e, 0x2E19A33); }
+                try { DrawInspector(inspector); }
+                catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] inspector draw failed: " + e, 0x2E19A32); }
             }
+
+            if (Palette.CloseX(new Rect(inRect.xMax - 30f, inRect.y + 8f, 22f, 22f))) Close();
         }
 
-        private void DrawHeader(Rect r)
-        {
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Text.WordWrap = false;
-            GUI.color = Palette.Stat;
-            Widgets.Label(new Rect(r.x, r.y, r.width * 0.6f, r.height), "MDT_Title".Translate());
+        // ── sidebar ─────────────────────────────────────────────────────────────
 
-            GUI.color = Palette.TextDim;
-            Text.Anchor = TextAnchor.MiddleRight;
-            // leave ~30px clear on the right for the base close X
+        private void DrawSidebar(Rect r)
+        {
+            Spatial.Surface(r, Palette.SidebarBG);
+            Spatial.TopHighlight(r);
+
+            float x = r.x + SidePad;
+            float w = r.width - SidePad * 2f;
+            float y = r.y + 14f;
+
+            // Large title + shown count.
+            Text.Font = GameFont.Medium;
+            float titleH = Text.LineHeight;
+            UILabel(new Rect(x, y, w - 22f, titleH), "MDT_Title".Translate(), Palette.Stat, TextAnchor.MiddleLeft);
+            Text.Font = GameFont.Small;
+            y += titleH + 1f;
+
             string shown = "MDT_Shown".Translate(_filtered.Count).ToString();
             if (_hidden > 0) shown += "  " + "MDT_HiddenSuffix".Translate(_hidden);
-            Widgets.Label(new Rect(r.x, r.y, r.width - 30f, r.height), shown);
+            UILabel(new Rect(x, y, w, 18f), shown, Palette.TextFaint, TextAnchor.MiddleLeft);
+            y += 18f + 12f;
 
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
-            if (Palette.CloseX(new Rect(r.xMax - 26f, r.y + 2f, 22f, 22f))) Close();
-        }
+            // ── filters: one grouped plate, three rows, hairline separators.
+            Rect fg = new Rect(x, y, w, GroupRowH * 3f);
+            Spatial.Surface(fg, Palette.GroupBG);
+            FilterRow(new Rect(fg.x, fg.y, fg.width, GroupRowH), "MDT_Errors".Translate(),
+                      _cErr, Palette.Bad, LogMessageType.Error, false);
+            FilterRow(new Rect(fg.x, fg.y + GroupRowH, fg.width, GroupRowH), "MDT_Warnings".Translate(),
+                      _cWarn, Palette.Warn, LogMessageType.Warning, true);
+            FilterRow(new Rect(fg.x, fg.y + GroupRowH * 2f, fg.width, GroupRowH), "MDT_Messages".Translate(),
+                      _cMsg, Palette.StripGray, LogMessageType.Message, true);
+            y = fg.yMax + 14f;
 
-        private void DrawToolbarA(Rect r)
-        {
-            float x = r.x;
-            x = DrawFilterChip(x, r.y, r.height, "MDT_Errors".Translate(), _cErr, Palette.Bad, LogMessageType.Error);
-            x = DrawFilterChip(x + 6f, r.y, r.height, "MDT_Warnings".Translate(), _cWarn, Palette.Warn, LogMessageType.Warning);
-            x = DrawFilterChip(x + 6f, r.y, r.height, "MDT_Messages".Translate(), _cMsg, Palette.StripGray, LogMessageType.Message);
+            // ── behaviour switches.
+            y = SidebarHeader(x, y, w, "MDT_SidebarBehaviour".Translate());
+            Rect bg = new Rect(x, y, w, GroupRowH * 3f);
+            Spatial.Surface(bg, Palette.GroupBG);
+            SwitchRow(new Rect(bg.x, bg.y, bg.width, GroupRowH), "MDT_AutoOpen".Translate(),
+                      LogState.AutoOpen, "MDT_AutoOpenTip".Translate(), v => LogState.AutoOpen = v, false);
+            SwitchRow(new Rect(bg.x, bg.y + GroupRowH, bg.width, GroupRowH), "MDT_PauseOnError".Translate(),
+                      LogState.PauseOnError, "MDT_PauseOnErrorTip".Translate(), v => LogState.PauseOnError = v, true);
+            SwitchRow(new Rect(bg.x, bg.y + GroupRowH * 2f, bg.width, GroupRowH), "MDT_OpenOnWarnings".Translate(),
+                      LogState.OpenOnWarnings, "MDT_OpenOnWarningsTip".Translate(), v => LogState.OpenOnWarnings = v, true);
+            y = bg.yMax + 14f;
 
-            // State toggles, right-aligned.
-            float rx = r.xMax;
-            DrawModChangeIndicator(ref rx, r);
-            rx = DrawStateToggleRightward(ref rx, r.y, r.height, "MDT_OpenOnWarnings".Translate(), LogState.OpenOnWarnings, "MDT_OpenOnWarningsTip".Translate(),
-                v => LogState.OpenOnWarnings = v);
-            rx = DrawStateToggleRightward(ref rx, r.y, r.height, "MDT_PauseOnError".Translate(), LogState.PauseOnError, "MDT_PauseOnErrorTip".Translate(),
-                v => LogState.PauseOnError = v);
-            rx = DrawStateToggleRightward(ref rx, r.y, r.height, "MDT_AutoOpen".Translate(), LogState.AutoOpen, "MDT_AutoOpenTip".Translate(),
-                v => LogState.AutoOpen = v);
-        }
-
-        private void DrawToolbarB(Rect r)
-        {
-            // Buttons lay out right-to-left off a single cursor, so adding or removing one cannot
-            // desync the rects. The search field then fills whatever is left.
-            float rx = r.xMax;
-
-            if (RightButton(ref rx, r, "MDT_Clear".Translate(), "MDT_ClearTip".Translate()))
+            // ── tools. The vanilla-log escape hatch only exists when another mod actually decorates
+            //    that window; AnyDecorator is scanned once at startup, so the row count is frame-stable.
+            bool vanilla = LogWindowCompat.AnyDecorator;
+            int toolRows = vanilla ? 4 : 3;
+            y = SidebarHeader(x, y, w, "MDT_SidebarTools".Translate());
+            Rect tg = new Rect(x, y, w, GroupRowH * toolRows);
+            Spatial.Surface(tg, Palette.GroupBG);
+            float ty = tg.y;
+            if (ToolRow(new Rect(tg.x, ty, tg.width, GroupRowH), "MDT_KbButton".Translate(),
+                        "MDT_KbButtonTip".Translate(), false))
             {
-                Log.Clear();
-                LogState.ClearSelection();
-                LogState.ListScroll = Vector2.zero;
+                if (!Find.WindowStack.IsOpen<Window_KnowledgeBase>()) Find.WindowStack.Add(new Window_KnowledgeBase());
             }
-            if (RightButton(ref rx, r, "MDT_CopyAll".Translate(), "MDT_CopyAllTip".Translate()))
-                Copy(BuildAllMessages());
-            if (RightButton(ref rx, r, "MDT_Modules".Translate(), "MDT_ModulesTip".Translate()))
+            ty += GroupRowH;
+            if (ToolRow(new Rect(tg.x, ty, tg.width, GroupRowH), "MDT_Modules".Translate(),
+                        "MDT_ModulesTip".Translate(), true))
             {
                 if (!Find.WindowStack.IsOpen<Dialog_Modules>()) Find.WindowStack.Add(new Dialog_Modules());
             }
-            if (RightButton(ref rx, r, "MDT_CommUpdate".Translate(), "MDT_CommUpdateTip".Translate()))
+            ty += GroupRowH;
+            if (ToolRow(new Rect(tg.x, ty, tg.width, GroupRowH), "MDT_CommUpdate".Translate(),
+                        "MDT_CommUpdateTip".Translate(), true))
             {
                 if (!ModernDevToolsMod.Settings.enableCommunityData)
                 {
@@ -213,31 +229,115 @@ namespace ModernDevTools
                 }
                 CommunityData.Update();
             }
-            if (RightButton(ref rx, r, "MDT_KbButton".Translate(), "MDT_KbButtonTip".Translate()))
-            {
-                if (!Find.WindowStack.IsOpen<Window_KnowledgeBase>()) Find.WindowStack.Add(new Window_KnowledgeBase());
-            }
-
-            // Escape hatch: other mods (HugsLib's widget API, Archotech Logs) hang their UI off the
-            // VANILLA log window, which never opens while we own the log. AnyDecorator is scanned once
-            // at startup, so this button's presence is constant across a frame's OnGUI passes - adding
-            // or dropping a control between passes would shift every later IMGUI control id.
-            if (LogWindowCompat.AnyDecorator
-                && RightButton(ref rx, r, "MDT_VanillaLog".Translate(),
-                               "MDT_VanillaLogTip".Translate(LogWindowCompat.DecoratorNames())))
+            ty += GroupRowH;
+            if (vanilla && ToolRow(new Rect(tg.x, ty, tg.width, GroupRowH), "MDT_VanillaLog".Translate(),
+                                   "MDT_VanillaLogTip".Translate(LogWindowCompat.DecoratorNames()), true))
                 LogWindowCompat.ToggleVanillaLog();
 
-            // Left: search field filling the rest.
-            DrawSearch(new Rect(r.x, r.y, rx - r.x, r.height));
+            // ── mods-changed, pinned to the bottom of the column.
+            if (_modsVisible)
+            {
+                Rect mc = new Rect(x, r.yMax - 14f - GroupRowH, w, GroupRowH);
+                Spatial.Surface(mc, Color.Lerp(Palette.GroupBG, Palette.Warn, 0.18f));
+                bool over = Mouse.IsOver(mc);
+                Spatial.Dot(new Rect(mc.x + 12f, mc.center.y - 4f, 8f, 8f), Palette.Warn);
+                UILabel(new Rect(mc.x + 28f, mc.y, mc.width - 36f, mc.height),
+                        "MDT_ModsChangedBtn".Translate(ModChange.Report.Count),
+                        over ? Palette.Stat : Palette.Warn, TextAnchor.MiddleLeft);
+                TooltipHandler.TipRegion(mc, ModChangeTooltip());
+                if (Widgets.ButtonInvisible(mc) && !Find.WindowStack.IsOpen<Dialog_ModChanges>())
+                    Find.WindowStack.Add(new Dialog_ModChanges());
+            }
         }
 
-        /// <summary>Draw a toolbar button at the right-to-left cursor and advance it. Returns true on click.</summary>
-        private static bool RightButton(ref float rx, Rect r, string label, string tip)
+        private static float SidebarHeader(float x, float y, float w, string label)
         {
-            float w = BtnW(label);
-            Rect br = new Rect(rx - w, r.y, w, r.height);
-            rx = br.x - Gap;
-            return Palette.GrayButton(br, label, tip);
+            UILabel(new Rect(x + 4f, y, w - 8f, HeaderH), label, Palette.TextFaint, TextAnchor.MiddleLeft);
+            return y + HeaderH;
+        }
+
+        /// <summary>One type filter: colour dot, label, count. The whole row toggles it; an off filter
+        /// dims rather than disappearing, so the count stays readable.</summary>
+        private void FilterRow(Rect r, string label, int count, Color dot, LogMessageType type, bool sep)
+        {
+            bool show = LogState.VisibleType(type);
+            if (sep) Spatial.Separator(r.x + 12f, r.y, r.width - 12f);
+            if (Mouse.IsOver(r)) Spatial.RowPlate(r.ContractedBy(2f), new Color(1f, 1f, 1f, 0.05f));
+
+            Spatial.Dot(new Rect(r.x + 12f, r.center.y - 4.5f, 9f, 9f),
+                        show ? dot : Color.Lerp(dot, Palette.GroupBG, 0.62f));
+
+            string cnt = count.ToString();
+            float cw = TextMetrics.Size(cnt).x + 10f;
+            UILabel(new Rect(r.x + 30f, r.y, r.width - 30f - cw - 10f, r.height), label,
+                    show ? Palette.Stat : Palette.TextFaint, TextAnchor.MiddleLeft);
+            UILabel(new Rect(r.xMax - cw - 10f, r.y, cw, r.height), cnt,
+                    show ? Palette.TextDim : Palette.TextFaint, TextAnchor.MiddleRight);
+
+            if (Widgets.ButtonInvisible(r)) SetVisibleType(type, !show);
+        }
+
+        private void SwitchRow(Rect r, string label, bool value, string tip, Action<bool> setter, bool sep)
+        {
+            if (sep) Spatial.Separator(r.x + 12f, r.y, r.width - 12f);
+            if (Mouse.IsOver(r)) Spatial.RowPlate(r.ContractedBy(2f), new Color(1f, 1f, 1f, 0.05f));
+
+            UILabel(new Rect(r.x + 12f, r.y, r.width - SwitchW - 26f, r.height), label,
+                    Palette.Stat, TextAnchor.MiddleLeft);
+            Spatial.Switch(new Rect(r.xMax - SwitchW - 10f, r.center.y - SwitchH / 2f, SwitchW, SwitchH), value);
+
+            if (!tip.NullOrEmpty()) TooltipHandler.TipRegion(r, tip);
+            if (Widgets.ButtonInvisible(r)) setter(!value);
+        }
+
+        private bool ToolRow(Rect r, string label, string tip, bool sep)
+        {
+            if (sep) Spatial.Separator(r.x + 12f, r.y, r.width - 12f);
+            bool over = Mouse.IsOver(r);
+            if (over) Spatial.RowPlate(r.ContractedBy(2f), new Color(1f, 1f, 1f, 0.05f));
+            UILabel(new Rect(r.x + 12f, r.y, r.width - 24f, r.height), label,
+                    over ? Palette.Stat : Palette.Accent, TextAnchor.MiddleLeft);
+            if (!tip.NullOrEmpty()) TooltipHandler.TipRegion(r, tip);
+            return Widgets.ButtonInvisible(r);
+        }
+
+        // ── middle column ───────────────────────────────────────────────────────
+
+        private void DrawMiddle(Rect r)
+        {
+            float y = r.y;
+
+            // Search + the two destructive/bulk actions. These stay above the list (rather than in
+            // the sidebar) because they act on what the list is currently showing.
+            float clearW = BtnW("MDT_Clear".Translate());
+            float copyW = BtnW("MDT_CopyAll".Translate());
+            Rect searchR = new Rect(r.x, y, r.width - clearW - copyW - Gap * 2f, BarH);
+            DrawSearch(searchR);
+            if (TintButton(new Rect(searchR.xMax + Gap, y, copyW, BarH), "MDT_CopyAll".Translate(),
+                           "MDT_CopyAllTip".Translate(), Palette.Accent))
+                Copy(BuildAllMessages());
+            if (TintButton(new Rect(searchR.xMax + Gap + copyW + Gap, y, clearW, BarH), "MDT_Clear".Translate(),
+                           "MDT_ClearTip".Translate(), Palette.Bad))
+            {
+                Log.Clear();
+                LogState.ClearSelection();
+                LogState.ListScroll = Vector2.zero;
+            }
+            y += BarH + Gap;
+
+            y += DrawCompatHint(new Rect(r.x, y, r.width, 0f));
+
+            bool tray = LogWidgets.Any;
+            float trayH = tray ? LogWidgets.TrayHeight + Gap : 0f;
+
+            Rect listRect = new Rect(r.x, y, r.width, r.yMax - y - trayH);
+            DrawList(listRect);
+
+            if (tray)
+            {
+                try { LogWidgets.Draw(this, new Rect(r.x, listRect.yMax + Gap, r.width, LogWidgets.TrayHeight), LogState.Selected); }
+                catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] add-on tray draw failed: " + e, 0x2E19A33); }
+            }
         }
 
         /// <summary>
@@ -248,28 +348,30 @@ namespace ModernDevTools
         /// </summary>
         private float DrawCompatHint(Rect r)
         {
-            int frame = Time.frameCount;
-            if (frame != _hintFrame) { _hintFrame = frame; _hintVisible = LogWindowCompat.ShowHint; }
             if (!_hintVisible) return 0f;
 
             Text.Font = GameFont.Small;
             Text.WordWrap = true;
-            const float btnW = 90f;
-            float textW = r.width - 24f - btnW - 8f;
+            const float btnW = 84f;
+            float textW = r.width - 26f - btnW - 12f - 22f;
             string text = "MDT_CompatHint".Translate(LogWindowCompat.DecoratorNames());
             float textH = Mathf.Ceil(TextMetrics.Height(text, textW));
-            float h = Mathf.Max(textH, 26f) + 16f;
+            float h = Mathf.Max(textH, 24f) + 18f;
 
             Rect card = new Rect(r.x, r.y, r.width, h);
-            Palette.DrawCard(card);
-            Palette.StateStrip(card, Palette.Accent, 3f);
+            Spatial.Surface(card, Color.Lerp(Palette.GroupBG, Palette.Accent, 0.16f));
 
-            GUI.color = Palette.TextDim;
-            Widgets.Label(new Rect(card.x + 12f, card.y + 8f, textW, textH), text);
+            Rect badge = new Rect(card.x + 12f, card.y + (h - 18f) / 2f, 18f, 18f);
+            Spatial.Dot(badge, Palette.Accent);
+            UILabel(badge, "i", Palette.BG, TextAnchor.MiddleCenter);
+
+            GUI.color = Palette.Stat;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Widgets.Label(new Rect(card.x + 38f, card.y + 9f, textW, textH), text);
             GUI.color = Color.white;
 
-            if (Palette.GrayButton(new Rect(card.xMax - 12f - btnW, card.y + (h - 26f) / 2f, btnW, 26f),
-                                   "MDT_CompatDismiss".Translate()))
+            if (PlainButton(new Rect(card.xMax - 12f - btnW, card.y + (h - 24f) / 2f, btnW, 24f),
+                            "MDT_CompatDismiss".Translate()))
                 LogWindowCompat.DismissHint();
 
             return h + Gap;
@@ -277,6 +379,7 @@ namespace ModernDevTools
 
         private void DrawSearch(Rect r)
         {
+            Spatial.RowPlate(r, Palette.GroupBG);
             string cur = LogState.Search ?? "";
             string edited = Palette.SearchField(r, "MDT_Search", cur, "MDT_SearchPlaceholder".Translate());
             if (edited != cur) LogState.Search = edited;
@@ -286,8 +389,8 @@ namespace ModernDevTools
 
         private void DrawList(Rect rect)
         {
-            Palette.DrawWell(rect);
-            Rect inner = rect.ContractedBy(1f);
+            Spatial.Surface(rect, Palette.PanelBG);
+            Rect inner = rect.ContractedBy(4f);
 
             int n = _filtered.Count;
             float viewH = n * RowH;
@@ -300,12 +403,8 @@ namespace ModernDevTools
             {
                 if (n == 0)
                 {
-                    Text.Font = GameFont.Small;
-                    Text.Anchor = TextAnchor.MiddleCenter;
-                    GUI.color = Palette.TextDim;
-                    Widgets.Label(new Rect(0f, 0f, view.width, inner.height), "MDT_EmptyList".Translate());
-                    GUI.color = Color.white;
-                    Text.Anchor = TextAnchor.UpperLeft;
+                    UILabel(new Rect(0f, 0f, view.width, inner.height), "MDT_EmptyList".Translate(),
+                            Palette.TextFaint, TextAnchor.MiddleCenter);
                 }
                 else
                 {
@@ -324,14 +423,20 @@ namespace ModernDevTools
         private void DrawRow(Rect row, LogMessage msg, int index)
         {
             bool selected = msg == LogState.Selected;
-            bool alt = (index & 1) == 1;
-            Color plate = selected ? Color.Lerp(Palette.PanelBG, Palette.BGL, 0.55f)
-                                   : (alt ? Palette.RowAlt : Palette.PanelBG);
-            if (!selected && Mouse.IsOver(row)) plate = Color.Lerp(plate, Palette.BGL, 0.45f);
-            Widgets.DrawBoxSolid(row, plate);
-            Palette.StateStrip(row, TypeColor(msg.type), 3f);
 
-            float x = row.x + 3f + 6f;
+            // Only the SELECTED row gets a rounded plate: a 9-slice per row would be ~800 draw calls
+            // a frame on a full list, for corners hidden behind text. Everything else is a hairline
+            // separator, which is the iOS grouped-table rule anyway.
+            if (selected) Spatial.RowPlate(row.ContractedBy(1f), new Color(Palette.Accent.r, Palette.Accent.g, Palette.Accent.b, 0.17f));
+            else
+            {
+                if (index > 0) Spatial.Separator(row.x + 10f, row.y, row.width - 14f);
+                if (Mouse.IsOver(row)) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.035f));
+            }
+
+            float x = row.x + 10f;
+            Spatial.Dot(new Rect(x, row.center.y - 4f, 8f, 8f), TypeColor(msg.type));
+            x += 16f;
 
             // Timestamp column. Fixed width (measured once, memoised) so the message text of every row
             // starts on the same pixel - a ragged left edge on a 1000-row list is unreadable.
@@ -341,14 +446,7 @@ namespace ModernDevTools
                 if (!ts.NullOrEmpty())
                 {
                     float sw = StampWidth();
-                    Text.Font = GameFont.Small;
-                    Text.WordWrap = false;
-                    Text.Anchor = TextAnchor.MiddleLeft;
-                    GUI.color = Palette.TextDim;
-                    Widgets.Label(new Rect(x, row.y, sw, row.height), ts);
-                    GUI.color = Color.white;
-                    Text.Anchor = TextAnchor.UpperLeft;
-                    Text.WordWrap = true;
+                    UILabel(new Rect(x, row.y, sw, row.height), ts, Palette.TextFaint, TextAnchor.MiddleLeft);
                     x += sw + 8f;
                 }
             }
@@ -361,19 +459,17 @@ namespace ModernDevTools
             {
                 string rep = "x" + msg.repeats + (suppressed > 0 ? "+" + suppressed : "");
                 Text.Font = GameFont.Small;
-                float rw = TextMetrics.Size(rep).x + 10f;
-                Rect chip = new Rect(x, row.y + (RowH - 18f) / 2f, rw, 18f);
-                Widgets.DrawBoxSolid(chip, Palette.BGD);
-                Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = suppressed > 0 ? Palette.Warn : Palette.TextDim;
-                Widgets.Label(chip, rep);
-                GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
+                float rw = TextMetrics.Size(rep).x + 14f;
+                Rect chip = new Rect(x, row.y + (RowH - 17f) / 2f, rw, 17f);
+                Spatial.Badge(chip, rep,
+                    suppressed > 0 ? new Color(Palette.Warn.r, Palette.Warn.g, Palette.Warn.b, 0.20f) : Palette.BGD,
+                    suppressed > 0 ? Palette.Warn : Palette.TextDim);
                 if (suppressed > 0) TooltipHandler.TipRegion(chip, "MDT_SuppressedTip".Translate(suppressed));
-                x += rw + 6f;
+                x += rw + 8f;
             }
 
-            Palette.LabelFit(new Rect(x, row.y, row.xMax - x - 6f, row.height), FirstLine(msg), Palette.Stat);
+            Palette.LabelFit(new Rect(x, row.y, row.xMax - x - 8f, row.height), FirstLine(msg),
+                             selected ? Palette.Bright : Palette.Stat);
 
             if (Widgets.ButtonInvisible(row))
             {
@@ -386,18 +482,14 @@ namespace ModernDevTools
 
         private void DrawInspector(Rect rect)
         {
-            Palette.DrawCard(rect);
-            Rect inner = rect.ContractedBy(10f);
+            Spatial.Surface(rect, Palette.PanelBG);
+            Spatial.TopHighlight(rect);
+            Rect inner = rect.ContractedBy(12f);
 
             LogMessage msg = LogState.Selected;
             if (msg == null)
             {
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = Palette.TextDim;
-                Widgets.Label(inner, "MDT_SelectHint".Translate());
-                GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
+                UILabel(inner, "MDT_SelectHint".Translate(), Palette.TextFaint, TextAnchor.MiddleCenter);
                 return;
             }
 
@@ -426,19 +518,16 @@ namespace ModernDevTools
 
             // Copy actions
             float bw = (w - 12f) / 3f;
-            if (Palette.GrayButton(new Rect(0f, y, bw, 26f), "MDT_CopyMessage".Translate())) Copy(msg.text);
-            if (Palette.GrayButton(new Rect(bw + 6f, y, bw, 26f), "MDT_CopyTrace".Translate())) Copy(msg.StackTrace);
-            if (Palette.GrayButton(new Rect(2f * (bw + 6f), y, bw, 26f), "MDT_CopyReport".Translate())) Copy(ReportBuilder.FullReport(msg, a));
-            y += 26f + 10f;
+            if (PlainButton(new Rect(0f, y, bw, 26f), "MDT_CopyMessage".Translate(), Palette.Accent)) Copy(msg.text);
+            if (PlainButton(new Rect(bw + 6f, y, bw, 26f), "MDT_CopyTrace".Translate(), Palette.Accent)) Copy(msg.StackTrace);
+            if (PlainButton(new Rect(2f * (bw + 6f), y, bw, 26f), "MDT_CopyReport".Translate(), Palette.Accent))
+                Copy(ReportBuilder.FullReport(msg, a));
+            y += 26f + 12f;
 
             // Type header
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Text.WordWrap = false;
             string head = TypeLabel(msg.type);
-            if (msg.repeats > 1) head += "   (x" + msg.repeats + ")";
-            GUI.color = TypeColor(msg.type);
-            Widgets.Label(new Rect(0f, y, w, lh), head);
-            GUI.color = Color.white;
+            if (msg.repeats > 1) head += "   x" + msg.repeats;
+            UILabel(new Rect(0f, y, w * 0.55f, lh), head, TypeColor(msg.type), TextAnchor.MiddleLeft);
 
             // Timestamp, right-aligned in the same row. A repeated line carries the time it was FIRST
             // seen (LogMessageQueue folds repeats into the retained message), so it is labelled as such
@@ -447,28 +536,23 @@ namespace ModernDevTools
             {
                 string ts = LogTimestamps.Of(msg);
                 if (!ts.NullOrEmpty())
-                {
-                    Text.Anchor = TextAnchor.MiddleRight;
-                    GUI.color = Palette.TextDim;
-                    Widgets.Label(new Rect(0f, y, w, lh),
-                                  msg.repeats > 1 ? "MDT_FirstSeenAt".Translate(ts) : "MDT_LoggedAt".Translate(ts));
-                    GUI.color = Color.white;
-                }
+                    UILabel(new Rect(w * 0.45f, y, w * 0.55f, lh),
+                            msg.repeats > 1 ? "MDT_FirstSeenAt".Translate(ts) : "MDT_LoggedAt".Translate(ts),
+                            Palette.TextFaint, TextAnchor.MiddleRight);
             }
-
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
-            y += lh + 6f;
+            y += lh + 7f;
 
             // Message text
+            Text.Font = GameFont.Small;
+            Text.WordWrap = true;
             string mt = msg.text ?? "";
-            float mth = Mathf.Ceil(TextMetrics.Height(mt, w - 12f));
-            Rect mwell = new Rect(0f, y, w, mth + 10f);
-            Palette.DrawWell(mwell);
+            float mth = Mathf.Ceil(TextMetrics.Height(mt, w - 24f));
+            Rect mwell = new Rect(0f, y, w, mth + 18f);
+            Spatial.RowPlate(mwell, Palette.BGD);
             GUI.color = Palette.Stat;
-            Widgets.Label(new Rect(mwell.x + 6f, mwell.y + 5f, mwell.width - 12f, mth), mt);
+            Widgets.Label(new Rect(mwell.x + 12f, mwell.y + 9f, mwell.width - 24f, mth), mt);
             GUI.color = Color.white;
-            y += mwell.height + 12f;
+            y += mwell.height + 14f;
 
             // Likely source
             y = Section(w, y, "MDT_SectionSource".Translate());
@@ -478,18 +562,27 @@ namespace ModernDevTools
             }
             else if (a != null && a.AnyCulprit)
             {
+                // Measure first so the whole group sits on one rounded plate with hairlines between.
                 int rank = 0;
+                float gy = y;
+                var rows = new List<AttributedMod>();
                 foreach (AttributedMod m in a.Culprits)
                 {
-                    y = DrawSourceRow(w, y, m, rank == 0);
+                    rows.Add(m);
                     if (++rank >= 8) break;
                 }
+                float groupH = 0f;
+                for (int i = 0; i < rows.Count; i++) groupH += SourceRowHeight(rows[i], lh);
+                Spatial.Surface(new Rect(0f, gy, w, groupH), Palette.GroupBG);
+                for (int i = 0; i < rows.Count; i++)
+                    gy = DrawSourceRow(w, gy, rows[i], i == 0, i > 0, lh);
+                y = gy + 4f;
             }
             else
             {
                 y = DrawWrapped(w, y, "MDT_NoCulprit".Translate(), Palette.TextDim);
             }
-            y += 8f;
+            y += 10f;
 
             // What this means (diagnoses contributed by all modules)
             y = Section(w, y, "MDT_SectionMeaning".Translate());
@@ -502,7 +595,7 @@ namespace ModernDevTools
             {
                 y = DrawWrapped(w, y, "MDT_NoLibraryMatch".Translate(), Palette.TextDim);
             }
-            y += 8f;
+            y += 10f;
 
             // Custom module sections (advanced third-party modules)
             if (a?.Context != null)
@@ -520,17 +613,19 @@ namespace ModernDevTools
             {
                 y = Section(w, y, "MDT_SectionReport".Translate());
                 y = DrawReportSection(w, y, msg, a);
-                y += 8f;
+                y += 10f;
             }
 
             // Stack trace
             y = Section(w, y, "MDT_SectionTrace".Translate());
+            Text.Font = GameFont.Small;
+            Text.WordWrap = true;
             string tr = msg.StackTrace ?? "";
-            float trh = Mathf.Ceil(TextMetrics.Height(tr, w - 12f));
-            Rect twell = new Rect(0f, y, w, trh + 10f);
-            Palette.DrawWell(twell);
+            float trh = Mathf.Ceil(TextMetrics.Height(tr, w - 24f));
+            Rect twell = new Rect(0f, y, w, trh + 18f);
+            Spatial.RowPlate(twell, Palette.BGD);
             GUI.color = Palette.TextDim;
-            Widgets.Label(new Rect(twell.x + 6f, twell.y + 5f, twell.width - 12f, trh), tr);
+            Widgets.Label(new Rect(twell.x + 12f, twell.y + 9f, twell.width - 24f, trh), tr);
             GUI.color = Color.white;
             y += twell.height + 6f;
 
@@ -542,25 +637,26 @@ namespace ModernDevTools
             Text.Font = GameFont.Small;
             bool known = ReportBuilder.AlreadyKnown(a);
             string blurb = known ? "MDT_ReportKnown".Translate() : "MDT_ReportBlurb".Translate();
-            float innerW = w - 20f;
+            float innerW = w - 28f;
             float blurbH = Mathf.Ceil(TextMetrics.Height(blurb, innerW));
-            float cardH = 8f + blurbH + 6f + 26f + 8f;
+            float cardH = 12f + blurbH + 9f + 26f + 12f;
             Rect card = new Rect(0f, y, w, cardH);
-            Palette.DrawCard(card);
-            Palette.StateStrip(card, known ? Palette.Good : Palette.Accent, 3f);
+            Spatial.Surface(card, Palette.GroupBG);
 
-            float cx = card.x + 10f;
-            float cy = card.y + 8f;
+            float cx = card.x + 14f;
+            float cy = card.y + 12f;
+            Text.WordWrap = true;
             GUI.color = Palette.TextDim;
             Widgets.Label(new Rect(cx, cy, innerW, blurbH), blurb);
             GUI.color = Color.white;
-            cy += blurbH + 6f;
+            cy += blurbH + 9f;
 
-            float bw = (innerW - 6f) / 2f;
+            float bw = (innerW - 8f) / 2f;
             string primary = known ? "MDT_ReportAddDetail".Translate() : "MDT_ReportBtn".Translate();
-            if (Palette.GrayButton(new Rect(cx, cy, bw, 26f), primary, "MDT_ReportTip".Translate()))
+            if (FilledButton(new Rect(cx, cy, bw, 26f), primary, "MDT_ReportTip".Translate()))
                 Find.WindowStack.Add(new Dialog_Report(msg, a, Dialog_Report.ReportMode.Bug));
-            if (Palette.GrayButton(new Rect(cx + bw + 6f, cy, bw, 26f), "MDT_SubmitFix".Translate(), "MDT_SubmitFixTip".Translate()))
+            if (PlainButton(new Rect(cx + bw + 8f, cy, bw, 26f), "MDT_SubmitFix".Translate(),
+                            Palette.Accent, "MDT_SubmitFixTip".Translate()))
                 Find.WindowStack.Add(new Dialog_Report(msg, a, Dialog_Report.ReportMode.Fix));
 
             return y + cardH;
@@ -572,89 +668,76 @@ namespace ModernDevTools
             // ~30 signal strings and would otherwise re-run on every OnGUI pass.
             ImpactResult imp = a != null ? a.Impact(msg) : ImpactAssessor.Assess(msg, null);
             Color sev = ImpactAssessor.ColorFor(imp.Level);
-            const float h = 30f;
+            const float h = 36f;
             Rect r = new Rect(0f, y, w, h);
-            Widgets.DrawBoxSolid(r, Palette.PanelBG);
-            Palette.DrawBox(r, Palette.BGL, 1);
-            Palette.StateStrip(r, sev, 3f);
+            Spatial.RowPlate(r, new Color(sev.r, sev.g, sev.b, 0.15f));
 
             Text.Font = GameFont.Small;
-            Text.WordWrap = false;
+            string sevLabel = ImpactAssessor.LabelFor(imp.Level);
+            float sevW = TextMetrics.Size(sevLabel).x;
+            UILabel(new Rect(r.x + 12f, r.y, sevW + 6f, r.height), sevLabel, sev, TextAnchor.MiddleLeft);
 
             string badge = imp.Benign ? "MDT_Benign".Translate() : (imp.Known ? "MDT_Known".Translate() : "MDT_Unknown".Translate());
             Color badgeCol = imp.Benign ? Palette.Good : (imp.Known ? Palette.Accent : Palette.TextDim);
-            float badgeW = TextMetrics.Size(badge).x + 8f;
-            Text.Anchor = TextAnchor.MiddleRight;
-            GUI.color = badgeCol;
-            Widgets.Label(new Rect(r.x, r.y, r.width - 10f, r.height), badge);
-
-            string sevLabel = ImpactAssessor.LabelFor(imp.Level);
-            float sevW = TextMetrics.Size(sevLabel).x;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = sev;
-            Widgets.Label(new Rect(r.x + 12f, r.y, sevW + 6f, r.height), sevLabel);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
+            float badgeW = TextMetrics.Size(badge).x + 18f;
+            Spatial.Badge(new Rect(r.xMax - badgeW - 10f, r.center.y - 9f, badgeW, 18f), badge,
+                          new Color(badgeCol.r, badgeCol.g, badgeCol.b, 0.20f), badgeCol);
 
             if (!imp.PerfNote.NullOrEmpty())
-                Palette.LabelFit(new Rect(r.x + 18f + sevW, r.y, r.width - sevW - badgeW - 34f, r.height), imp.PerfNote, Palette.TextDim);
+                Palette.LabelFit(new Rect(r.x + 18f + sevW, r.y, Mathf.Max(4f, r.width - sevW - badgeW - 40f), r.height),
+                                 imp.PerfNote, Palette.TextDim);
 
-            return y + h + 8f;
+            return y + h + 10f;
         }
 
-        private float DrawSourceRow(float w, float y, AttributedMod m, bool top)
+        private static float SourceRowHeight(AttributedMod m, float lh)
+        {
+            bool hasReason = !(m.TopReason ?? "").NullOrEmpty();
+            return 10f + lh + (hasReason ? 2f + lh : 0f) + 10f;
+        }
+
+        private float DrawSourceRow(float w, float y, AttributedMod m, bool top, bool sep, float lh)
         {
             Text.Font = GameFont.Small;
-            float lh = Text.LineHeight;
             string reason = m.TopReason ?? "";
             bool hasReason = reason.Length > 0;
-            float rowH = 8f + lh + (hasReason ? 2f + lh : 0f) + 8f;
+            float rowH = SourceRowHeight(m, lh);
             Rect row = new Rect(0f, y, w, rowH);
-            Widgets.DrawBoxSolid(row, top ? Color.Lerp(Palette.PanelBG, Palette.BGL, 0.35f) : Palette.PanelBG);
-            Palette.DrawBox(row, Palette.BGL, 1);
-            Palette.StateStrip(row, top ? Palette.Accent : Palette.StripGray, 3f);
+            if (sep) Spatial.Separator(row.x + 14f, row.y, row.width - 14f);
 
             string tag; Color tagCol;
             if (!m.Installed) { tag = "MDT_StateNotInstalled".Translate(); tagCol = Palette.Warn; }
             else if (m.Active) { tag = "MDT_StateActive".Translate(); tagCol = Palette.Good; }
             else { tag = "MDT_StateInactive".Translate(); tagCol = Palette.TextDim; }
-            float tagW = TextMetrics.Size(tag).x + 12f;
+            float tagW = TextMetrics.Size(tag).x + 18f;
 
-            Rect nameR = new Rect(row.x + 12f, row.y + 8f, row.width - tagW - 16f, lh);
+            Rect nameR = new Rect(row.x + 14f, row.y + 10f, row.width - tagW - 30f, lh);
             bool hasLink = !m.Url.NullOrEmpty();
-            Palette.LabelFit(nameR, m.Name, hasLink ? Palette.Accent : Palette.Stat);
+            Palette.LabelFit(nameR, m.Name, hasLink ? Palette.Accent : (top ? Palette.Bright : Palette.Stat));
             if (hasLink)
             {
-                float ulW = Mathf.Min(TextMetrics.Size(m.Name).x, nameR.width);
-                Widgets.DrawBoxSolid(new Rect(nameR.x, nameR.yMax - 5f, ulW, 1f), Palette.Accent);
                 if (Mouse.IsOver(nameR)) TooltipHandler.TipRegion(nameR, "MDT_OpenModPage".Translate().ToString() + "\n" + m.Url);
                 if (Widgets.ButtonInvisible(nameR)) Application.OpenURL(m.Url);
             }
 
-            Text.Anchor = TextAnchor.MiddleRight;
-            Text.WordWrap = false;
-            GUI.color = tagCol;
-            Widgets.Label(new Rect(row.x, row.y + 8f, row.width - 10f, lh), tag);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
+            Spatial.Badge(new Rect(row.xMax - tagW - 12f, row.y + 10f + (lh - 18f) / 2f, tagW, 18f), tag,
+                          new Color(tagCol.r, tagCol.g, tagCol.b, 0.18f), tagCol);
 
             if (hasReason)
-                Palette.LabelFit(new Rect(row.x + 12f, row.y + 8f + lh + 2f, row.width - 18f, lh), reason, Palette.TextDim);
+                Palette.LabelFit(new Rect(row.x + 14f, row.y + 10f + lh + 2f, row.width - 26f, lh), reason, Palette.TextDim);
 
             string tip = m.PackageId.NullOrEmpty() ? null : m.PackageId;
             if (m.Reasons.Count > 1) tip = (tip.NullOrEmpty() ? "" : tip + "\n") + string.Join("\n", m.Reasons);
             if (!tip.NullOrEmpty()) TooltipHandler.TipRegion(row, tip);
 
-            return y + rowH + 4f;
+            return y + rowH;
         }
 
         private float DrawDiagnosis(float w, float y, ErrorDiagnosis d)
         {
             Text.Font = GameFont.Small;
             float lh = Text.LineHeight;
-            float innerW = w - 16f;
+            float innerW = w - 28f;
 
             string title = d.Title ?? "";
             string desc = d.Explanation ?? "";
@@ -662,35 +745,32 @@ namespace ModernDevTools
             bool hasUrl = !d.Url.NullOrEmpty();
 
             float titleH = lh;
+            Text.WordWrap = true;
             float descH = desc.Length > 0 ? Mathf.Ceil(TextMetrics.Height(desc, innerW)) : 0f;
             string fixLine = fix.Length > 0 ? ("MDT_FixLabel".Translate().ToString() + " " + fix) : "";
             float fixH = fixLine.Length > 0 ? Mathf.Ceil(TextMetrics.Height(fixLine, innerW)) : 0f;
             float urlH = hasUrl ? lh : 0f;
 
-            float blockH = 8f + titleH + (descH > 0 ? 4f + descH : 0f) + (fixH > 0 ? 6f + fixH : 0f) + (urlH > 0 ? 4f + urlH : 0f) + 8f;
+            float blockH = 12f + titleH + (descH > 0 ? 5f + descH : 0f) + (fixH > 0 ? 7f + fixH : 0f) + (urlH > 0 ? 5f + urlH : 0f) + 12f;
             Rect card = new Rect(0f, y, w, blockH);
-            Palette.DrawCard(card);
-            Palette.StateStrip(card, d.Benign ? Palette.Good : Palette.Accent, 3f);
+            Spatial.Surface(card, d.Benign ? Color.Lerp(Palette.GroupBG, Palette.Good, 0.10f) : Palette.GroupBG);
 
-            float cy = card.y + 8f;
-            float cx = card.x + 10f;
-            float titleW = d.Ignorable ? innerW - 80f : innerW;
-            Text.WordWrap = false;
-            GUI.color = Palette.Stat;
-            Widgets.Label(new Rect(cx, cy, titleW, titleH), title);
-            GUI.color = Color.white;
-            Text.WordWrap = true;
+            float cy = card.y + 12f;
+            float cx = card.x + 14f;
+            float titleW = d.Ignorable ? innerW - 74f : innerW;
+            UILabel(new Rect(cx, cy, titleW, titleH), title, Palette.Bright, TextAnchor.MiddleLeft);
             if (d.Ignorable)
             {
-                Rect igR = new Rect(card.xMax - 10f - 70f, cy - 2f, 70f, titleH + 4f);
-                if (Palette.GrayButton(igR, "MDT_Ignore".Translate(), "MDT_IgnoreTip".Translate()))
+                Rect igR = new Rect(card.xMax - 14f - 66f, cy + (titleH - 20f) / 2f, 66f, 20f);
+                if (PlainButton(igR, "MDT_Ignore".Translate(), Palette.TextDim, "MDT_IgnoreTip".Translate()))
                     ModernDevToolsMod.IgnoreIssue(d.Source);
             }
             cy += titleH;
 
+            Text.WordWrap = true;
             if (descH > 0)
             {
-                cy += 4f;
+                cy += 5f;
                 GUI.color = Palette.TextDim;
                 Widgets.Label(new Rect(cx, cy, innerW, descH), desc);
                 GUI.color = Color.white;
@@ -698,31 +778,30 @@ namespace ModernDevTools
             }
             if (fixH > 0)
             {
-                cy += 6f;
-                GUI.color = Palette.Stat;
+                cy += 7f;
+                GUI.color = Palette.Good;
                 Widgets.Label(new Rect(cx, cy, innerW, fixH), fixLine);
                 GUI.color = Color.white;
                 cy += fixH;
             }
             if (urlH > 0)
             {
-                cy += 4f;
-                GUI.color = Palette.Accent;
-                Text.WordWrap = false;
-                Widgets.Label(new Rect(cx, cy, innerW, urlH), d.Url);
-                GUI.color = Color.white;
-                Text.WordWrap = true;
+                cy += 5f;
+                UILabel(new Rect(cx, cy, innerW, urlH), d.Url, Palette.Accent, TextAnchor.MiddleLeft);
             }
 
-            return y + blockH + 6f;
+            return y + blockH + 8f;
         }
 
         // --- shared bits ---
 
+        /// <summary>Uppercase-ish micro section header, iOS grouped-table style. The suite rule is
+        /// sentence case and ToUpper on a translated string is not safe in every language, so the
+        /// house rule wins and the separation comes from size + colour instead.</summary>
         private float Section(float w, float y, string label)
         {
-            Palette.SectionHeader(new Rect(0f, y, w, 22f), label);
-            return y + 22f + 6f;
+            UILabel(new Rect(4f, y, w - 8f, HeaderH), label, Palette.TextFaint, TextAnchor.MiddleLeft);
+            return y + HeaderH + 4f;
         }
 
         private float DrawWrapped(float w, float y, string text, Color color)
@@ -736,27 +815,49 @@ namespace ModernDevTools
             return y + h + 2f;
         }
 
-        private void DrawModChangeIndicator(ref float rx, Rect r)
+        /// <summary>Single-line label with an explicit anchor. Wraps the four-line save/restore dance
+        /// every label in this window otherwise repeats.</summary>
+        private static void UILabel(Rect r, string text, Color color, TextAnchor anchor)
         {
-            if (!ModChange.HasChanges) return;
-            string lbl = "MDT_ModsChangedBtn".Translate(ModChange.Report.Count);
-            Text.Font = GameFont.Small;
-            float w = Mathf.Max(60f, TextMetrics.Size(lbl).x + 20f);
-            Rect btn = new Rect(rx - w, r.y, w, r.height);
-            rx = btn.x - 8f;
-            Widgets.DrawBoxSolid(btn, Color.Lerp(Palette.BGL, Palette.Warn, 0.28f));
-            Palette.DrawBox(btn, Palette.Warn, 1);
-            Palette.StateStrip(btn, Palette.Warn, 3f);
-            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Anchor = anchor;
+            bool prevWrap = Text.WordWrap;
             Text.WordWrap = false;
-            GUI.color = Palette.Stat;
-            Widgets.Label(btn, lbl);
+            GUI.color = color;
+            Widgets.Label(r, text);
             GUI.color = Color.white;
+            Text.WordWrap = prevWrap;
             Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
-            TooltipHandler.TipRegion(btn, ModChangeTooltip());
-            if (Widgets.ButtonInvisible(btn) && !Find.WindowStack.IsOpen<Dialog_ModChanges>())
-                Find.WindowStack.Add(new Dialog_ModChanges());
+        }
+
+        /// <summary>Neutral grouped-fill button with tinted text (iOS "plain" button).</summary>
+        private static bool PlainButton(Rect r, string label, Color? tint = null, string tooltip = null)
+        {
+            bool over = Mouse.IsOver(r);
+            Spatial.RowPlate(r, over ? Color.Lerp(Palette.GroupBG, Palette.BGL, 0.6f) : Palette.GroupBG);
+            UILabel(r, label, tint ?? Palette.Stat, TextAnchor.MiddleCenter);
+            if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
+            return Widgets.ButtonInvisible(r);
+        }
+
+        /// <summary>Accent-filled primary button (iOS "filled").</summary>
+        private static bool FilledButton(Rect r, string label, string tooltip = null)
+        {
+            bool over = Mouse.IsOver(r);
+            Spatial.RowPlate(r, over ? Color.Lerp(Palette.Accent, Color.white, 0.12f) : Palette.Accent);
+            UILabel(r, label, Palette.BG, TextAnchor.MiddleCenter);
+            if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
+            return Widgets.ButtonInvisible(r);
+        }
+
+        /// <summary>Grouped-fill button whose LABEL carries the tint - used for Copy all / Clear, where
+        /// the colour is the only thing distinguishing a bulk action from a destructive one.</summary>
+        private static bool TintButton(Rect r, string label, string tooltip, Color tint)
+            => PlainButton(r, label, tint, tooltip);
+
+        private static float BtnW(string label)
+        {
+            Text.Font = GameFont.Small;
+            return Mathf.Max(64f, TextMetrics.Size(label).x + 24f);
         }
 
         private static string ModChangeTooltip()
@@ -766,71 +867,6 @@ namespace ModernDevTools
             var rep = ModChange.Report;
             for (int i = 0; i < rep.Count && i < 25; i++) sb.AppendLine("- " + rep[i].Name);
             return sb.ToString();
-        }
-
-        private static float BtnW(string label)
-        {
-            Text.Font = GameFont.Small;
-            return Mathf.Max(60f, TextMetrics.Size(label).x + 20f);
-        }
-
-        private float DrawFilterChip(float x, float y, float h, string label, int count, Color strip, LogMessageType type)
-        {
-            bool show = LogState.VisibleType(type);
-            string text = label + " (" + count + ")";
-            Text.Font = GameFont.Small;
-            float tw = TextMetrics.Size(text).x;
-            float wChip = 3f + 8f + tw + 10f;
-            Rect chip = new Rect(x, y, wChip, h);
-
-            Color plate = show ? Palette.PanelBG : Palette.BGD;
-            if (Mouse.IsOver(chip)) plate = Color.Lerp(plate, Palette.BGL, 0.45f);
-            Widgets.DrawBoxSolid(chip, plate);
-            Palette.DrawBox(chip, Palette.BGL, 1);
-            Palette.StateStrip(chip, show ? strip : Color.Lerp(strip, Palette.BGD, 0.6f), 3f);
-
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Text.WordWrap = false;
-            GUI.color = show ? Palette.Stat : Palette.TextDim;
-            Widgets.Label(new Rect(chip.x + 11f, chip.y, tw + 4f, chip.height), text);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
-
-            if (Widgets.ButtonInvisible(chip)) SetVisibleType(type, !show);
-            return chip.xMax;
-        }
-
-        private float DrawStateToggleRightward(ref float rx, float y, float h, string label, bool value, string tip, Action<bool> setter)
-        {
-            Text.Font = GameFont.Small;
-            string state = value ? "MDT_On".Translate() : "MDT_Off".Translate();
-            float tw = TextMetrics.Size(label).x;
-            float sw = TextMetrics.Size(state).x;
-            float wBtn = 3f + 8f + tw + 8f + sw + 10f;
-            Rect r = new Rect(rx - wBtn, y, wBtn, h);
-            rx = r.x - 6f;
-
-            Color plate = Palette.BGL;
-            if (Mouse.IsOver(r)) plate = Color.Lerp(plate, Palette.Accent, 0.14f);
-            Widgets.DrawBoxSolid(r, plate);
-            Palette.DrawBox(r, new Color(0f, 0f, 0f, 0.28f), 1);
-            Palette.StateStrip(r, value ? Palette.Good : Palette.StripGray, 3f);
-
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Text.WordWrap = false;
-            GUI.color = Palette.Stat;
-            Widgets.Label(new Rect(r.x + 11f, r.y, tw + 4f, r.height), label);
-            Text.Anchor = TextAnchor.MiddleRight;
-            GUI.color = value ? Palette.Good : Palette.TextDim;
-            Widgets.Label(new Rect(r.x, r.y, r.width - 8f, r.height), state);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = true;
-
-            if (!tip.NullOrEmpty()) TooltipHandler.TipRegion(r, tip);
-            if (Widgets.ButtonInvisible(r)) setter(!value);
-            return rx;
         }
 
         private static void SetVisibleType(LogMessageType type, bool value)
@@ -981,6 +1017,5 @@ namespace ModernDevTools
             catch { }
             return sb.ToString();
         }
-
     }
 }

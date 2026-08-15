@@ -3,6 +3,10 @@
 
   <!-- Window chrome -->
   <MDT_Title>Debug log</MDT_Title>
+
+  <!-- Sidebar group headers (three-column layout). -->
+  <MDT_SidebarBehaviour>Behaviour</MDT_SidebarBehaviour>
+  <MDT_SidebarTools>Tools</MDT_SidebarTools>
   <MDT_Shown>{0} shown</MDT_Shown>
   <MDT_EmptyList>No messages to show.</MDT_EmptyList>
   <MDT_SelectHint>Select a message to inspect it.</MDT_SelectHint>

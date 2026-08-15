@@ -22,10 +22,20 @@ namespace ModernDevTools
         public static readonly Color BGL = FromHex(0x2F3337);      // 1px borders
         public static readonly Color BGD = FromHex(0x0E1013);      // wells / backdrops
         public static readonly Color Stat = FromHex(0xE3E3E3);     // primary text
+        public static readonly Color Bright = FromHex(0xF5F7FA);   // emphasised text (suite parity)
         public static readonly Color TextDim = new Color(0.62f, 0.65f, 0.70f);
         public static readonly Color PanelBG = Color.Lerp(BG, BGL, 0.22f); // card/row fill ~#1B1F23
         public static readonly Color RowAlt = FromHex(0x20242A);   // alternating row plate
         public static readonly Color StripGray = FromHex(0x5A6270);// neutral strip (info messages)
+
+        // iOS grouped-list chrome (added for the sidebar layout). These are NEUTRALS only - every
+        // semantic colour above is untouched, so the suite's hex-for-hex parity contract holds and
+        // "same meaning = same pixel across the suite" still applies.
+        public static readonly Color SidebarBG = FromHex(0x1A1E23);  // raised nav column
+        public static readonly Color GroupBG = FromHex(0x1F242A);    // grouped-list plate
+        public static readonly Color SwitchOff = FromHex(0x3A4048);  // switch track, off
+        public static readonly Color Sep = new Color(1f, 1f, 1f, 0.07f);      // hairline separator
+        public static readonly Color TextFaint = new Color(0.62f, 0.65f, 0.70f, 0.55f);
 
         // One status ramp everywhere. Same meaning = same pixel across the suite.
         public static readonly Color Good = new Color(0.40f, 0.85f, 0.40f);
