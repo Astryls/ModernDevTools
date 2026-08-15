@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Modern Dev Tools — iOS spatial studies (debug log)</title>
+<style>
+:root{
+  /* iOS dark-mode system palette */
+  --ios-bg:#000000;
+  --ios-g1:#1C1C1E;      /* secondary grouped background */
+  --ios-g2:#2C2C2E;      /* tertiary  */
+  --ios-g3:#3A3A3C;
+  --sep:rgba(84,84,88,.60);
+  --l1:#FFFFFF;
+  --l2:rgba(235,235,245,.60);
+  --l3:rgba(235,235,245,.30);
+  --l4:rgba(235,235,245,.18);
+  --blue:#0A84FF; --red:#FF453A; --orange:#FF9F0A; --green:#30D158;
+  --yellow:#FFD60A; --teal:#40C8E0; --purple:#BF5AF2; --gray:#8E8E93;
+  --r-sheet:30px; --r-card:16px; --r-grp:14px; --r-sm:10px; --r-pill:999px;
+  --e1:0 1px 0 rgba(255,255,255,.04) inset;
+  --e2:0 8px 24px -12px rgba(0,0,0,.9);
+  --e3:0 24px 60px -18px rgba(0,0,0,.95);
+  --blur:saturate(180%) blur(22px);
+}
+*{box-sizing:border-box}
+body{background:#08080A;color:var(--l2);margin:0 auto;padding:20px 22px 60px;max-width:1180px;
+  font:13px/1.5 -apple-system,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased}
+h1{color:var(--l1);font-size:23px;font-weight:800;letter-spacing:-.025em;margin:0 0 3px}
+.sub{color:var(--l3);margin-bottom:16px;font-size:12.5px;max-width:940px;line-height:1.6}
+.sub b{color:var(--l2)}
+.chead{display:flex;align-items:baseline;gap:11px;margin:26px 0 9px;padding-left:2px;flex-wrap:wrap}
+.chead .n{color:#fff;background:var(--blue);font-weight:800;font-size:11px;padding:3px 10px;border-radius:var(--r-pill)}
+.chead .t{color:var(--l1);font-size:16px;font-weight:700;letter-spacing:-.015em}
+.chead .p{color:var(--l3);font-size:12px}
+.mock{width:100%;height:700px;border-radius:26px;overflow:hidden;position:relative;
+  box-shadow:var(--e3);background:var(--ios-bg);user-select:none}
+.surface{position:absolute;inset:0;display:flex;flex-direction:column;padding:14px;overflow:hidden}
+.note{color:var(--l3);font-size:11.5px;padding:9px 3px 0;line-height:1.55}
+.note b{color:var(--l2)}
+
+/* ── iOS atoms ─────────────────────────────────────────────── */
+.lgtitle{color:var(--l1);font-size:27px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
+.sectionhdr{color:var(--l3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  padding:0 6px 6px}
+.seg{display:inline-flex;background:var(--ios-g2);border-radius:11px;padding:2px;gap:2px;flex:0 0 auto}
+.seg .s{padding:6px 15px;border-radius:9px;color:var(--l2);font:600 12.5px/1 inherit;display:flex;gap:7px;align-items:center}
+.seg .s .ct{font-variant-numeric:tabular-nums;color:var(--l3);font-weight:700}
+.seg .s.on{background:var(--ios-g3);color:var(--l1);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.seg .s.on .ct{color:var(--l2)}
+.seg .s .sw{width:7px;height:7px;border-radius:9px}
+.srch{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:7px;background:var(--ios-g2);
+  border-radius:11px;padding:7px 12px;color:var(--l3);font-size:13px}
+.gbtn{background:var(--ios-g2);color:var(--l1);border-radius:11px;padding:7px 13px;font:600 12.5px/1 inherit;
+  display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+.gbtn.tint{color:var(--blue)}
+.gbtn .g{opacity:.75;font-size:12px}
+.sw{position:relative;width:38px;height:23px;border-radius:var(--r-pill);background:var(--ios-g3);flex:0 0 auto}
+.sw i{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.45)}
+.sw.on{background:var(--green)}.sw.on i{left:17px}
+.badge{border-radius:var(--r-pill);padding:3px 9px;font:700 10.5px/1.35 inherit;letter-spacing:.01em}
+.grp{background:var(--ios-g1);border-radius:var(--r-grp);overflow:hidden}
+.grp .row{display:flex;align-items:center;gap:11px;padding:9px 13px;position:relative}
+.grp .row+.row:before{content:"";position:absolute;left:13px;right:0;top:0;height:1px;background:var(--sep)}
+.grp .row.ins+.row.ins:before{left:46px}
+
+/* ── log list rows ─────────────────────────────────────────── */
+.lrow{display:flex;align-items:center;gap:10px;padding:8px 12px;position:relative;border-radius:var(--r-sm)}
+.lrow+.lrow:before{content:"";position:absolute;left:12px;right:8px;top:0;height:1px;background:var(--sep)}
+.lrow .tp{width:8px;height:8px;border-radius:9px;flex:0 0 auto}
+.lrow .ts{color:var(--l3);font:600 11px/1 ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;
+  flex:0 0 auto;letter-spacing:-.02em}
+.lrow .tx{color:var(--l1);font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .rep{background:var(--ios-g2);color:var(--l2);border-radius:var(--r-pill);padding:2px 8px;
+  font:700 10.5px/1.3 inherit;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.lrow .rep.sup{background:rgba(255,159,10,.18);color:var(--orange)}
+.lrow.sel{background:rgba(10,132,255,.16)}
+.lrow.sel:before,.lrow.sel+.lrow:before{background:transparent}
+.lrow.sel .tx{font-weight:700}
+
+/* ── inspector pieces ──────────────────────────────────────── */
+.impact{display:flex;align-items:center;gap:10px;border-radius:var(--r-card);padding:11px 14px;
+  background:rgba(255,69,58,.16)}
+.impact .sev{color:var(--red);font-weight:800;font-size:14px;letter-spacing:-.01em}
+.impact .pn{color:var(--l2);font-size:11.5px}
+.acts{display:flex;gap:7px}
+.acts .a{flex:1 1 0;text-align:center;background:var(--ios-g2);color:var(--blue);border-radius:11px;
+  padding:8px 6px;font:600 12px/1 inherit}
+.krow{display:flex;align-items:baseline;gap:9px}
+.krow .k{color:var(--red);font-weight:800;font-size:14px}
+.krow .x{color:var(--l3);font-weight:700;font-size:12px}
+.krow .t{margin-left:auto;color:var(--l3);font-size:11px;font-variant-numeric:tabular-nums}
+.well{background:var(--ios-g1);border-radius:12px;padding:10px 12px;color:var(--l1);font-size:12px;line-height:1.5}
+.well.mono{font:11px/1.65 ui-monospace,"SF Mono",Menlo,monospace;color:var(--l2);white-space:pre-wrap}
+.culp{display:flex;align-items:center;gap:10px;padding:10px 13px;position:relative}
+.culp+.culp:before{content:"";position:absolute;left:13px;right:0;top:0;height:1px;background:var(--sep)}
+.culp .nm{color:var(--blue);font-weight:700;font-size:13.5px}
+.culp .nm.plain{color:var(--l1)}
+.culp .rs{color:var(--l2);font-size:11.5px}
+.culp .tag{margin-left:auto;flex:0 0 auto}
+.tag.act{background:rgba(48,209,88,.18);color:var(--green)}
+.tag.ina{background:var(--ios-g2);color:var(--l2)}
+.tag.ni{background:rgba(255,159,10,.18);color:var(--orange)}
+.diag{background:var(--ios-g1);border-radius:var(--r-card);padding:12px 14px}
+.diag .dt{display:flex;align-items:center;gap:9px;color:var(--l1);font-weight:700;font-size:13.5px}
+.diag .ig{margin-left:auto;background:var(--ios-g2);color:var(--l2);border-radius:var(--r-pill);
+  padding:4px 11px;font:600 11px/1 inherit;flex:0 0 auto}
+.diag .de{color:var(--l2);font-size:12px;margin-top:5px;line-height:1.5}
+.diag .df{color:var(--l1);font-size:12px;margin-top:7px}
+.diag .df b{color:var(--green);font-weight:700}
+.diag .du{color:var(--blue);font-size:11.5px;margin-top:6px}
+.rep2{background:var(--ios-g1);border-radius:var(--r-card);padding:12px 14px}
+.rep2 .b{color:var(--l2);font-size:12px;line-height:1.5}
+.rep2 .bs{display:flex;gap:7px;margin-top:9px}
+.rep2 .bs .a{flex:1 1 0;text-align:center;border-radius:11px;padding:8px;font:700 12px/1 inherit}
+.rep2 .bs .p{background:var(--blue);color:#fff}
+.rep2 .bs .s{background:var(--ios-g2);color:var(--blue)}
+
+/* ── tray ──────────────────────────────────────────────────── */
+.tray{flex:0 0 auto;display:flex;align-items:center;gap:7px;background:rgba(28,28,30,.72);
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border-radius:18px;padding:9px 12px;margin-top:10px}
+.tray .lb{color:var(--l3);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-right:3px}
+.tray .dv{width:1px;height:18px;background:var(--sep);margin:0 4px}
+
+/* ── hint ──────────────────────────────────────────────────── */
+.hint{display:flex;align-items:center;gap:11px;background:rgba(10,132,255,.13);border-radius:var(--r-card);
+  padding:11px 13px;flex:0 0 auto}
+.hint .i{width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;flex:0 0 auto;
+  font:800 12px/20px inherit;text-align:center}
+.hint .t{color:var(--l1);font-size:12px;line-height:1.45}
+.hint .d{margin-left:auto;background:rgba(255,255,255,.10);color:var(--l1);border-radius:var(--r-pill);
+  padding:5px 12px;font:600 11.5px/1 inherit;flex:0 0 auto}
+
+.body{flex:1 1 auto;min-height:0;display:flex;gap:11px}
+.pane{min-width:0;display:flex;flex-direction:column;gap:9px}
+.scrollcol{overflow:hidden;display:flex;flex-direction:column;gap:9px}
+</style></head><body>
+
+<h1>Modern Dev Tools — iOS spatial studies</h1>
+<div class="sub">Three restyles of the <b>modern debug log</b> (<code>Window_ModernLog</code>) in Apple's iOS dark-mode
+language — flat bold type, semi-rounded surfaces, grouped inset lists, segmented controls, real switches, vibrancy
+trays, elevation instead of borders. Structure is unchanged: <b>message list + inspector + add-on tray</b>. Content
+parity is exact — three filter chips with counts, search, the six toolbar actions, the three state toggles, the
+mods-changed indicator, the compat-hint strip, the timestamp column and <code>x12+395</code> repeat chips, and the
+full inspector (impact banner, copy actions, likely-source rows with state tags, diagnoses with Ignore, the
+report/fix pair, and the stack trace).</div>
+
+<!-- ══════════════════ A ══════════════════ -->
+<div class="chead"><span class="n">A</span><span class="t">Grouped inset</span>
+  <span class="p">iOS Settings · large title, segmented filters, one continuous rounded list group with
+  inset separators, inspector as a stack of grouped cards</span></div>
+<div class="mock"><div class="surface">
+
+  <div style="display:flex;align-items:flex-end;gap:12px;flex:0 0 auto;margin-bottom:11px">
+    <div><div class="lgtitle">Debug log</div>
+      <div style="color:var(--l3);font-size:12px;margin-top:2px">128 shown · 6 hidden</div></div>
+    <div style="flex:1 1 auto"></div>
+    <span class="gbtn"><span class="g">⚑</span>3 mods changed</span>
+    <span class="gbtn tint">✕</span>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:center;flex:0 0 auto;margin-bottom:9px;flex-wrap:wrap">
+    <div class="seg">
+      <span class="s on"><i class="sw" style="background:var(--red)"></i>Errors<span class="ct">17</span></span>
+      <span class="s on"><i class="sw" style="background:var(--orange)"></i>Warnings<span class="ct">44</span></span>
+      <span class="s"><i class="sw" style="background:var(--gray)"></i>Messages<span class="ct">67</span></span>
+    </div>
+    <div class="srch"><span style="opacity:.6">⌕</span>Search messages</div>
+  </div>
+
+  <div style="display:flex;gap:7px;align-items:center;flex:0 0 auto;margin-bottom:9px;flex-wrap:wrap">
+    <span class="gbtn">Vanilla log</span>
+    <span class="gbtn">Knowledge base</span>
+    <span class="gbtn">Update info</span>
+    <span class="gbtn">Modules</span>
+    <div style="flex:1 1 auto"></div>
+    <span class="gbtn tint">Copy all</span>
+    <span class="gbtn" style="color:var(--red)">Clear</span>
+  </div>
+
+  <div class="hint" style="margin-bottom:9px"><span class="i">i</span>
+    <span class="t">HugsLib and Archotech Logs put their own buttons on the vanilla log window. They are hosted
+      in the tray below.</span><span class="d">Dismiss</span></div>
+
+  <div class="body">
+    <!-- list -->
+    <div class="pane" style="flex:1 1 58%">
+      <div class="grp" style="flex:1 1 auto;overflow:hidden">
+        <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:31:02</span>
+          <span class="tx">Could not resolve cross-reference to Verse.ThingDef named VFEC_Longsword</span></div>
+        <div class="lrow"><i class="tp" style="background:var(--gray)"></i><span class="ts">14:31:44</span>
+          <span class="tx">Loaded 1043 mods in 82.4 seconds</span></div>
+        <div class="lrow sel"><i class="tp" style="background:var(--red)"></i><span class="ts">14:32:07</span>
+          <span class="rep sup">x12+395</span>
+          <span class="tx">Exception ticking Vehicle_Chariot: KeyNotFoundException: The given key was…</span></div>
+        <div class="lrow"><i class="tp" style="background:var(--red)"></i><span class="ts">14:32:09</span>
+          <span class="rep">x3</span>
+          <span class="tx">Error in RimWorld.MainTabWindow_Inspect.DoWindowContents</span></div>
+        <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:32:15</span>
+          <span class="tx">Tried to get a non-existent GraphicData for HeavyPlateArmor</span></div>
+        <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:32:31</span>
+          <span class="tx">XML error: &lt;li&gt;Designator_AreaHomeExpand&lt;/li&gt; doesn't correspond to any field</span></div>
+        <div class="lrow"><i class="tp" style="background:var(--gray)"></i><span class="ts">14:33:00</span>
+          <span class="tx">Map generated in 4.2 seconds</span></div>
+        <div class="lrow"><i class="tp" style="background:var(--red)"></i><span class="ts">14:33:12</span>
+          <span class="tx">Harmony patch conflict on Pawn_HealthTracker.AddHediff</span></div>
+      </div>
+    </div>
+
+    <!-- inspector -->
+    <div class="pane scrollcol" style="flex:0 0 396px">
+      <div class="impact"><span class="sev">Critical</span>
+        <span class="pn">fires every frame</span>
+        <span class="badge" style="margin-left:auto;background:rgba(10,132,255,.20);color:var(--blue)">Known</span></div>
+
+      <div class="acts"><span class="a">Copy message</span><span class="a">Copy trace</span><span class="a">Copy report</span></div>
+
+      <div class="krow"><span class="k">Error</span><span class="x">×12</span>
+        <span class="t">first seen 14:32:07</span></div>
+
+      <div class="well">Exception ticking Vehicle_Chariot: System.Collections.Generic.KeyNotFoundException:
+        The given key was not present in the dictionary.</div>
+
+      <div class="sectionhdr" style="padding-top:3px">Likely source</div>
+      <div class="grp">
+        <div class="culp"><div><div class="nm">Vehicle Framework</div>
+          <div class="rs">3 frames in SmashTools</div></div>
+          <span class="badge tag act">Active</span></div>
+        <div class="culp"><div><div class="nm plain">Giddy-Up 2</div>
+          <div class="rs">patches the same method</div></div>
+          <span class="badge tag ina">Inactive</span></div>
+      </div>
+
+      <div class="sectionhdr" style="padding-top:3px">What this means</div>
+      <div class="diag">
+        <div class="dt">Missing dictionary key in a mod cache<span class="ig">Ignore</span></div>
+        <div class="de">A per-map cache was read for a map that was never registered — usually a map added or
+          removed while the mod was mid-tick.</div>
+        <div class="df"><b>Fix:</b> update Vehicle Framework, or reload the save without detaching maps.</div>
+        <div class="du">github.com/SmashPhil/VehicleFramework/issues</div>
+      </div>
+
+      <div class="sectionhdr" style="padding-top:3px">Report</div>
+      <div class="rep2"><div class="b">This looks new. Reporting it helps the next player who hits it.</div>
+        <div class="bs"><span class="a p">Report bug</span><span class="a s">Submit fix</span></div></div>
+
+      <div class="sectionhdr" style="padding-top:3px">Stack trace</div>
+      <div class="well mono">at SmashTools.DetachedMapComponentCache.Get (Verse.Map)
+at Vehicles.VehiclePathing.Tick ()
+at Verse.TickList.Tick ()</div>
+    </div>
+  </div>
+
+  <div class="tray"><span class="lb">Add-ons</span>
+    <span class="gbtn">Share logs</span><span class="gbtn">Files</span><span class="gbtn">Copy</span>
+    <span class="dv"></span>
+    <span class="gbtn">Diagnostics</span><span class="gbtn">Export</span></div>
+
+</div></div>
+<div class="note"><b>Why it works:</b> the grouped-inset table is the single most "iOS" structure there is, and it
+maps 1:1 onto what the log already draws — a list of rows with hairline separators. Section headers replace our
+<code>SectionHeader</code> rule, and the state tags become iOS capsule badges.</div>
+
+<!-- ══════════════════ B ══════════════════ -->
+<div class="chead"><span class="n">B</span><span class="t">Sheet inspector</span>
+  <span class="p">the inspector is presented as a floating iOS sheet with a grabber · list runs full-width
+  underneath · impact reads as a Live Activity capsule</span></div>
+<div class="mock"><div class="surface" style="padding:0">
+
+  <div style="padding:14px 14px 0;flex:0 0 auto">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px">
+      <div class="lgtitle" style="font-size:24px">Debug log</div>
+      <span class="badge" style="background:var(--ios-g2);color:var(--l2)">128 shown · 6 hidden</span>
+      <div style="flex:1 1 auto"></div>
+      <span class="gbtn"><span class="g">⚑</span>3 mods changed</span>
+      <span class="gbtn tint">✕</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:9px;flex-wrap:wrap">
+      <div class="seg">
+        <span class="s on"><i class="sw" style="background:var(--red)"></i>Errors<span class="ct">17</span></span>
+        <span class="s on"><i class="sw" style="background:var(--orange)"></i>Warnings<span class="ct">44</span></span>
+        <span class="s"><i class="sw" style="background:var(--gray)"></i>Messages<span class="ct">67</span></span>
+      </div>
+      <div class="srch"><span style="opacity:.6">⌕</span>Search messages</div>
+      <span class="gbtn tint">Copy all</span><span class="gbtn" style="color:var(--red)">Clear</span>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <span class="gbtn">Vanilla log</span><span class="gbtn">Knowledge base</span>
+      <span class="gbtn">Update info</span><span class="gbtn">Modules</span>
+      <div style="flex:1 1 auto"></div>
+      <div class="grp" style="background:transparent;display:flex;gap:14px;align-items:center">
+        <span style="display:flex;gap:7px;align-items:center;color:var(--l1);font-weight:600;font-size:12px">
+          Auto-open<i class="sw on"><i></i></i></span>
+        <span style="display:flex;gap:7px;align-items:center;color:var(--l2);font-weight:600;font-size:12px">
+          Pause on error<i class="sw"><i></i></i></span>
+        <span style="display:flex;gap:7px;align-items:center;color:var(--l2);font-weight:600;font-size:12px">
+          Open on warnings<i class="sw"><i></i></i></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- full-width list underneath -->
+  <div style="flex:1 1 auto;min-height:0;overflow:hidden;padding:0 14px">
+    <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:31:02</span>
+      <span class="tx">Could not resolve cross-reference to Verse.ThingDef named VFEC_Longsword</span></div>
+    <div class="lrow"><i class="tp" style="background:var(--gray)"></i><span class="ts">14:31:44</span>
+      <span class="tx">Loaded 1043 mods in 82.4 seconds</span></div>
+    <div class="lrow sel"><i class="tp" style="background:var(--red)"></i><span class="ts">14:32:07</span>
+      <span class="rep sup">x12+395</span>
+      <span class="tx">Exception ticking Vehicle_Chariot: KeyNotFoundException…</span></div>
+    <div class="lrow"><i class="tp" style="background:var(--red)"></i><span class="ts">14:32:09</span>
+      <span class="rep">x3</span><span class="tx">Error in MainTabWindow_Inspect.DoWindowContents</span></div>
+    <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:32:15</span>
+      <span class="tx">Tried to get a non-existent GraphicData for HeavyPlateArmor</span></div>
+  </div>
+
+  <!-- the sheet -->
+  <div style="flex:0 0 auto;background:rgba(28,28,30,.94);backdrop-filter:var(--blur);
+      -webkit-backdrop-filter:var(--blur);border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+      box-shadow:var(--e3);padding:8px 16px 14px;max-height:392px;overflow:hidden">
+    <div style="width:38px;height:5px;border-radius:3px;background:var(--l4);margin:0 auto 11px"></div>
+
+    <div class="impact" style="margin-bottom:10px"><span class="sev">Critical</span>
+      <span class="pn">fires every frame · 407 occurrences</span>
+      <span class="badge" style="margin-left:auto;background:rgba(10,132,255,.20);color:var(--blue)">Known</span></div>
+
+    <div style="display:flex;gap:11px">
+      <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:9px">
+        <div class="krow"><span class="k">Error</span><span class="x">×12</span>
+          <span class="t">first seen 14:32:07</span></div>
+        <div class="well">Exception ticking Vehicle_Chariot: KeyNotFoundException: The given key was not
+          present in the dictionary.</div>
+        <div class="sectionhdr" style="padding:2px 6px 4px">Likely source</div>
+        <div class="grp">
+          <div class="culp"><div><div class="nm">Vehicle Framework</div>
+            <div class="rs">3 frames in SmashTools</div></div><span class="badge tag act">Active</span></div>
+          <div class="culp"><div><div class="nm plain">Giddy-Up 2</div>
+            <div class="rs">patches the same method</div></div><span class="badge tag ina">Inactive</span></div>
+        </div>
+        <div class="acts"><span class="a">Copy message</span><span class="a">Copy trace</span><span class="a">Copy report</span></div>
+      </div>
+
+      <div style="flex:0 0 340px;display:flex;flex-direction:column;gap:9px">
+        <div class="sectionhdr" style="padding:2px 6px 4px">What this means</div>
+        <div class="diag">
+          <div class="dt">Missing dictionary key in a mod cache<span class="ig">Ignore</span></div>
+          <div class="de">A per-map cache was read for a map that was never registered.</div>
+          <div class="df"><b>Fix:</b> update Vehicle Framework.</div>
+        </div>
+        <div class="rep2"><div class="b">This looks new. Reporting it helps the next player.</div>
+          <div class="bs"><span class="a p">Report bug</span><span class="a s">Submit fix</span></div></div>
+        <div class="well mono" style="flex:1 1 auto;overflow:hidden">at SmashTools.DetachedMapComponentCache.Get
+at Vehicles.VehiclePathing.Tick ()</div>
+      </div>
+    </div>
+
+    <div class="tray" style="margin-top:11px;background:rgba(44,44,46,.65)">
+      <span class="lb">Add-ons</span>
+      <span class="gbtn">Share logs</span><span class="gbtn">Files</span><span class="gbtn">Copy</span>
+      <span class="dv"></span><span class="gbtn">Diagnostics</span><span class="gbtn">Export</span></div>
+  </div>
+
+</div></div>
+<div class="note"><b>Why it works:</b> selecting a line is a <i>presentation</i>, not a layout change — the list keeps
+full width when nothing is selected, and the sheet slides up over it. The grabber promises it can be dragged to a
+larger detent, which is exactly the "expand the inspector" affordance the current window lacks.</div>
+
+<!-- ══════════════════ C ══════════════════ -->
+<div class="chead"><span class="n">C</span><span class="t">Sidebar</span>
+  <span class="p">iPadOS three-column · filters and toggles become a vibrancy sidebar, the list gets the middle,
+  the inspector is a card stack on the right</span></div>
+<div class="mock"><div class="surface" style="padding:0;display:flex;flex-direction:row">
+
+  <!-- sidebar -->
+  <div style="flex:0 0 208px;background:rgba(28,28,30,.72);backdrop-filter:var(--blur);
+      -webkit-backdrop-filter:var(--blur);padding:16px 12px;display:flex;flex-direction:column;gap:7px">
+    <div class="lgtitle" style="font-size:20px;padding:0 4px 2px">Debug log</div>
+    <div style="color:var(--l3);font-size:11.5px;padding:0 4px 8px">128 shown · 6 hidden</div>
+
+    <div class="grp">
+      <div class="row"><i class="tp" style="width:9px;height:9px;border-radius:9px;background:var(--red)"></i>
+        <span style="color:var(--l1);font-weight:600;font-size:12.5px">Errors</span>
+        <span style="margin-left:auto;color:var(--l2);font-weight:700;font-size:12px">17</span></div>
+      <div class="row"><i class="tp" style="width:9px;height:9px;border-radius:9px;background:var(--orange)"></i>
+        <span style="color:var(--l1);font-weight:600;font-size:12.5px">Warnings</span>
+        <span style="margin-left:auto;color:var(--l2);font-weight:700;font-size:12px">44</span></div>
+      <div class="row" style="opacity:.45"><i class="tp" style="width:9px;height:9px;border-radius:9px;background:var(--gray)"></i>
+        <span style="color:var(--l1);font-weight:600;font-size:12.5px">Messages</span>
+        <span style="margin-left:auto;color:var(--l2);font-weight:700;font-size:12px">67</span></div>
+    </div>
+
+    <div class="sectionhdr" style="padding:10px 6px 5px">Behaviour</div>
+    <div class="grp">
+      <div class="row"><span style="color:var(--l1);font-size:12.5px;font-weight:600">Auto-open</span>
+        <i class="sw on" style="margin-left:auto"><i></i></i></div>
+      <div class="row"><span style="color:var(--l1);font-size:12.5px;font-weight:600">Pause on error</span>
+        <i class="sw" style="margin-left:auto"><i></i></i></div>
+      <div class="row"><span style="color:var(--l1);font-size:12.5px;font-weight:600">Open on warnings</span>
+        <i class="sw" style="margin-left:auto"><i></i></i></div>
+    </div>
+
+    <div class="sectionhdr" style="padding:10px 6px 5px">Tools</div>
+    <div class="grp">
+      <div class="row ins"><span style="color:var(--blue);font-size:12.5px;font-weight:600">Knowledge base</span></div>
+      <div class="row ins"><span style="color:var(--blue);font-size:12.5px;font-weight:600">Modules</span></div>
+      <div class="row ins"><span style="color:var(--blue);font-size:12.5px;font-weight:600">Update info</span></div>
+      <div class="row ins"><span style="color:var(--blue);font-size:12.5px;font-weight:600">Vanilla log</span></div>
+    </div>
+
+    <div style="flex:1 1 auto"></div>
+    <div class="grp"><div class="row"><span style="color:var(--orange);font-size:12.5px;font-weight:700">⚑ 3 mods changed</span></div></div>
+  </div>
+
+  <!-- middle: list -->
+  <div style="flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:14px 12px;gap:9px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="srch"><span style="opacity:.6">⌕</span>Search messages</div>
+      <span class="gbtn tint">Copy all</span><span class="gbtn" style="color:var(--red)">Clear</span>
+    </div>
+    <div class="hint"><span class="i">i</span>
+      <span class="t">HugsLib and Archotech Logs add buttons to the vanilla log. Hosted in the tray.</span>
+      <span class="d">Dismiss</span></div>
+    <div style="flex:1 1 auto;min-height:0;overflow:hidden">
+      <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:31:02</span>
+        <span class="tx">Could not resolve cross-reference to ThingDef VFEC_Longsword</span></div>
+      <div class="lrow"><i class="tp" style="background:var(--gray)"></i><span class="ts">14:31:44</span>
+        <span class="tx">Loaded 1043 mods in 82.4 seconds</span></div>
+      <div class="lrow sel"><i class="tp" style="background:var(--red)"></i><span class="ts">14:32:07</span>
+        <span class="rep sup">x12+395</span><span class="tx">Exception ticking Vehicle_Chariot…</span></div>
+      <div class="lrow"><i class="tp" style="background:var(--red)"></i><span class="ts">14:32:09</span>
+        <span class="rep">x3</span><span class="tx">Error in MainTabWindow_Inspect.DoWindowContents</span></div>
+      <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:32:15</span>
+        <span class="tx">Non-existent GraphicData for HeavyPlateArmor</span></div>
+      <div class="lrow"><i class="tp" style="background:var(--orange)"></i><span class="ts">14:32:31</span>
+        <span class="tx">XML error: Designator_AreaHomeExpand</span></div>
+      <div class="lrow"><i class="tp" style="background:var(--red)"></i><span class="ts">14:33:12</span>
+        <span class="tx">Harmony patch conflict on Pawn_HealthTracker.AddHediff</span></div>
+    </div>
+    <div class="tray" style="margin-top:0"><span class="lb">Add-ons</span>
+      <span class="gbtn">Share logs</span><span class="gbtn">Files</span><span class="gbtn">Copy</span>
+      <span class="dv"></span><span class="gbtn">Diagnostics</span><span class="gbtn">Export</span></div>
+  </div>
+
+  <!-- right: inspector -->
+  <div style="flex:0 0 358px;background:rgba(20,20,22,.86);padding:14px;display:flex;flex-direction:column;gap:9px;overflow:hidden">
+    <div class="impact"><span class="sev">Critical</span><span class="pn">every frame</span>
+      <span class="badge" style="margin-left:auto;background:rgba(10,132,255,.20);color:var(--blue)">Known</span></div>
+    <div class="krow"><span class="k">Error</span><span class="x">×12</span><span class="t">first seen 14:32:07</span></div>
+    <div class="well">Exception ticking Vehicle_Chariot: KeyNotFoundException: The given key was not present
+      in the dictionary.</div>
+    <div class="acts"><span class="a">Message</span><span class="a">Trace</span><span class="a">Report</span></div>
+    <div class="sectionhdr" style="padding:3px 6px 4px">Likely source</div>
+    <div class="grp">
+      <div class="culp"><div><div class="nm">Vehicle Framework</div><div class="rs">3 frames in SmashTools</div></div>
+        <span class="badge tag act">Active</span></div>
+      <div class="culp"><div><div class="nm plain">Map Preview</div><div class="rs">named in the message</div></div>
+        <span class="badge tag ni">Not installed</span></div>
+    </div>
+    <div class="sectionhdr" style="padding:3px 6px 4px">What this means</div>
+    <div class="diag"><div class="dt">Missing dictionary key<span class="ig">Ignore</span></div>
+      <div class="de">A per-map cache was read for an unregistered map.</div>
+      <div class="df"><b>Fix:</b> update Vehicle Framework.</div></div>
+    <div class="rep2"><div class="b">This looks new.</div>
+      <div class="bs"><span class="a p">Report bug</span><span class="a s">Submit fix</span></div></div>
+    <div class="well mono" style="flex:1 1 auto;overflow:hidden">at SmashTools.DetachedMapComponentCache.Get
+at Vehicles.VehiclePathing.Tick ()
+at Verse.TickList.Tick ()</div>
+  </div>
+
+</div></div>
+<div class="note"><b>Why it works:</b> the toolbar is the current window's weakest area — eleven controls competing
+in two rows. A sidebar gives filters, toggles and tools a permanent home with room for their labels, and hands the
+whole middle column back to the messages. Closest to how a Mac/iPad utility app would actually ship this.</div>
+
+</body></html>
