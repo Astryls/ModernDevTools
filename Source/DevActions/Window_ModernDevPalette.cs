@@ -39,7 +39,17 @@ namespace ModernDevTools
             doCloseX = false;
             draggable = true;
             focusWhenOpened = false;
-            drawShadow = true;
+            // MUST stay false while onlyDrawInDevMode is true. WindowStack.WindowStackOnGUI draws the
+            // window shadow in a pass that runs BEFORE Window.WindowOnGUI and is gated only on
+            // screenshot mode - the onlyDrawInDevMode check lives inside WindowOnGUI itself. So a window
+            // with both flags set keeps painting Widgets.DrawShadowAround(windowRect) after dev mode is
+            // switched off, while its contents stop: a ghost rectangle floating over the game (reported
+            // live, run #447). Vanilla never closes the palette when dev mode goes off - it just goes
+            // invisible and inert - which is why EVERY vanilla dev window (Dialog_DevPalette,
+            // Window_DevListing, Dialog_DevMusic, Dialog_DevCelestial, Dialog_CameraConfig, ...) sets
+            // drawShadow = false. No loss here anyway: doWindowBackground is false, so the ring outlined
+            // an invisible box. Per-element elevation is Spatial.Elevate's job.
+            drawShadow = false;
             closeOnAccept = false;
             closeOnCancel = false;
             preventCameraMotion = false;
