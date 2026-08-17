@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Modern Dev Tools — suite-standard studies (debug log)</title>
+<style>
+/* ═══ Modern-suite spatial tokens (parity with Modern Health Tab / Colonist Bar) ═══ */
+:root{
+  --page:#07090C;
+  --bg:#15191D; --bgl:#2F3337; --bgd:#0E1013;
+  --panel:#191D21; --panel2:#12161A; --rowalt:#20242A; --inset:#0E1114;
+  --stat:#E3E3E3; --bright:#F5F7FA; --dim:#9EA6B3; --dim2:#69727E; --dim3:#454C55;
+  --accent:#73BFFF; --ink:#06121F;
+  --good:#66D966; --warn:#F2A633; --bad:#E65959; --gray:#8E96A0; --gold:#E8C558;
+  --amberbg:#E8A23B; --amberink:#2A1B03; --redbg:#A64545;
+  --sep:rgba(255,255,255,.055);
+  --r-xl:24px; --r-lg:18px; --r-md:14px; --r-sm:10px; --r-pill:999px;
+  --e1:0 1px 0 rgba(255,255,255,.045) inset;
+  --e2:0 8px 22px -12px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.045) inset;
+  --e3:0 20px 46px -20px rgba(0,0,0,.9);
+  --well:inset 0 2px 10px -4px rgba(0,0,0,.9);
+  --ease:cubic-bezier(.32,.72,0,1);
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--dim);margin:0 auto;padding:20px 22px 70px;max-width:1220px;
+  font:13px/1.5 -apple-system,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased}
+h1{color:var(--bright);font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0 0 3px}
+.sub{color:var(--dim2);margin-bottom:14px;font-size:12.5px;max-width:960px;line-height:1.6}
+.sub b{color:var(--dim)}
+.chead{display:flex;align-items:baseline;gap:11px;margin:26px 0 9px;padding-left:2px;flex-wrap:wrap}
+.chead .n{color:var(--ink);background:var(--accent);font-weight:800;font-size:11px;padding:3px 10px;border-radius:var(--r-pill)}
+.chead .t{color:var(--bright);font-size:16px;font-weight:700;letter-spacing:-.01em}
+.chead .p{color:var(--dim2);font-size:12px}
+.note{color:var(--dim3);font-size:11.5px;padding:9px 3px 0;line-height:1.55;max-width:960px}
+.note b{color:var(--dim2)}
+.mock{width:100%;height:700px;border-radius:var(--r-xl);overflow:hidden;position:relative;
+  box-shadow:var(--e3);user-select:none;
+  background:radial-gradient(120% 110% at 72% -8%, #10151A 0%, #0A0C0F 62%)}
+.surface{position:absolute;inset:0;display:flex;flex-direction:column;padding:14px;overflow:hidden}
+
+/* ═══ shared atoms ═══ */
+.ttl{color:var(--bright);font-weight:800;letter-spacing:-.025em;font-size:21px;line-height:1.15}
+.cnt{color:var(--dim2);font-size:11.5px}
+.mhdr{color:var(--dim3);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;padding:2px 6px 5px}
+.spacer{flex:1 1 auto}
+.scroll{overflow-y:auto;overflow-x:hidden}
+.scroll::-webkit-scrollbar{width:8px}
+.scroll::-webkit-scrollbar-thumb{background:#2E343B;border-radius:4px}
+.scroll::-webkit-scrollbar-thumb:hover{background:#3A424B}
+.scroll::-webkit-scrollbar-track{background:transparent}
+
+.plate{background:var(--panel);border-radius:var(--r-md);box-shadow:var(--e1);overflow:hidden}
+.prow{display:flex;align-items:center;gap:10px;padding:9px 12px;position:relative;cursor:pointer}
+.prow+.prow:before{content:"";position:absolute;left:12px;right:0;top:0;height:1px;background:var(--sep)}
+.prow .lb{color:var(--stat);font-weight:600;font-size:12.5px}
+.prow .ct{margin-left:auto;color:var(--dim);font-weight:700;font-size:12px;font-variant-numeric:tabular-nums}
+.prow.off{opacity:.4}
+.prow.link .lb{color:var(--accent)}
+.dt{width:8px;height:8px;border-radius:9px;flex:0 0 auto}
+
+.swt{position:relative;width:36px;height:21px;border-radius:var(--r-pill);background:#2A2F36;cursor:pointer;
+  transition:background .18s var(--ease);flex:0 0 auto;margin-left:auto}
+.swt i{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;
+  transition:left .18s var(--ease);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.swt.on{background:var(--accent)}
+.swt.on i{left:17px}
+
+.pill{background:var(--panel);border-radius:var(--r-pill);padding:6px 13px;color:var(--stat);cursor:pointer;
+  font-weight:600;font-size:12px;display:inline-flex;gap:7px;align-items:center;flex:0 0 auto;box-shadow:var(--e1)}
+.pill:hover{background:var(--rowalt)}
+.pill .k{color:var(--dim2);font-weight:500}
+.pill.primary{background:var(--accent);color:var(--ink);font-weight:700}
+.pill.primary:hover{background:#8ACBFF}
+.pill.ghost{background:transparent;box-shadow:inset 0 0 0 1px #2E353D;color:var(--dim)}
+.pill.ghost:hover{background:rgba(255,255,255,.03)}
+.pill.danger{color:#F0A0A0}
+.pill.amber{background:rgba(242,166,51,.14);color:#F2C078}
+.pill.amber:hover{background:rgba(242,166,51,.22)}
+
+.chipkv{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border-radius:var(--r-pill);
+  padding:6px 12px;flex:0 0 auto;cursor:pointer;box-shadow:var(--e1)}
+.chipkv .k{color:var(--dim3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.chipkv .v{color:var(--stat);font-weight:600;font-size:12px}
+.chipkv .c{color:var(--dim3);font-size:9px}
+
+.statchip{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border-radius:12px;
+  padding:9px 13px;flex:0 0 auto;box-shadow:var(--e1)}
+.statchip .g{opacity:.85;font-size:12px}
+.statchip .k{color:var(--dim2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.statchip .v{color:var(--bright);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+
+.meter{display:flex;align-items:center;gap:11px}
+.meter .k{color:var(--dim2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;flex:0 0 92px}
+.meter .tr{flex:1 1 auto;height:5px;background:var(--inset);border-radius:var(--r-pill);overflow:hidden}
+.meter .tr i{display:block;height:100%;border-radius:var(--r-pill)}
+.meter .v{font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;flex:0 0 auto}
+
+.banner{display:flex;align-items:center;gap:10px;border-radius:var(--r-md);padding:10px 14px;cursor:pointer;
+  font-weight:700;font-size:13px;flex:0 0 auto;box-shadow:var(--e2)}
+.banner .r{margin-left:auto;font-weight:600;font-size:12px;flex:0 0 auto}
+.banner.amber{background:var(--amberbg);color:var(--amberink)}
+.banner.amber .r{color:rgba(42,27,3,.72)}
+.banner.red{background:var(--redbg);color:#fff}
+.banner.red .r{color:#fff;font-weight:800}
+
+.search{display:flex;align-items:center;gap:8px;background:var(--inset);border-radius:12px;padding:0 12px;
+  box-shadow:var(--well);flex:1 1 auto;min-width:0;height:32px}
+.search .g{color:var(--dim3);flex:0 0 auto}
+.search input{background:transparent;border:0;outline:0;color:var(--bright);font:inherit;font-size:12.5px;
+  flex:1 1 auto;min-width:0}
+.search input::placeholder{color:var(--dim3)}
+
+.card{background:var(--bg);border-radius:var(--r-lg);box-shadow:var(--e1);padding:12px 14px}
+.card .ch{color:var(--bright);font-weight:700;font-size:14px;letter-spacing:-.01em;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.kv{display:flex;align-items:baseline;gap:10px;padding:7px 0;position:relative}
+.kv+.kv:before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:var(--sep)}
+.kv .k{color:var(--dim);font-size:12.5px}
+.kv .v{margin-left:auto;color:var(--bright);font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right}
+
+.seg{display:inline-flex;gap:4px;flex:0 0 auto}
+.seg .s{padding:5px 11px;border-radius:var(--r-pill);color:var(--dim);font:600 11.5px/1.2 inherit;cursor:pointer;
+  background:var(--panel);box-shadow:var(--e1)}
+.seg .s:hover{background:var(--rowalt);color:var(--stat)}
+.seg .s.on{background:var(--accent);color:var(--ink);font-weight:700}
+
+.tabs{display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap}
+.tg{background:var(--rowalt);color:var(--dim);padding:7px 14px;border-radius:var(--r-pill);cursor:pointer;
+  font:600 12.5px/1 inherit;display:inline-flex;gap:7px;align-items:center}
+.tg:hover{color:var(--stat)}
+.tg .ct{color:var(--dim3);font-weight:700;font-variant-numeric:tabular-nums}
+.tg.on{background:var(--accent);color:var(--ink);font-weight:700}
+.tg.on .ct{color:rgba(6,18,31,.55)}
+.tg .sw{width:7px;height:7px;border-radius:4px;flex:0 0 auto}
+
+.hdrcap{display:flex;align-items:center;gap:10px;flex:0 0 auto;background:var(--bg);
+  border-radius:var(--r-pill);padding:9px 14px 9px 20px;box-shadow:var(--e2)}
+.hdrcap .nm{color:var(--bright);font-weight:800;letter-spacing:-.02em;font-size:18px}
+.hdrcap .st{font-weight:600;font-size:12.5px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);color:var(--stat);
+  padding:5px 11px;border-radius:var(--r-pill);font-weight:600;font-size:12px;flex:0 0 auto}
+.chip.alarm{background:rgba(230,89,89,.16);color:#F3A6A6}
+.chip.amber{background:rgba(242,166,51,.14);color:#F2C078}
+
+/* log rows */
+.lrow{display:flex;align-items:center;gap:9px;padding:7px 11px;position:relative;border-radius:var(--r-sm);cursor:pointer}
+.lrow+.lrow:before{content:"";position:absolute;left:11px;right:8px;top:0;height:1px;background:var(--sep)}
+.lrow:hover{background:rgba(255,255,255,.025)}
+.lrow .ts{color:var(--dim3);font:600 10.5px/1 var(--mono);font-variant-numeric:tabular-nums;flex:0 0 52px;letter-spacing:-.02em}
+.lrow .tx{color:var(--stat);font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lrow .rep{background:var(--rowalt);color:var(--dim);border-radius:var(--r-pill);padding:2px 8px;
+  font:700 10.5px/1.3 inherit;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.lrow .rep.sup{background:rgba(242,166,51,.16);color:#F2C078}
+.lrow.sel,.lrow.sel:hover{background:var(--rowalt);box-shadow:inset 0 0 0 1px rgba(115,191,255,.5)}
+.lrow.sel:before,.lrow.sel+.lrow:before{background:transparent}
+.lrow.sel .tx{color:var(--bright);font-weight:600}
+
+/* inspector pieces */
+.imp{display:flex;align-items:center;gap:10px;border-radius:var(--r-md);padding:10px 13px;background:rgba(230,89,89,.13);flex:0 0 auto}
+.imp .sev{font-weight:800;font-size:13.5px;letter-spacing:-.01em}
+.imp .pn{color:var(--dim);font-size:11.5px}
+.badge{border-radius:var(--r-pill);padding:3px 9px;font:700 10.5px/1.35 inherit;letter-spacing:.01em;flex:0 0 auto}
+.badge.known{background:rgba(115,191,255,.16);color:var(--accent);margin-left:auto}
+.krow{display:flex;align-items:baseline;gap:9px}
+.krow .k{font-weight:800;font-size:13.5px}
+.krow .x{color:var(--dim2);font-weight:700;font-size:12px}
+.krow .t{margin-left:auto;color:var(--dim3);font-size:11px;font-variant-numeric:tabular-nums}
+.well{background:var(--panel2);border-radius:12px;padding:10px 12px;color:var(--stat);font-size:12px;line-height:1.5;box-shadow:var(--well)}
+.well.mono{font:10.5px/1.65 var(--mono);color:var(--dim);white-space:pre-wrap;word-break:break-word}
+.acts{display:flex;gap:7px}
+.acts .a{flex:1 1 0;text-align:center;background:var(--panel);color:var(--accent);border-radius:11px;cursor:pointer;
+  padding:8px 6px;font:600 11.5px/1 inherit;box-shadow:var(--e1)}
+.acts .a:hover{background:var(--rowalt)}
+.culp{display:flex;align-items:center;gap:10px;padding:9px 12px;position:relative}
+.culp+.culp:before{content:"";position:absolute;left:12px;right:0;top:0;height:1px;background:var(--sep)}
+.culp .nm{color:var(--accent);font-weight:700;font-size:13px}
+.culp .nm.plain{color:var(--stat)}
+.culp .rs{color:var(--dim2);font-size:11.5px}
+.tag{border-radius:var(--r-pill);padding:3px 9px;font:700 10.5px/1.35 inherit;margin-left:auto;flex:0 0 auto}
+.tag.act{background:rgba(102,217,102,.15);color:#8FE08F}
+.tag.ina{background:var(--rowalt);color:var(--dim)}
+.tag.unk{background:rgba(242,166,51,.15);color:#F2C078}
+.diagc{background:var(--bg);border-radius:var(--r-md);padding:11px 13px;box-shadow:var(--e1)}
+.diagc .dt{display:flex;align-items:center;gap:9px;color:var(--bright);font-weight:700;font-size:13px}
+.diagc .ig{margin-left:auto;background:var(--rowalt);color:var(--dim);border-radius:var(--r-pill);cursor:pointer;
+  padding:4px 11px;font:600 10.5px/1 inherit;flex:0 0 auto}
+.diagc .ig:hover{background:#2A3038;color:var(--stat)}
+.diagc .de{color:var(--dim);font-size:12px;margin-top:5px;line-height:1.5}
+.diagc .df{color:var(--stat);font-size:12px;margin-top:7px}
+.diagc .df b{color:var(--good);font-weight:700}
+.diagc .du{color:var(--accent);font-size:11.5px;margin-top:6px;cursor:pointer}
+.repc{background:var(--bg);border-radius:var(--r-md);padding:11px 13px;box-shadow:var(--e1)}
+.repc .b{color:var(--dim);font-size:12px;line-height:1.5}
+.repc .bs{display:flex;gap:7px;margin-top:9px}
+.repc .bs .a{flex:1 1 0;text-align:center;border-radius:11px;padding:8px;font:700 11.5px/1 inherit;cursor:pointer}
+.repc .bs .p{background:var(--accent);color:var(--ink)}
+.repc .bs .p:hover{background:#8ACBFF}
+.repc .bs .s2{background:var(--panel);color:var(--accent);box-shadow:var(--e1)}
+.repc .bs .s2:hover{background:var(--rowalt)}
+.ignored{background:var(--bg);border-radius:var(--r-md);padding:11px 13px;box-shadow:var(--e1);
+  display:flex;align-items:center;gap:9px;color:var(--dim2);font-size:12px}
+.ignored .u{margin-left:auto;color:var(--accent);font-weight:700;cursor:pointer}
+
+.tray{flex:0 0 auto;display:flex;align-items:center;gap:7px;background:var(--panel);
+  border-radius:var(--r-md);padding:8px 11px;box-shadow:var(--e2)}
+.tray .lb{color:var(--dim3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;margin-right:3px}
+.tray .dv{width:1px;height:18px;background:var(--sep);margin:0 4px}
+.tray .tb{background:var(--rowalt);color:var(--stat);border-radius:10px;padding:6px 12px;cursor:pointer;
+  font:600 11.5px/1 inherit;flex:0 0 auto}
+.tray .tb:hover{background:#2A3038}
+
+.hint{display:flex;align-items:center;gap:11px;background:rgba(115,191,255,.10);border-radius:var(--r-md);
+  padding:10px 13px;flex:0 0 auto}
+.hint .i{width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--ink);flex:0 0 auto;
+  font:800 12px/20px inherit;text-align:center}
+.hint .t{color:var(--stat);font-size:12px;line-height:1.45}
+.hint .d{margin-left:auto;background:rgba(255,255,255,.08);color:var(--stat);border-radius:var(--r-pill);cursor:pointer;
+  padding:5px 12px;font:600 11.5px/1 inherit;flex:0 0 auto}
+.hint .d:hover{background:rgba(255,255,255,.14)}
+
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:100%;color:var(--dim3)}
+.empty .e1{font-size:14px;font-weight:700;color:var(--dim2)}
+.empty .e2{font-size:12px}
+.empty .u{color:var(--accent);font-weight:700;cursor:pointer;font-size:12px}
+
+.toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%) translateY(10px);background:#232A32;
+  color:var(--bright);font-weight:600;font-size:12.5px;padding:9px 18px;border-radius:var(--r-pill);
+  box-shadow:var(--e3);opacity:0;transition:all .24s var(--ease);pointer-events:none;z-index:60;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.pop{position:absolute;background:var(--bg);border-radius:var(--r-md);box-shadow:var(--e3);padding:6px;z-index:50;width:250px}
+.pop .pr{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-size:12px;color:var(--stat)}
+.pop .pr .w{margin-left:auto;font-weight:700;font-size:11px}
+.pop .ft{color:var(--dim3);font-size:11px;padding:7px 10px 4px;border-top:1px solid var(--sep);margin-top:4px}
+
+/* B2 roster */
+.rr{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 13px;position:relative;border-radius:12px;cursor:pointer;margin:0 6px 4px}
+.rr:hover{background:rgba(255,255,255,.03)}
+.rr .ab{position:absolute;left:4px;top:9px;bottom:9px;width:3px;border-radius:3px}
+.rr .av{width:34px;height:34px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  color:var(--bright);font-weight:800;font-size:12px;letter-spacing:.02em}
+.rr .nm{color:var(--bright);font-weight:600;font-size:13px;line-height:1.25}
+.rr .st{color:var(--dim2);font-size:11.5px;line-height:1.3}
+.rr .bar{height:3px;background:var(--inset);border-radius:var(--r-pill);margin-top:4px;overflow:hidden;width:130px}
+.rr .bar i{display:block;height:100%;border-radius:var(--r-pill)}
+.rr .pin{margin-left:auto;color:var(--dim3);font-size:14px;flex:0 0 auto;padding:4px}
+.rr .pin:hover{color:var(--dim)}
+.rr .pin.on{color:var(--gold)}
+.rr.sel{background:#1D242C;box-shadow:inset 0 0 0 1px rgba(115,191,255,.5)}
+.sechd{display:flex;align-items:center;gap:8px;padding:10px 14px 6px;color:var(--dim3);
+  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em}
+.sechd .b{background:var(--rowalt);color:var(--dim);border-radius:var(--r-pill);padding:2px 8px;font-size:10px}
+
+/* B3 timeline */
+.era{color:var(--dim3);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 0 4px 32px}
+.spine{position:absolute;left:14px;top:4px;bottom:4px;width:2px;background:#20252B;border-radius:2px}
+.ev{display:flex;align-items:center;gap:9px;padding:0 8px 0 32px;position:relative;border-radius:var(--r-sm);cursor:pointer}
+.ev:hover{background:rgba(255,255,255,.025)}
+.ev .dot{position:absolute;left:10px;border-radius:var(--r-pill)}
+.ev .r{margin-left:auto;color:var(--dim3);font:600 10.5px var(--mono);flex:0 0 auto}
+.ev .rep{background:var(--rowalt);color:var(--dim);border-radius:var(--r-pill);padding:1px 7px;font:700 10px/1.3 inherit;flex:0 0 auto}
+.ev .rep.sup{background:rgba(242,166,51,.16);color:#F2C078}
+.ev .tx2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ev.e0{height:34px}.ev.e0 .dot{width:9px;height:9px;top:12px}.ev.e0 .tx2{color:var(--bright);font-weight:600;font-size:13.5px}
+.ev.e1{height:28px;opacity:.9}.ev.e1 .dot{width:7px;height:7px;top:10px}.ev.e1 .tx2{color:var(--stat);font-size:12.5px}
+.ev.e2{height:24px;opacity:.62}.ev.e2 .dot{width:6px;height:6px;top:9px}.ev.e2 .tx2{font-size:12px}
+.ev.e3{height:21px;opacity:.42}.ev.e3 .dot{width:5px;height:5px;top:8px}.ev.e3 .tx2{font-size:11.5px}
+.ev.sel{background:var(--rowalt);box-shadow:inset 0 0 0 1px rgba(115,191,255,.5);opacity:1}
+.exwell{background:var(--panel2);border-radius:var(--r-md);box-shadow:var(--well);padding:11px;margin:5px 0 7px 30px;
+  display:flex;flex-direction:column;gap:8px}
+.nowcard{background:var(--panel);border-radius:var(--r-md);box-shadow:var(--e2);overflow:hidden;margin-top:9px}
+.nowh{display:flex;align-items:center;gap:10px;padding:10px 12px 8px}
+.nowh .b{color:var(--bad);font-weight:800;font-size:13.5px;letter-spacing:-.01em}
+.nowh .s{color:var(--dim2);font-size:12px}
+.nowh .go{margin-left:auto;background:var(--accent);color:var(--ink);font-weight:700;font-size:11.5px;cursor:pointer;
+  padding:6px 14px;border-radius:var(--r-pill)}
+.nowh .go:hover{background:#8ACBFF}
+.proj{display:flex;align-items:flex-start;gap:9px;padding:5px 8px 5px 32px;position:relative}
+.proj .ring{position:absolute;left:9px;top:6px;width:10px;height:10px;border-radius:var(--r-pill);border:2px solid var(--dim3)}
+.proj .t{font-weight:600;font-size:12.5px}
+.proj .s{color:var(--dim2);font-size:11.5px}
+
+/* B4 stacks */
+.stk{position:relative;margin:0 0 15px}
+.stk .peek,.stk .peek2{position:absolute;left:9px;right:9px;height:14px;bottom:-6px;background:var(--panel);
+  border-radius:0 0 12px 12px;opacity:.5;box-shadow:var(--e1)}
+.stk .peek2{left:18px;right:18px;bottom:-11px;opacity:.26}
+.stkc{position:relative;background:var(--bg);border-radius:var(--r-md);box-shadow:var(--e2);padding:11px 13px;z-index:1;cursor:pointer}
+.stkc:hover{background:#181D22}
+.stkh{display:flex;align-items:flex-start;gap:11px}
+.stkh .ic{width:30px;height:30px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:14px}
+.stkh .t1{color:var(--bright);font-weight:600;font-size:12.5px;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stkh .t2{color:var(--dim2);font-size:11px;margin-top:2px}
+.stkh .rgt{margin-left:auto;text-align:right;flex:0 0 auto}
+.stkh .xn{color:var(--bright);font-weight:800;font-size:12.5px;font-variant-numeric:tabular-nums}
+.stkh .tm{color:var(--dim3);font:600 10.5px var(--mono);margin-top:2px}
+.qact{display:flex;gap:6px;margin-top:9px;opacity:0;transition:opacity .15s;height:0;overflow:hidden}
+.stkc:hover .qact,.stkc.open .qact{opacity:1;height:auto}
+.qact .q{background:var(--rowalt);color:var(--accent);border-radius:9px;padding:6px 12px;font:600 11px/1 inherit;cursor:pointer}
+.qact .q:hover{background:#2A3038}
+.qact .q.dim{color:var(--dim)}
+.drawer{margin-top:10px;padding-top:10px;border-top:1px solid var(--sep);display:flex;flex-direction:column;gap:8px;cursor:default}
+.occ{display:flex;gap:10px;padding:4px 2px;color:var(--dim);font:500 11.5px var(--mono)}
+.occ .n{color:var(--dim3)}
+.more{color:var(--dim2);font-weight:600;font-size:11.5px;padding:7px 2px 0;cursor:pointer}
+.more:hover{color:var(--stat)}
+
+/* B5 scores */
+.srow{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:11px;cursor:pointer;position:relative}
+.srow:hover{background:rgba(255,255,255,.03)}
+.srow.sel{background:var(--rowalt);box-shadow:inset 0 0 0 1px rgba(115,191,255,.5)}
+.srow .sc{min-width:38px;text-align:center;font:800 12px/1 inherit;padding:6px 0;border-radius:9px;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.srow .t1{color:var(--stat);font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .t2{color:var(--dim2);font-size:11px;margin-top:1px}
+.srow .bar{height:3px;background:var(--inset);border-radius:var(--r-pill);margin-top:5px;overflow:hidden}
+.srow .bar i{display:block;height:100%;border-radius:var(--r-pill)}
+.bigimp{text-align:right}
+.bigimp .v{font-weight:800;font-size:19px;letter-spacing:-.02em}
+.bigimp .k{color:var(--dim3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;margin-top:1px}
+</style></head><body>
+
+<h1>Modern Dev Tools — suite-standard studies</h1>
+<div class="sub">Five <b>fully interactive</b> restyles of the debug log, bridging the iOS studies onto the shipped
+suite standard (Modern Notifications · Needs Tab · Health Tab · Colonist Bar). What changed to close the gap:
+iOS system blue → the suite accent <b>#73BFFF with ink text</b>; true black + vibrancy blur → the suite's
+<b>blue-tinted opaque neutrals</b> (IMGUI-honest — no backdrop blur anywhere); segmented iOS controls → <b>capsule
+pills and tab pills with counts</b>; plus the suite's signature atoms — uppercase micro-labels, dim-key/bright-value
+chips, thin meters, solid amber/red banner alerts, key-value cards, roster rows with accent bars, tabular numerals.
+Everything clicks: filters, search, selection, switches, pins, ignore/undo, banners, charts, stacks.</div>
+
+<!-- ══════════════════ B1 ══════════════════ -->
+<div class="chead"><span class="n">B1</span><span class="t">Sidebar — the shipped layout, suite skin</span>
+  <span class="p">the built three-column window translated token-for-token · the direct bridge</span></div>
+<div class="mock" id="b1"><div class="surface" style="padding:0;flex-direction:row">
+  <div style="flex:0 0 216px;background:var(--panel2);padding:16px 12px 12px;display:flex;flex-direction:column;gap:7px">
+    <div class="ttl" style="font-size:19px;padding:0 4px">Debug log</div>
+    <div class="cnt" id="b1-counts" style="padding:0 4px 6px"></div>
+    <div class="plate" id="b1-filters"></div>
+    <div class="mhdr" style="padding-top:10px">Behaviour</div>
+    <div class="plate" id="b1-beh"></div>
+    <div class="mhdr" style="padding-top:10px">Tools</div>
+    <div class="plate" id="b1-tools"></div>
+    <div class="spacer"></div>
+    <div class="pill amber" id="b1-mods" style="justify-content:center">⚑ 3 mods changed</div>
+  </div>
+  <div style="flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:14px 12px;gap:9px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="search"><span class="g">⌕</span><input id="b1-q" placeholder="Search messages"></div>
+      <span class="pill" id="b1-copyall" style="color:var(--accent)">Copy all</span>
+      <span class="pill danger" id="b1-clear">Clear</span>
+    </div>
+    <div class="hint" id="b1-hint"><span class="i">i</span>
+      <span class="t">HugsLib and Archotech Logs add buttons to the vanilla log window — hosted in the add-on tray below.</span>
+      <span class="d" id="b1-hintx">Dismiss</span></div>
+    <div class="scroll" id="b1-list" style="flex:1 1 auto;min-height:0"></div>
+    <div class="tray"><span class="lb">Add-ons</span>
+      <span class="tb">Share logs</span><span class="tb">Files</span><span class="tb">Copy</span>
+      <span class="dv"></span><span class="tb">Diagnostics</span><span class="tb">Export</span></div>
+  </div>
+  <div style="flex:0 0 372px;background:var(--panel2);padding:14px 13px;display:flex;flex-direction:column;min-height:0">
+    <div class="scroll" id="b1-insp" style="flex:1 1 auto;display:flex;flex-direction:column;gap:9px;padding-right:2px"></div>
+  </div>
+</div></div>
+<div class="note"><b>Try:</b> toggle the type filters (off = dimmed row, count stays readable) · flip the switches ·
+search live · select rows · Ignore a diagnosis then Undo · the mods-changed pill opens the change summary ·
+Clear, then Restore. <b>Why it works:</b> zero structural change from the shipped window — this is purely the
+token bridge, so it prices the restyle honestly.</div>
+
+<!-- ══════════════════ B2 ══════════════════ -->
+<div class="chead"><span class="n">B2</span><span class="t">Triage roster — Modern Colonist Bar</span>
+  <span class="p">implicated mods as a roster with accent bars and share meters · detail reads like a colonist card</span></div>
+<div class="mock" id="b2"><div class="surface" style="flex-direction:row;gap:12px">
+  <div style="flex:0 0 268px;background:var(--bg);border-radius:var(--r-lg);box-shadow:var(--e2);
+      display:flex;flex-direction:column;min-height:0;padding-top:12px">
+    <div style="padding:0 12px 10px"><div class="search"><span class="g">⌕</span><input id="b2-q" placeholder="Search implicated mods"></div></div>
+    <div style="display:flex;gap:6px;padding:0 12px 4px;flex-wrap:wrap" id="b2-chips"></div>
+    <div class="sechd">Implicated mods<span class="b" id="b2-n"></span><span class="spacer"></span><span style="letter-spacing:0;font-size:12px">▾</span></div>
+    <div class="scroll" id="b2-roster" style="flex:1 1 auto;min-height:0;padding-bottom:6px"></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--sep)">
+      <div style="line-height:1.2"><div style="color:var(--bright);font-weight:800;font-size:13px">1</div>
+        <div style="color:var(--dim2);font-size:10.5px">selected</div></div>
+      <span class="spacer"></span>
+      <span class="pill" id="b2-copy">Copy report <span style="color:var(--dim3);font-size:9px">▾</span></span>
+      <span class="pill ghost" id="b2-ign">Ignore</span>
+    </div>
+  </div>
+  <div style="flex:1 1 auto;min-width:0;background:var(--bg);border-radius:var(--r-lg);box-shadow:var(--e2);
+      display:flex;flex-direction:column;min-height:0;overflow:hidden">
+    <div class="scroll" id="b2-detail" style="flex:1 1 auto;padding:16px 16px 14px;display:flex;flex-direction:column;gap:11px"></div>
+  </div>
+</div></div>
+<div class="note"><b>Try:</b> click roster rows · star to pin (pins float up) · search the roster · the red banner
+jumps to the worst class · expand error classes inside the card · flip the occurrence chart range ·
+Watch / Ignore / Copy report. <b>Why it works:</b> "which mod is hurting me" is the mod's core promise — giving
+mods the colonist treatment (accent bar, status line, share meter, detail card with stat chips) makes attribution
+the first-class object instead of a sidebar in the inspector.</div>
+
+<!-- ══════════════════ B3 ══════════════════ -->
+<div class="chead"><span class="n">B3</span><span class="t">Session timeline — Modern Health Tab</span>
+  <span class="p">eras with a recency taper · the firing class is the boxed NOW cluster · diagnosis expands in a recessed well</span></div>
+<div class="mock" id="b3"><div class="surface">
+  <div class="hdrcap" style="margin-bottom:9px"><span class="nm">Debug log</span>
+    <span class="st" style="color:var(--bad)">2 high-impact · 1 firing</span>
+    <span class="spacer"></span>
+    <span class="chip alarm" id="b3-firing">1 class firing</span>
+    <span class="chip" id="b3-shown"></span></div>
+  <div class="tabs" id="b3-tabs" style="margin-bottom:9px"></div>
+  <div style="flex:1 1 auto;min-height:0;display:flex;gap:10px">
+    <div style="flex:0 0 206px;display:flex;flex-direction:column;gap:6px;overflow:hidden" id="b3-cards"></div>
+    <div style="flex:1 1 auto;min-width:0;background:var(--bg);border-radius:var(--r-lg);box-shadow:var(--e2);
+        padding:12px 13px;display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <div class="search"><span class="g">⌕</span><input id="b3-q" placeholder="Search this session"></div>
+        <span class="pill" id="b3-copy" style="color:var(--accent)">Copy all</span>
+        <span class="pill danger" id="b3-clear">Clear</span></div>
+      <div class="scroll" id="b3-stage" style="flex:1 1 auto;min-height:0"></div>
+    </div>
+  </div>
+</div></div>
+<div class="note"><b>Try:</b> the tab pills (Spam shows what the throttle held back) · the summary cards toggle their
+type · click any line — the diagnosis opens in a recessed well right under it · "View" on the NOW cluster jumps to
+the firing class. <b>Why it works:</b> a log <i>is</i> a medical history — startup wounds, map-load scars, and one
+actively-bleeding class that deserves the boxed NOW treatment. The recency taper keeps 1000-mod startup noise
+visually quiet without hiding it.</div>
+
+<!-- ══════════════════ B4 ══════════════════ -->
+<div class="chead"><span class="n">B4</span><span class="t">Notification stacks — Modern Notifications</span>
+  <span class="p">error classes as grouped notification cards with peeking stacks · banners for what's live · inline detail drawer</span></div>
+<div class="mock" id="b4"><div class="surface" style="padding:16px 0 0">
+  <div style="display:flex;align-items:flex-end;gap:12px;padding:0 16px 10px">
+    <div><div class="ttl">Debug log</div><div class="cnt" id="b4-counts"></div></div>
+    <span class="spacer"></span>
+    <div class="seg" id="b4-seg"></div>
+    <span class="pill danger" id="b4-clear">Clear all</span></div>
+  <div style="display:flex;gap:8px;align-items:center;padding:0 16px 10px">
+    <div class="search"><span class="g">⌕</span><input id="b4-q" placeholder="Search classes and mods"></div>
+    <div id="b4-chips" style="display:flex;gap:6px"></div></div>
+  <div class="scroll" style="flex:1 1 auto;min-height:0;padding:2px 16px 16px">
+    <div id="b4-banners" style="display:flex;flex-direction:column;gap:8px;margin-bottom:13px"></div>
+    <div id="b4-stacks"></div>
+  </div>
+</div></div>
+<div class="note"><b>Try:</b> hover a card for quick actions · Details opens the drawer (diagnosis + sources +
+trace) · "Show all 12" expands the occurrence stack · Ignore collapses a class · the amber banner opens the firing
+class, the red one the broken dialog · switch to Raw for the flat classic list. <b>Why it works:</b> repeats-folding
+already makes the log class-shaped; rendering classes as notification stacks with a ×count and peeking edges says
+"12 of the same thing" spatially instead of with a chip.</div>
+
+<!-- ══════════════════ B5 ══════════════════ -->
+<div class="chead"><span class="n">B5</span><span class="t">Impact deck — Modern Needs Tab</span>
+  <span class="p">session health as need meters · classes ranked by diagnosis score · the scoring itself becomes a key-value card</span></div>
+<div class="mock" id="b5"><div class="surface" style="flex-direction:row;gap:12px">
+  <div style="flex:0 0 300px;background:var(--bg);border-radius:var(--r-lg);box-shadow:var(--e2);
+      display:flex;flex-direction:column;min-height:0;padding:14px 12px 10px">
+    <div class="ttl" style="font-size:17px;padding:0 4px 10px">Session health</div>
+    <div style="display:flex;flex-direction:column;gap:9px;padding:0 4px 12px" id="b5-meters"></div>
+    <div class="mhdr">Impact ranking</div>
+    <div class="scroll" id="b5-rank" style="flex:1 1 auto;min-height:0"></div>
+  </div>
+  <div style="flex:1 1 auto;min-width:0;display:flex;flex-direction:column;min-height:0">
+    <div class="scroll" id="b5-detail" style="flex:1 1 auto;display:flex;flex-direction:column;gap:10px;padding-right:2px"></div>
+  </div>
+</div></div>
+<div class="note"><b>Try:</b> click ranking rows · "Why this ranking" shows each module's contribution on the house
+scale (context modules under 1.0 — the fail-closed rule made visible) · flip the occurrence range · Ignore/Undo.
+<b>Why it works:</b> the mod already computes a diagnosis score for every class; Needs-Tab language (meters +
+ranked breakdown rows) turns that hidden math into the primary navigation, and showing the losing modules builds
+trust in the winner.</div>
+
+<script>
+/* ═══════════ shared data ═══════════ */
+const ROWS=[
+ {id:1, sev:'m', era:0, t:'14:30:12', tx:'RimWorld 1.6.4633 rev1057 — 1043 mods active'},
+ {id:2, sev:'w', era:0, t:'14:30:58', mod:'vef', tx:'[Vanilla Expanded Framework] KCSG: structure layout MedievalKeep references missing symbol MO_WallTorch',
+  cls:{impact:['Moderate','startup only'], score:3.4, win:'Known issues',
+   bd:[['Known issues','3.4',1],['Log prefix (context)','0.6',0],['Message mentions (context)','0.4',0]],
+   culprits:[{name:'Vanilla Expanded Framework',why:'mod tag at the start of the message',state:'act'},{name:'Medieval Overhaul',why:'owns the MO_ symbol prefix',state:'act'}],
+   diag:{t:'Structure layout references a missing symbol', d:'A KCSG settlement layout asks for a symbol def that is not loaded — usually an optional add-on that is not installed.', f:'Install the add-on that ships MO_WallTorch, or ignore — the structure spawns without that prop.'},
+   trace:'at KCSG.SymbolResolver_Structure.Resolve ()\nat KCSG.GenStep_CustomStructure.Generate ()'}},
+ {id:3, sev:'w', era:0, t:'14:31:02', mod:'vfec', tx:'Could not resolve cross-reference to Verse.ThingDef named VFEC_Longsword (wanter=Make_VFEC_Longsword)',
+  cls:{impact:['Moderate','recipe unusable'], score:8.2, win:'Dependency check',
+   bd:[['Dependency check','8.2',1],['Message mentions (context)','0.7',0],['Glossary (context)','0.2',0]],
+   culprits:[{name:'VFE — Classical',why:'the wanter recipe belongs to it',state:'ina'}],
+   diag:{t:'Recipe wants a def that is not loaded', d:'Make_VFEC_Longsword references VFEC_Longsword, but the mod that defines it is inactive.', f:'Enable VFE — Classical, or remove the patch that adds the recipe.'},
+   trace:'at Verse.DirectXmlCrossRefLoader.TryResolveDef ()'}},
+ {id:4, sev:'w', era:0, t:'14:31:09', mod:'mo', tx:'Failed to find Verse.ThingDef named MO_Timber. There are 3441 defs of this type loaded.',
+  cls:{impact:['Low','one lookup fails'], score:1.8, win:'Known issues',
+   bd:[['Known issues','1.8',1],['Message mentions (context)','0.5',0]],
+   culprits:[{name:'Medieval Overhaul',why:'MO_ prefix · renames vanilla WoodLog',state:'act'}],
+   diag:{t:'Lookup for a renamed def', d:'Medieval Overhaul renames vanilla WoodLog to “timber”; something asks for MO_Timber, which never existed as a def.', f:'Usually harmless. If a recipe broke, the asking mod needs an MO compatibility patch.'},
+   trace:'at Verse.DefDatabase`1[Verse.ThingDef].GetNamed ()'}},
+ {id:5, sev:'w', era:0, t:'14:31:18', tx:'XML error: &lt;li&gt;Designator_AreaHomeExpand&lt;/li&gt; doesn’t correspond to any field in type DesignationCategoryDef.',
+  cls:{impact:['Low','one entry skipped'], score:0, win:'No verdict — fail closed',
+   bd:[['Stack trace','no mod frames',0],['Message mentions','no mod named',0],['Harmony patches','not patch-routed',0]],
+   culprits:[{name:'Unattributed',why:'no mod is provably the author of this patch',state:'unk'}],
+   diag:{t:'A patch writes into the wrong node', d:'Some PatchOperation added a designator into a list this def does not have. The message names no mod, and the trace has no mod frames.', f:'Fail closed: no culprit is shown without evidence. Enable patch logging to find the author.'},
+   trace:'at Verse.DirectXmlToObject.ObjectFromXml ()'}},
+ {id:6, sev:'e', era:0, t:'14:31:27', rep:2, mod:'mo', tx:'Could not load UnityEngine.Texture2D at Things/Building/Production/TableButcher_MO — resource not found',
+  cls:{impact:['High','building renders pink'], known:true, score:9.3, win:'Mod issues — MO ships a known-issues file',
+   bd:[['Mod issues (shipped file)','9.3',1],['Stack trace','4.1',0],['Message mentions','2.2',0]],
+   culprits:[{name:'Medieval Overhaul',why:'the texture path is inside its folder',state:'act'}],
+   diag:{t:'Missing texture on disk', d:'The def points at a texture path with no file under the mod’s Textures folder — almost always a broken Steam download.', f:'Verify integrity of the mod’s files, or resubscribe to Medieval Overhaul.', u:'github.com/SirLalaPyon/MedievalOverhaul/issues'},
+   trace:'at Verse.ContentFinder`1[UnityEngine.Texture2D].Get ()\nat Verse.GraphicData.Init ()'}},
+ {id:7, sev:'m', era:0, t:'14:31:44', tx:'Loaded game data in 82.4 seconds'},
+ {id:8, sev:'m', era:1, t:'14:32:03', tx:'Generating map from seed “salted plains”'},
+ {id:9, sev:'e', era:1, t:'14:32:07', rep:12, sup:395, mod:'vf', firing:true, tx:'Exception ticking Vehicle_Chariot: System.Collections.Generic.KeyNotFoundException: The given key was not present in the dictionary.',
+  cls:{impact:['Critical','fires every frame'], known:true, score:8.9, win:'Community bugs — entry #14',
+   bd:[['Community bugs','8.9',1],['Harmony patches','5.6',0],['Known issues','1.2',0],['Stack trace (context)','0.9',0]],
+   culprits:[{name:'Vehicle Framework',why:'3 frames in SmashTools',state:'act'},{name:'Giddy-Up 2',why:'patches the same method',state:'ina'}],
+   diag:{t:'Missing dictionary key in a mod cache', d:'A per-map cache was read for a map that was never registered — usually a map added or removed while the mod was mid-tick.', f:'Update Vehicle Framework — fixed upstream in 1.6.2.', u:'github.com/SmashPhil/VehicleFramework/issues'},
+   trace:'at SmashTools.DetachedMapComponentCache.Get (Verse.Map)\nat Vehicles.VehiclePathing.Tick ()\nat Verse.TickList.Tick ()'}},
+ {id:10, sev:'e', era:1, t:'14:32:09', rep:3, mod:'ce', tx:'Error in RimWorld.MainTabWindow_Inspect.DoWindowContents: System.NullReferenceException: Object reference not set to an instance of an object',
+  cls:{impact:['High','inspector pane breaks'], score:6.1, win:'Harmony patches',
+   bd:[['Harmony patches','6.1',1],['Stack trace','4.4',0],['Version mismatch','0',0]],
+   culprits:[{name:'Character Editor',why:'postfix on the throwing method',state:'act'},{name:'RimHUD',why:'patches the same method',state:'act'}],
+   diag:{t:'UI patch reads a despawned pawn', d:'A postfix on the inspect pane assumes the selected pawn still exists after it despawned.', f:'Update Character Editor; if it persists, turn off its inspector integration.'},
+   trace:'at CharacterEditor.Patch_Inspect.Postfix ()\nat RimWorld.MainTabWindow_Inspect.DoWindowContents ()'}},
+ {id:11, sev:'w', era:1, t:'14:32:15', mod:'mo', tx:'Tried to get a non-existent GraphicData for HeavyPlateArmor',
+  cls:{impact:['Low','falls back to default art'], score:2.6, win:'Known issues',
+   bd:[['Known issues','2.6',1],['Stack trace (context)','0.8',0]],
+   culprits:[{name:'Medieval Overhaul',why:'the def is defined in its Defs/',state:'act'}],
+   diag:{t:'Apparel def has no worn graphic', d:'The def draws on a pawn but declares no wornGraphicPath, so the renderer falls back.', f:'Cosmetic. Report to the author with this line attached.'},
+   trace:'at Verse.PawnRenderer.DrawApparel ()'}},
+ {id:12, sev:'w', era:1, t:'14:32:31', mod:'mo', tx:'Def SimpleResearchBench has multiple definitions (Medieval Overhaul, Core). Last one wins.',
+  cls:{impact:['Moderate','def silently replaced'], score:2.1, win:'Known issues — expected with MO',
+   bd:[['Known issues','2.1',1],['Message mentions (context)','0.9',0]],
+   culprits:[{name:'Medieval Overhaul',why:'the second definition is in its Defs/',state:'act'}],
+   diag:{t:'Duplicate def — deliberate override', d:'MO redefines the vanilla research bench on purpose; this warning is expected when MO is active.', f:'Safe to ignore for MO. Two unrelated mods doing this would be a real conflict.'},
+   trace:'at Verse.DefDatabase`1.AddDef ()'}},
+ {id:13, sev:'m', era:1, t:'14:32:40', tx:'Map generated in 4.2 seconds'},
+ {id:14, sev:'m', era:2, t:'14:33:30', tx:'[Modern Dev Tools] background analysis complete — 19 lines · 8 classes · 1 firing'},
+ {id:15, sev:'e', era:2, t:'14:33:52', rep:2, mod:'ce', tx:'Exception in Verse.Pawn_HealthTracker.AddHediff: System.InvalidOperationException: Collection was modified; enumeration operation may not execute.',
+  cls:{impact:['High','hediff add aborted'], score:6.4, win:'Harmony patches — 2 foreign patchers',
+   bd:[['Harmony patches','6.4',1],['Stack trace','3.9',0],['Community (context)','0.6',0]],
+   culprits:[{name:'RimHUD',why:'2 foreign patchers on this method',state:'act'},{name:'Character Editor',why:'transpiler on the same method',state:'act'}],
+   diag:{t:'Two patches race on one method', d:'Two mods modify AddHediff; one mutates the hediff list while the other is still iterating it.', f:'Load RimHUD after Character Editor, or update both — this pairing is fixed in current versions.'},
+   trace:'at Verse.Pawn_HealthTracker.AddHediff ()\nat (wrapper dynamic-method) Pawn_HealthTracker.AddHediff_Patch2 ()'}},
+ {id:16, sev:'w', era:2, t:'14:34:02', mod:'ce', tx:'[Character Editor] preset “Raider elite” references missing apparel VFEC_Tunic — entry skipped',
+  cls:{impact:['Low','one preset entry'], score:1.6, win:'Log prefix',
+   bd:[['Log prefix','1.6',1],['Dependency check','1.1',0]],
+   culprits:[{name:'Character Editor',why:'mod tag at the start of the message',state:'act'}],
+   diag:{t:'Preset points at absent content', d:'A saved preset references apparel from a mod that is no longer loaded.', f:'Re-save the preset, or re-enable VFE — Classical.'},
+   trace:'at CharacterEditor.PresetLoader.Load ()'}},
+ {id:17, sev:'m', era:2, t:'14:34:40', tx:'Autosave completed in 1.2 seconds'},
+ {id:18, sev:'e', era:2, t:'14:35:00', mod:'wb', tx:'Exception filling window for Dialog_FactionInfo: System.NullReferenceException at Worldbuilder.Faction_Name_Patch.Postfix',
+  cls:{impact:['High','dialog unusable'], score:5.8, win:'Stack trace + Harmony route',
+   bd:[['Harmony patches','5.8',1],['Stack trace','5.2',0],['About incompat','0',0]],
+   culprits:[{name:'Worldbuilder',why:'its patch is the top frame',state:'act'}],
+   diag:{t:'Patch assumes a named faction', d:'The faction-name postfix dereferences a custom name that this save never set.', f:'Report to the Worldbuilder author; renaming the faction once works around it.'},
+   trace:'at Worldbuilder.Faction_Name_Patch.Postfix ()\nat RimWorld.Dialog_FactionInfo.DoWindowContents ()'}},
+ {id:19, sev:'m', era:2, t:'14:36:02', tx:'Selected: Vehicle_Chariot (Vehicle Framework)'}
+];
+const MODS={
+ vf:{name:'Vehicle Framework', ver:'1.6.1', src:'Steam', st:'Active',  hue:'#43596E', fix:'update to 1.6.2'},
+ mo:{name:'Medieval Overhaul', ver:'1.6.0', src:'Steam', st:'Active',  hue:'#5E4A34', fix:null},
+ ce:{name:'Character Editor',  ver:'1.6.14',src:'Steam', st:'Active',  hue:'#55465E', fix:null},
+ wb:{name:'Worldbuilder',      ver:'1.6.2', src:'Steam', st:'Active',  hue:'#3E5548', fix:null},
+ vef:{name:'Vanilla Expanded Framework', ver:'1.6.8', src:'Steam', st:'Active', hue:'#44506A', fix:null},
+ vfec:{name:'VFE — Classical', ver:'—', src:'not installed', st:'Inactive', hue:'#52404A', fix:null}
+};
+const BENIGN_HIDDEN=6;
+const SEVC={e:'var(--bad)', w:'var(--warn)', m:'var(--gray)'};
+const SEVN={e:'Error', w:'Warning', m:'Message'};
+const ERAS=['Startup','Map load','This session'];
+const TAGN={act:'Active', ina:'Inactive', unk:'Unknown'};
+const byId=id=>ROWS.find(r=>r.id===id);
+
+/* ═══════════ shared helpers ═══════════ */
+function toast(mockId,msg){
+  const m=document.getElementById(mockId);
+  let t=m.querySelector('.toast');
+  if(!t){t=document.createElement('div');t.className='toast';m.appendChild(t);}
+  t.textContent=msg; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1900);
+}
+function repChip(r,small){
+  if(!(r.rep>1))return '';
+  return `<span class="rep${r.sup?' sup':''}">×${r.rep}${r.sup?'+'+r.sup:''}</span>`;
+}
+function lrowHTML(r,selId){
+  return `<div class="lrow${r.id===selId?' sel':''}" data-id="${r.id}">
+    <span class="ts">${r.t}</span><i class="dt" style="background:${SEVC[r.sev]}"></i>
+    ${repChip(r)}<span class="tx">${r.tx}</span></div>`;
+}
+function sevTint(sev){return sev==='e'?'rgba(230,89,89,.13)':sev==='w'?'rgba(242,166,51,.11)':'rgba(142,150,160,.10)';}
+function impHTML(r){
+  const c=r.cls; if(!c||!c.impact)return '';
+  const col=r.sev==='e'?'var(--bad)':'var(--warn)';
+  return `<div class="imp" style="background:${sevTint(r.sev)}">
+    <span class="sev" style="color:${col}">${c.impact[0]}</span>
+    <span class="pn">${c.impact[1]}${r.rep>1?' · '+(r.rep+(r.sup||0))+' occurrences':''}</span>
+    ${c.known?'<span class="badge known">Known</span>':''}</div>`;
+}
+function krowHTML(r){
+  return `<div class="krow"><span class="k" style="color:${SEVC[r.sev]}">${SEVN[r.sev]}</span>
+    ${r.rep>1?`<span class="x">×${r.rep}</span>`:''}
+    <span class="t">${r.rep>1?'first seen':'logged'} ${r.t}</span></div>`;
+}
+function culpHTML(r){
+  const c=r.cls; if(!c||!c.culprits)return '';
+  return `<div class="mhdr">Likely source</div><div class="plate" style="background:var(--bg)">`+
+    c.culprits.map(x=>`<div class="culp"><div><div class="nm${x.state!=='act'?' plain':''}">${x.name}</div>
+      <div class="rs">${x.why}</div></div><span class="tag ${x.state}">${TAGN[x.state]}</span></div>`).join('')+`</div>`;
+}
+function diagHTML(r,ignored){
+  const c=r.cls; if(!c||!c.diag)return '';
+  if(ignored)return `<div class="mhdr">What this means</div>
+    <div class="ignored">Diagnosis ignored — manage in Settings → Ignored<span class="u" data-act="undo-ignore">Undo</span></div>`;
+  const d=c.diag;
+  return `<div class="mhdr">What this means</div><div class="diagc">
+    <div class="dt">${d.t}<span class="ig" data-act="ignore">Ignore</span></div>
+    <div class="de">${d.d}</div><div class="df"><b>Fix:</b> ${d.f}</div>
+    ${d.u?`<div class="du" data-act="url" data-url="${d.u}">${d.u}</div>`:''}</div>`;
+}
+function reportHTML(r){
+  const c=r.cls; if(!c||!c.diag||c.known)return '';
+  return `<div class="mhdr">Report</div><div class="repc">
+    <div class="b">This looks new. Reporting it helps the next player who hits it.</div>
+    <div class="bs"><span class="a p" data-act="report">Report bug</span><span class="a s2" data-act="fix">Submit fix</span></div></div>`;
+}
+function traceHTML(r){
+  const c=r.cls; if(!c||!c.trace)return '';
+  return `<div class="mhdr">Stack trace</div><div class="well mono">${c.trace}</div>`;
+}
+function inspectorHTML(r,opts={}){
+  if(!r)return `<div class="empty"><div class="e1">Nothing selected</div><div class="e2">Select a line to see attribution, diagnosis and actions.</div></div>`;
+  const ignored=opts.ignored;
+  let h=impHTML(r)+krowHTML(r)+`<div class="well">${r.tx}</div>`;
+  h+=`<div class="acts"><span class="a" data-act="copy">Copy message</span><span class="a" data-act="copy">Copy trace</span><span class="a" data-act="copy">Copy report</span></div>`;
+  h+=culpHTML(r);
+  if(r.cls&&r.cls.diag){h+=diagHTML(r,ignored)+ (opts.compact?'':reportHTML(r));}
+  else h+=`<div class="mhdr">What this means</div><div class="diagc"><div class="de" style="margin-top:0">Informational line — nothing to diagnose.</div></div>`;
+  if(!opts.compact||opts.trace!==false)h+=traceHTML(r);
+  return h;
+}
+function bindActs(container,mockId,api){
+  container.addEventListener('click',e=>{
+    const a=e.target.closest('[data-act]'); if(!a)return;
+    e.stopPropagation();
+    const act=a.dataset.act;
+    if(act==='ignore')api.ignore&&api.ignore();
+    else if(act==='undo-ignore')api.unignore&&api.unignore();
+    else if(act==='copy')toast(mockId,'Copied to clipboard');
+    else if(act==='report')toast(mockId,'Report drafted — opens the bug reporter');
+    else if(act==='fix')toast(mockId,'Opens the community fix form');
+    else if(act==='url')toast(mockId,'Would open '+a.dataset.url);
+  });
+}
+function lcg(seed){let s=seed>>>0;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
+function spark(seed,n,peak){
+  const r=lcg(seed),v=[];let base=peak*(.25+r()*.2);
+  for(let i=0;i<n;i++){base+=(r()-.46)*peak*.22;base=Math.max(peak*.05,Math.min(peak,base));v.push(base);}
+  return v;
+}
+function sparkSVG(series,w,h){
+  const max=Math.max(...series.map(s=>Math.max(...s.v)))*1.15;
+  let out=`<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block">`;
+  for(const s of series){
+    const pts=s.v.map((y,i)=>`${(i/(s.v.length-1))*w},${h-4-(y/max)*(h-10)}`).join(' ');
+    out+=`<polyline points="${pts}" fill="none" stroke="${s.c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  return out+'</svg>';
+}
+function counts(rows){const c={e:0,w:0,m:0};rows.forEach(r=>c[r.sev]++);return c;}
+
+/* ═══════════ B1 — sidebar (shipped layout, suite skin) ═══════════ */
+(function(){
+  const mock='b1', $=s=>document.querySelector('#b1 '+s);
+  const st={f:{e:true,w:true,m:true}, q:'', sel:9, hint:true, cleared:false, ignored:new Set(),
+            sw:{auto:true,pause:false,warn:false}, pop:false};
+  const total=counts(ROWS);
+  function visible(){
+    if(st.cleared)return [];
+    return ROWS.filter(r=>st.f[r.sev]&&(!st.q||r.tx.toLowerCase().includes(st.q)));
+  }
+  function render(){
+    const vis=visible();
+    $('#b1-counts').textContent=`${vis.length} shown · ${ROWS.length-vis.length+BENIGN_HIDDEN} hidden`;
+    $('#b1-filters').innerHTML=[['e','Errors'],['w','Warnings'],['m','Messages']].map(([k,lb])=>
+      `<div class="prow${st.f[k]?'':' off'}" data-f="${k}"><i class="dt" style="background:${SEVC[k]}"></i>
+       <span class="lb">${lb}</span><span class="ct">${total[k]}</span></div>`).join('');
+    $('#b1-beh').innerHTML=[['auto','Auto-open'],['pause','Pause on error'],['warn','Open on warnings']].map(([k,lb])=>
+      `<div class="prow" data-sw="${k}"><span class="lb">${lb}</span><span class="swt${st.sw[k]?' on':''}"><i></i></span></div>`).join('');
+    $('#b1-tools').innerHTML=['Knowledge base','Modules','Update info','Vanilla log'].map(n=>
+      `<div class="prow link" data-tool="${n}"><span class="lb">${n}</span></div>`).join('');
+    $('#b1-hint').style.display=st.hint?'':'none';
+    const L=$('#b1-list');
+    if(st.cleared)L.innerHTML=`<div class="empty"><div class="e1">Log cleared</div><div class="e2">New lines will appear here.</div><span class="u" id="b1-restore">Restore (mock)</span></div>`;
+    else if(!vis.length)L.innerHTML=`<div class="empty"><div class="e1">No matches</div><div class="e2">Nothing matches the current filters.</div></div>`;
+    else L.innerHTML=vis.map(r=>lrowHTML(r,st.sel)).join('');
+    const sel=st.cleared?null:byId(st.sel);
+    $('#b1-insp').innerHTML=inspectorHTML(sel,{ignored:sel&&st.ignored.has(sel.id)});
+  }
+  $('#b1-filters').addEventListener('click',e=>{const p=e.target.closest('[data-f]');if(p){st.f[p.dataset.f]=!st.f[p.dataset.f];render();}});
+  $('#b1-beh').addEventListener('click',e=>{const p=e.target.closest('[data-sw]');if(p){st.sw[p.dataset.sw]=!st.sw[p.dataset.sw];render();}});
+  $('#b1-tools').addEventListener('click',e=>{const p=e.target.closest('[data-tool]');if(p)toast(mock,'Would open: '+p.dataset.tool);});
+  $('#b1-q').addEventListener('input',e=>{st.q=e.target.value.trim().toLowerCase();render();});
+  $('#b1-copyall').addEventListener('click',()=>toast(mock,`Copied ${visible().length} lines to clipboard`));
+  $('#b1-clear').addEventListener('click',()=>{st.cleared=true;render();toast(mock,'Log cleared');});
+  $('#b1-hintx').addEventListener('click',()=>{st.hint=false;render();});
+  $('#b1-list').addEventListener('click',e=>{
+    const rs=e.target.closest('#b1-restore'); if(rs){st.cleared=false;render();return;}
+    const row=e.target.closest('.lrow'); if(row){st.sel=+row.dataset.id;render();}});
+  document.querySelectorAll('#b1 .tray .tb').forEach(b=>b.addEventListener('click',()=>toast(mock,b.textContent+' — add-on widget invoked')));
+  $('#b1-mods').addEventListener('click',e=>{
+    e.stopPropagation();
+    let p=document.querySelector('#b1 .pop');
+    if(p){p.remove();return;}
+    p=document.createElement('div');p.className='pop';p.style.left='14px';p.style.bottom='52px';
+    p.innerHTML=`<div class="pr"><i class="dt" style="background:var(--warn)"></i>Vehicle Framework<span class="w" style="color:#F2C078">updated</span></div>
+      <div class="pr"><i class="dt" style="background:var(--good)"></i>RimHUD<span class="w" style="color:#8FE08F">added</span></div>
+      <div class="pr"><i class="dt" style="background:var(--bad)"></i>Giddy-Up 2<span class="w" style="color:#F3A6A6">removed</span></div>
+      <div class="ft">2 mods unverified — fingerprints still computing</div>`;
+    document.getElementById('b1').appendChild(p);
+    const close=ev=>{if(!ev.target.closest('#b1 .pop')){p.remove();document.removeEventListener('click',close);}};
+    setTimeout(()=>document.addEventListener('click',close),0);
+  });
+  bindActs($('#b1-insp'),mock,{ignore:()=>{st.ignored.add(st.sel);render();toast(mock,'Ignored — it stays out of future sessions');},
+                               unignore:()=>{st.ignored.delete(st.sel);render();}});
+  render();
+})();
+
+/* ═══════════ B2 — triage roster (Colonist Bar) ═══════════ */
+(function(){
+  const mock='b2', $=s=>document.querySelector('#b2 '+s);
+  const st={q:'', sel:'vf', pins:new Set(), chip:'all', seg:'session', open:null};
+  function agg(){
+    const map={};
+    for(const r of ROWS){
+      if(!r.mod||!r.cls)continue;
+      const m=map[r.mod]||(map[r.mod]={id:r.mod,classes:[],err:0,warn:0,worst:'m'});
+      m.classes.push(r);
+      if(r.sev==='e'){m.err+=r.rep||1; m.worst='e';}
+      if(r.sev==='w'){m.warn++; if(m.worst!=='e')m.worst='w';}
+    }
+    const totalErr=Object.values(map).reduce((a,m)=>a+m.err,0)||1;
+    Object.values(map).forEach(m=>m.share=m.err/totalErr);
+    return map;
+  }
+  const A=agg();
+  function roster(){
+    let list=Object.values(A);
+    if(st.chip==='err')list=list.filter(m=>m.worst==='e');
+    if(st.q)list=list.filter(m=>MODS[m.id].name.toLowerCase().includes(st.q));
+    list.sort((a,b)=>(st.pins.has(b.id)-st.pins.has(a.id))||(b.share-a.share)||(b.warn-a.warn));
+    return list;
+  }
+  function initials(n){const w=n.replace('—','').split(/\s+/).filter(Boolean);return (w[0][0]+(w[1]?w[1][0]:'')).toUpperCase();}
+  function render(){
+    const list=roster();
+    $('#b2-n').textContent=list.length;
+    $('#b2-chips').innerHTML=`<span class="tg${st.chip==='all'?' on':''}" data-chip="all"><i class="sw" style="background:var(--gray)"></i>All<span class="ct">${Object.keys(A).length}</span></span>
+      <span class="tg${st.chip==='err'?' on':''}" data-chip="err"><i class="sw" style="background:var(--bad)"></i>With errors<span class="ct">${Object.values(A).filter(m=>m.worst==='e').length}</span></span>`;
+    $('#b2-roster').innerHTML=list.map(m=>{
+      const M=MODS[m.id], stat=[`${m.classes.length} ${m.classes.length>1?'classes':'class'}`,
+        m.err?`${m.err} errors`:null, m.warn?`${m.warn} warnings`:null].filter(Boolean).join(' · ');
+      return `<div class="rr${m.id===st.sel?' sel':''}" data-mod="${m.id}">
+        <span class="ab" style="background:${SEVC[m.worst]}"></span>
+        <span class="av" style="background:${M.hue}">${initials(M.name)}</span>
+        <div style="min-width:0"><div class="nm">${M.name}</div><div class="st">${stat}</div>
+          <div class="bar"><i style="width:${Math.max(4,Math.round(m.share*100))}%;background:${SEVC[m.worst]}"></i></div></div>
+        <span class="pin${st.pins.has(m.id)?' on':''}" data-pin="${m.id}">${st.pins.has(m.id)?'★':'☆'}</span></div>`;
+    }).join('')||`<div class="empty" style="height:120px"><div class="e2">No mods match.</div></div>`;
+    detail();
+  }
+  function detail(){
+    const m=A[st.sel], M=MODS[st.sel];
+    if(!m){$('#b2-detail').innerHTML='<div class="empty"><div class="e1">Select a mod</div></div>';return;}
+    const impact=m.worst==='e'?['CRITICAL','var(--bad)']:['MODERATE','var(--warn)'];
+    const known=m.classes.find(c=>c.cls.known&&c.sev==='e');
+    const occ={'5m':[9],'30m':[9,17],'session':[9,29]}[st.seg];
+    let h=`<div style="display:flex;align-items:flex-start;gap:14px">
+      <span class="av" style="width:52px;height:52px;border-radius:14px;background:${M.hue};display:flex;align-items:center;justify-content:center;color:var(--bright);font-weight:800;font-size:17px">${initials(M.name)}</span>
+      <div style="min-width:0"><div style="color:var(--bright);font-weight:800;font-size:19px;letter-spacing:-.02em">${M.name}<span style="color:${SEVC[m.worst]};font-weight:600;font-size:14px">, ${m.err?m.err+' errors':m.warn+' warnings'}</span></div>
+        <div style="color:var(--dim2);font-size:12.5px;margin-top:2px">${m.classes.length} error ${m.classes.length>1?'classes':'class'} this session${m.classes.some(c=>c.sup)?' · '+m.classes.reduce((a,c)=>a+(c.sup||0),0)+' repeats held back':''}</div></div>
+      <span class="spacer"></span>
+      <div class="bigimp"><div class="v" style="color:${impact[1]}">${impact[0]}</div><div class="k">impact</div></div></div>`;
+    h+=`<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <span class="chipkv"><span class="k">Source</span><span class="v">${M.src}</span></span>
+      <span class="chipkv"><span class="k">Version</span><span class="v">${M.ver}</span></span>
+      <span class="chipkv"><span class="k">State</span><span class="v">${M.st}</span></span>
+      <span class="spacer"></span>
+      <span class="pill ghost" id="b2-watch">◎ Watch</span></div>`;
+    h+=`<div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="statchip"><span class="g">⚠</span><span class="k">Errors</span><span class="v" style="color:var(--bad)">${m.err}</span></span>
+      <span class="statchip"><span class="g">△</span><span class="k">Warnings</span><span class="v" style="color:${m.warn?'var(--warn)':'var(--bright)'}">${m.warn}</span></span>
+      <span class="statchip"><span class="g">◷</span><span class="k">First</span><span class="v">${m.classes[0].t}</span></span>
+      <span class="statchip"><span class="g">⟳</span><span class="k">Held back</span><span class="v">${m.classes.reduce((a,c)=>a+(c.sup||0),0)}</span></span></div>`;
+    h+=`<div style="display:flex;flex-direction:column;gap:8px;padding:2px 2px 0">
+      <div class="meter"><span class="k">Share of errors</span><div class="tr"><i style="width:${Math.round(m.share*100)}%;background:var(--bad)"></i></div><span class="v" style="color:var(--bad)">${Math.round(m.share*100)}%</span></div>
+      <div class="meter"><span class="k">Confidence</span><div class="tr"><i style="width:${known?92:70}%;background:var(--accent)"></i></div><span class="v" style="color:var(--accent)">${known?'high':'medium'}</span></div></div>`;
+    if(known)h+=`<div class="banner red" id="b2-banner">▲ ${M.name} is implicated in ${m.classes.filter(c=>c.sev==='e').length} error ${m.classes.filter(c=>c.sev==='e').length>1?'classes':'class'}<span class="r">${M.fix?'fix available — '+M.fix:'no fix published'}</span></div>`;
+    h+=`<div style="display:flex;gap:10px;align-items:stretch;min-height:0">
+      <div class="card" style="flex:1.2 1 0;min-width:0"><div class="ch">Error classes</div><div id="b2-classes">`+
+      m.classes.map(c=>`<div class="kv" data-cls="${c.id}" style="cursor:pointer;align-items:center">
+        <i class="dt" style="background:${SEVC[c.sev]}"></i>
+        <span class="k" style="color:var(--stat);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.cls.diag.t}</span>
+        <span class="v">${c.rep>1?'×'+c.rep:c.t}</span><span style="color:var(--dim3);font-size:10px">${st.open===c.id?'▾':'▸'}</span></div>`+
+        (st.open===c.id?`<div style="padding:2px 0 9px 18px;color:var(--dim);font-size:11.5px;line-height:1.5">${c.cls.diag.d}<div style="color:var(--stat);margin-top:4px"><b style="color:var(--good)">Fix:</b> ${c.cls.diag.f}</div></div>`:'')).join('')+
+      `</div></div>
+      <div class="card" style="flex:1 1 0;min-width:0;display:flex;flex-direction:column"><div class="ch">Occurrences
+        <span class="spacer"></span><span class="seg" id="b2-seg">${['5m','30m','session'].map(s=>`<span class="s${st.seg===s?' on':''}" data-seg="${s}">${s}</span>`).join('')}</span></div>
+        <div style="flex:1 1 auto;min-height:74px" id="b2-chart"></div>
+        <div style="display:flex;gap:14px;padding-top:6px">
+          <span style="display:flex;gap:6px;align-items:center;font-size:11px;color:var(--dim)"><i class="dt" style="background:var(--bad)"></i>Errors</span>
+          <span style="display:flex;gap:6px;align-items:center;font-size:11px;color:var(--dim)"><i class="dt" style="background:var(--warn)"></i>Warnings</span></div></div></div>`;
+    $('#b2-detail').innerHTML=h;
+    $('#b2-chart').innerHTML=sparkSVG([{v:spark(occ[0],26,10),c:'var(--bad)'},{v:spark(occ[1]||7,26,5),c:'var(--warn)'}],300,74);
+    const w=$('#b2-watch'); if(w)w.addEventListener('click',()=>toast(mock,'Watching '+M.name+' — you’ll be notified when it logs again'));
+    const b=$('#b2-banner'); if(b)b.addEventListener('click',()=>{st.open=m.classes.find(c=>c.sev==='e').id;detail();});
+    $('#b2-classes').addEventListener('click',e=>{const k=e.target.closest('[data-cls]');if(k){st.open=st.open===+k.dataset.cls?null:+k.dataset.cls;detail();}});
+    const sg=$('#b2-seg'); if(sg)sg.addEventListener('click',e=>{const s=e.target.closest('[data-seg]');if(s){st.seg=s.dataset.seg;detail();}});
+  }
+  $('#b2-q').addEventListener('input',e=>{st.q=e.target.value.trim().toLowerCase();render();});
+  $('#b2-chips').addEventListener('click',e=>{const c=e.target.closest('[data-chip]');if(c){st.chip=c.dataset.chip;render();}});
+  $('#b2-roster').addEventListener('click',e=>{
+    const p=e.target.closest('[data-pin]');
+    if(p){const id=p.dataset.pin;st.pins.has(id)?st.pins.delete(id):st.pins.add(id);render();return;}
+    const r=e.target.closest('[data-mod]'); if(r){st.sel=r.dataset.mod;st.open=null;render();}});
+  $('#b2-copy').addEventListener('click',()=>toast(mock,'Report for '+MODS[st.sel].name+' copied'));
+  $('#b2-ign').addEventListener('click',()=>toast(mock,'Would ignore every diagnosis owned by '+MODS[st.sel].name));
+  render();
+})();
+
+/* ═══════════ B3 — session timeline (Health Tab) ═══════════ */
+(function(){
+  const mock='b3', $=s=>document.querySelector('#b3 '+s);
+  const st={tab:'all', q:'', sel:null, cleared:false, ignored:new Set(),
+            cards:{e:true,w:true,m:true}, sw:{auto:true,pause:false,warn:false}};
+  const total=counts(ROWS);
+  function evClass(r){
+    if(r.sev==='e')return r.era===0?'e1':'e0';
+    if(r.sev==='w')return ['e2','e1','e0'][r.era];
+    return ['e3','e2','e1'][r.era];
+  }
+  function visible(){
+    if(st.cleared)return [];
+    let rows=ROWS.filter(r=>st.cards[r.sev]);
+    if(st.tab!=='all'&&st.tab!=='spam')rows=rows.filter(r=>r.sev===st.tab);
+    if(st.tab==='spam')rows=rows.filter(r=>r.sup);
+    if(st.q)rows=rows.filter(r=>r.tx.toLowerCase().includes(st.q));
+    return rows;
+  }
+  function render(){
+    const vis=visible();
+    $('#b3-shown').textContent=`${vis.length} shown · ${ROWS.length-vis.length+BENIGN_HIDDEN} hidden`;
+    $('#b3-tabs').innerHTML=[['all','Timeline',ROWS.length],['e','Errors',total.e],['w','Warnings',total.w],['m','Messages',total.m],['spam','Spam',395]]
+      .map(([k,lb,n])=>`<span class="tg${st.tab===k?' on':''}" data-tab="${k}">${lb}<span class="ct">${n}</span></span>`).join('');
+    $('#b3-cards').innerHTML=[['e','Errors',total.e,'var(--bad)'],['w','Warnings',total.w,'var(--warn)'],['m','Messages',total.m,'var(--gray)']]
+      .map(([k,lb,n,c])=>`<div class="card" data-card="${k}" style="padding:9px 12px;cursor:pointer;${st.cards[k]?'':'opacity:.4'}">
+        <div style="display:flex;align-items:center;gap:7px;color:var(--stat);font-weight:600;font-size:12.5px">${lb}
+          <span style="margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;color:${c}">${n}</span></div>
+        <div style="height:5px;background:var(--inset);border-radius:999px;margin-top:6px;overflow:hidden">
+          <i style="display:block;height:100%;border-radius:999px;width:${Math.round(n/Math.max(total.e,total.w,total.m)*100)}%;background:${c}"></i></div></div>`).join('')+
+      `<div class="card" style="padding:9px 12px"><div style="display:flex;align-items:center;gap:7px;color:var(--stat);font-weight:600;font-size:12.5px">Spam held<span style="margin-left:auto;font-weight:700;color:#F2C078">395</span></div>
+        <div style="height:5px;background:var(--inset);border-radius:999px;margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:97%;background:var(--warn);border-radius:999px"></i></div></div>`+
+      `<div class="mhdr" style="padding-top:8px">Behaviour</div><div class="plate">`+
+      [['auto','Auto-open'],['pause','Pause on error'],['warn','Open on warnings']].map(([k,lb])=>
+        `<div class="prow" data-sw="${k}"><span class="lb" style="font-size:12px">${lb}</span><span class="swt${st.sw[k]?' on':''}"><i></i></span></div>`).join('')+`</div>`;
+    let h='';
+    if(st.cleared)h=`<div class="empty"><div class="e1">Log cleared</div><span class="u" id="b3-restore">Restore (mock)</span></div>`;
+    else{
+      h='<div style="position:relative"><div class="spine"></div>';
+      let era=-1;
+      for(const r of vis){
+        if(r.era!==era){era=r.era;h+=`<div class="era">${ERAS[era]}</div>`;}
+        h+=`<div class="ev ${evClass(r)}${st.sel===r.id?' sel':''}" data-id="${r.id}">
+          <i class="dot" style="background:${SEVC[r.sev]}"></i>
+          <span class="tx2">${r.tx}</span>${repChip(r)}<span class="r">${r.t}</span></div>`;
+        if(st.sel===r.id)h+=`<div class="exwell" data-noev>${inspectorHTML(r,{ignored:st.ignored.has(r.id),compact:true})}</div>`;
+      }
+      h+='</div>';
+      const f=byId(9);
+      if(st.tab!=='spam'&&st.cards.e)h+=`<div class="nowcard">
+        <div class="nowh"><span class="b">Firing now</span><span class="s">1 class · +${f.sup} held back</span><span class="go" id="b3-view">View</span></div>
+        <div class="lrow" data-id="9" style="margin:0 6px 6px"><span class="ts">${f.t}</span><i class="dt" style="background:var(--bad)"></i>${repChip(f)}<span class="tx">${f.tx}</span></div></div>`;
+      h+=`<div style="position:relative;padding-top:6px">
+        <div class="proj"><i class="ring" style="border-color:var(--warn)"></i><div><div class="t" style="color:var(--warn)">Throttle holding 395 repeats</div><div class="s">echo resumes after 10 s of quiet · Settings → Log spam</div></div></div>
+        <div class="proj"><i class="ring"></i><div><div class="t" style="color:var(--dim)">6 benign lines hidden</div><div class="s">the knowledge base explains each one</div></div></div></div>`;
+    }
+    $('#b3-stage').innerHTML=h;
+  }
+  $('#b3-tabs').addEventListener('click',e=>{const t=e.target.closest('[data-tab]');if(t){st.tab=t.dataset.tab;render();}});
+  $('#b3-cards').addEventListener('click',e=>{
+    const s=e.target.closest('[data-sw]'); if(s){st.sw[s.dataset.sw]=!st.sw[s.dataset.sw];render();return;}
+    const c=e.target.closest('[data-card]'); if(c){st.cards[c.dataset.card]=!st.cards[c.dataset.card];render();}});
+  $('#b3-q').addEventListener('input',e=>{st.q=e.target.value.trim().toLowerCase();render();});
+  $('#b3-copy').addEventListener('click',()=>toast(mock,`Copied ${visible().length} lines`));
+  $('#b3-clear').addEventListener('click',()=>{st.cleared=true;render();});
+  $('#b3-stage').addEventListener('click',e=>{
+    if(e.target.closest('#b3-restore')){st.cleared=false;render();return;}
+    if(e.target.closest('#b3-view')){st.tab='all';st.cards.e=true;st.sel=9;render();return;}
+    if(e.target.closest('[data-act]'))return;
+    if(e.target.closest('[data-noev]'))return;
+    const r=e.target.closest('[data-id]');
+    if(r){const id=+r.dataset.id;st.sel=st.sel===id?null:id;render();}});
+  bindActs($('#b3-stage'),mock,{ignore:()=>{st.ignored.add(st.sel);render();toast(mock,'Ignored');},
+                                unignore:()=>{st.ignored.delete(st.sel);render();}});
+  $('#b3-firing').addEventListener('click',()=>{st.tab='all';st.sel=9;render();});
+  render();
+})();
+
+/* ═══════════ B4 — notification stacks (Modern Notifications) ═══════════ */
+(function(){
+  const mock='b4', $=s=>document.querySelector('#b4 '+s);
+  const st={mode:'stacks', q:'', f:{e:true,w:true,m:false}, open:null, expanded:new Set(), dismissed:new Set(), cleared:false};
+  const total=counts(ROWS);
+  function occTimes(r){
+    const [H,M,S]=r.t.split(':').map(Number), out=[];const rand=lcg(r.id*7+3);
+    let s=H*3600+M*60+S;
+    for(let i=0;i<Math.min(r.rep||1,12);i++){out.push([Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(n=>String(n).padStart(2,'0')).join(':'));s+=1+Math.floor(rand()*9);}
+    return out;
+  }
+  function visible(){
+    if(st.cleared)return [];
+    return ROWS.filter(r=>st.f[r.sev]&&!st.dismissed.has(r.id)&&
+      (!st.q||r.tx.toLowerCase().includes(st.q)||(r.mod&&MODS[r.mod].name.toLowerCase().includes(st.q))));
+  }
+  function render(){
+    const vis=visible();
+    $('#b4-counts').textContent=`${vis.length} classes shown · ${ROWS.length-vis.length+BENIGN_HIDDEN} hidden`;
+    $('#b4-seg').innerHTML=[['stacks','Stacks'],['raw','Raw']].map(([k,lb])=>`<span class="s${st.mode===k?' on':''}" data-m="${k}">${lb}</span>`).join('');
+    $('#b4-chips').innerHTML=[['e','Errors',total.e],['w','Warnings',total.w],['m','Messages',total.m]].map(([k,lb,n])=>
+      `<span class="tg${st.f[k]?' on':''}" data-f="${k}"><i class="sw" style="background:${SEVC[k]}"></i>${lb}<span class="ct">${n}</span></span>`).join('');
+    $('#b4-banners').innerHTML=st.cleared?'':`
+      <div class="banner amber" data-go="9">▲ 1 class is firing every frame<span class="r">+395 held back · throttled</span></div>
+      <div class="banner red" data-go="18">▲ Faction dialog is broken by Worldbuilder<span class="r">tap to inspect</span></div>`;
+    const S=$('#b4-stacks');
+    if(st.cleared){S.innerHTML=`<div class="empty" style="height:200px"><div class="e1">All clear</div><div class="e2">New classes will stack here.</div><span class="u" id="b4-restore">Restore (mock)</span></div>`;return;}
+    if(st.mode==='raw'){S.innerHTML=`<div class="plate" style="background:var(--bg)">${vis.map(r=>lrowHTML(r,null)).join('')}</div>`;return;}
+    S.innerHTML=vis.map(r=>{
+      const stacked=(r.rep||1)>1&&!st.expanded.has(r.id);
+      const glyph=r.sev==='e'?'✕':r.sev==='w'?'!':'·';
+      const open=st.open===r.id;
+      return `<div class="stk">
+        ${stacked?'<span class="peek"></span><span class="peek2"></span>':''}
+        <div class="stkc${open?' open':''}" data-id="${r.id}">
+          <div class="stkh">
+            <span class="ic" style="background:${sevTint(r.sev)};color:${SEVC[r.sev]}">${glyph}</span>
+            <div style="min-width:0;flex:1 1 auto">
+              <div class="t1">${r.tx}</div>
+              <div class="t2">${r.mod?MODS[r.mod].name:'Unattributed'} · first ${r.t}${r.sup?' · +'+r.sup+' held back':''}</div></div>
+            <div class="rgt">${r.rep>1?`<div class="xn">×${r.rep}</div>`:''}<div class="tm">${r.t}</div></div></div>
+          ${r.rep>1?(st.expanded.has(r.id)
+            ?`<div class="drawer" data-noev>${occTimes(r).map((t,i)=>`<div class="occ"><span class="n">#${i+1}</span>${t}</div>`).join('')}${r.rep>12?`<div class="more">…and ${r.rep-12} more</div>`:''}<div class="more" data-collapse="${r.id}">Collapse</div></div>`
+            :`<div class="more" data-expand="${r.id}">Show all ${r.rep} occurrences</div>`):''}
+          <div class="qact"><span class="q" data-details="${r.id}">${open?'Hide details':'Details'}</span>
+            <span class="q" data-act="copy">Copy</span><span class="q dim" data-ignore="${r.id}">Ignore</span></div>
+          ${open?`<div class="drawer" data-noev>${culpHTML(r)}${diagHTML(r,false)}${traceHTML(r)}</div>`:''}
+        </div></div>`;
+    }).join('')||`<div class="empty" style="height:160px"><div class="e2">Nothing matches.</div></div>`;
+  }
+  $('#b4-seg').addEventListener('click',e=>{const m=e.target.closest('[data-m]');if(m){st.mode=m.dataset.m;render();}});
+  $('#b4-chips').addEventListener('click',e=>{const f=e.target.closest('[data-f]');if(f){st.f[f.dataset.f]=!st.f[f.dataset.f];render();}});
+  $('#b4-q').addEventListener('input',e=>{st.q=e.target.value.trim().toLowerCase();render();});
+  $('#b4-clear').addEventListener('click',()=>{st.cleared=true;render();toast(mock,'All classes cleared');});
+  $('#b4-banners').addEventListener('click',e=>{
+    const b=e.target.closest('[data-go]');
+    if(b){const id=+b.dataset.go;st.f.e=true;st.open=id;st.mode='stacks';render();
+      const el=document.querySelector(`#b4 .stkc[data-id="${id}"]`); if(el)el.scrollIntoView({block:'center',behavior:'smooth'});}});
+  $('#b4-stacks').addEventListener('click',e=>{
+    if(e.target.closest('#b4-restore')){st.cleared=false;render();return;}
+    const ex=e.target.closest('[data-expand]'); if(ex){st.expanded.add(+ex.dataset.expand);render();return;}
+    const co=e.target.closest('[data-collapse]'); if(co){st.expanded.delete(+co.dataset.collapse);render();return;}
+    const dt=e.target.closest('[data-details]'); if(dt){const id=+dt.dataset.details;st.open=st.open===id?null:id;render();return;}
+    const ig=e.target.closest('[data-ignore]'); if(ig){st.dismissed.add(+ig.dataset.ignore);render();toast(mock,'Class ignored for this session');return;}
+    if(e.target.closest('[data-act]')||e.target.closest('[data-noev]'))return;
+    const c=e.target.closest('.stkc'); if(c&&st.mode==='stacks'){const id=+c.dataset.id;st.open=st.open===id?null:id;render();}});
+  bindActs($('#b4-stacks'),mock,{});
+  render();
+})();
+
+/* ═══════════ B5 — impact deck (Needs Tab) ═══════════ */
+(function(){
+  const mock='b5', $=s=>document.querySelector('#b5 '+s);
+  const st={sel:6, seg:'session', ignored:new Set()};
+  const ranked=ROWS.filter(r=>r.cls).slice().sort((a,b)=>b.cls.score-a.cls.score);
+  function scoreColor(s){return s>=8?'var(--bad)':s>=5?'var(--warn)':s>0?'var(--accent)':'var(--dim3)';}
+  function scoreBg(s){return s>=8?'rgba(230,89,89,.15)':s>=5?'rgba(242,166,51,.14)':s>0?'rgba(115,191,255,.13)':'var(--rowalt)';}
+  function render(){
+    $('#b5-meters').innerHTML=`
+      <div class="meter"><span class="k">Stability</span><div class="tr"><i style="width:41%;background:var(--bad)"></i></div><span class="v" style="color:var(--bad)">41%</span></div>
+      <div class="meter"><span class="k">Attributed</span><div class="tr"><i style="width:88%;background:var(--accent)"></i></div><span class="v" style="color:var(--accent)">88%</span></div>
+      <div class="meter"><span class="k">Spam caught</span><div class="tr"><i style="width:97%;background:var(--good)"></i></div><span class="v" style="color:var(--good)">97%</span></div>`;
+    $('#b5-rank').innerHTML=ranked.map(r=>{
+      const s=r.cls.score;
+      return `<div class="srow${st.sel===r.id?' sel':''}" data-id="${r.id}">
+        <span class="sc" style="background:${scoreBg(s)};color:${scoreColor(s)}">${s?s.toFixed(1):'—'}</span>
+        <div style="min-width:0;flex:1 1 auto"><div class="t1">${r.cls.diag.t}</div>
+          <div class="t2">${r.mod?MODS[r.mod].name:'unattributed'}${r.rep>1?' · ×'+r.rep:''}</div>
+          <div class="bar"><i style="width:${Math.max(3,s*10)}%;background:${scoreColor(s)}"></i></div></div></div>`;
+    }).join('');
+    detail();
+  }
+  function detail(){
+    const r=byId(st.sel);
+    let h=impHTML(r)+krowHTML(r)+`<div class="well">${r.tx}</div>`;
+    h+=`<div style="display:flex;gap:10px;align-items:stretch">
+      <div class="card" style="flex:1.15 1 0;min-width:0"><div class="ch">Why this ranking</div>`+
+      r.cls.bd.map(([k,v,win])=>`<div class="kv"><span class="k" style="${win?'color:var(--stat);font-weight:600':''}">${k}</span>
+        <span class="v" style="color:${win?scoreColor(r.cls.score):'var(--dim2)'}">${v}</span></div>`).join('')+
+      `<div style="color:var(--dim3);font-size:11px;padding-top:8px;line-height:1.5">Winner: <span style="color:var(--dim)">${r.cls.win}</span>. Context modules stay under 1.0 by the house rule — evidence, not vibes.</div></div>
+      <div class="card" style="flex:1 1 0;min-width:0;display:flex;flex-direction:column"><div class="ch">Occurrences
+        <span class="spacer"></span><span class="seg" id="b5-seg">${['10m','session'].map(s=>`<span class="s${st.seg===s?' on':''}" data-seg="${s}">${s}</span>`).join('')}</span></div>
+        <div style="flex:1 1 auto;min-height:64px" id="b5-chart"></div>
+        <div style="display:flex;gap:6px;align-items:center;padding-top:6px;font-size:11px;color:var(--dim)">
+          <i class="dt" style="background:${SEVC[r.sev]}"></i>${SEVN[r.sev]}s · ${(r.rep||1)+(r.sup||0)} total${r.sup?' · '+r.sup+' held back':''}</div></div></div>`;
+    h+=culpHTML(r)+diagHTML(r,st.ignored.has(r.id))+reportHTML(r)+traceHTML(r);
+    $('#b5-detail').innerHTML=h;
+    $('#b5-chart').innerHTML=sparkSVG([{v:spark(st.sel*13+(st.seg==='10m'?5:0),24,(r.rep||1)+2),c:SEVC[r.sev]}],280,64);
+    const sg=$('#b5-seg'); if(sg)sg.addEventListener('click',e=>{const s=e.target.closest('[data-seg]');if(s){st.seg=s.dataset.seg;detail();}});
+  }
+  $('#b5-rank').addEventListener('click',e=>{const r=e.target.closest('[data-id]');if(r){st.sel=+r.dataset.id;render();}});
+  bindActs($('#b5-detail'),mock,{ignore:()=>{st.ignored.add(st.sel);detail();toast(mock,'Ignored');},
+                                 unignore:()=>{st.ignored.delete(st.sel);detail();}});
+  render();
+})();
+</script>
+</body></html>
