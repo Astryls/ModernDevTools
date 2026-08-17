@@ -26,8 +26,8 @@ namespace ModernDevTools
     {
         private const float Pad = 12f;
         private const float Gap = 10f;
-        private const float RowH = 26f;
-        private const float BarH = 28f;
+        private const float RowH = 28f;   // B1: a touch more air per row (suite rhythm)
+        private const float BarH = 30f;   // capsule pills need the height to read as capsules
 
         // Sidebar geometry.
         private const float SideW = 212f;
@@ -118,7 +118,9 @@ namespace ModernDevTools
 
         private void DrawAll(Rect inRect)
         {
-            Spatial.Surface(inRect, Palette.BG);
+            // Near-black page under raised panel2 surfaces - the suite's contrast hierarchy. (The
+            // old base was Palette.BG, which put the window at the same level as its own panels.)
+            Spatial.Surface(inRect, Palette.PageBG);
 
             Rect content = inRect.ContractedBy(Pad);
             RebuildFiltered();
@@ -166,12 +168,12 @@ namespace ModernDevTools
             // Large title + shown count.
             Text.Font = GameFont.Medium;
             float titleH = Text.LineHeight;
-            UILabel(new Rect(x, y, w - 22f, titleH), "MDT_Title".Translate(), Palette.Stat, TextAnchor.MiddleLeft);
+            UILabel(new Rect(x, y, w - 22f, titleH), "MDT_Title".Translate(), Palette.Bright, TextAnchor.MiddleLeft);
             Text.Font = GameFont.Small;
             y += titleH + 1f;
 
             string shown = "MDT_Shown".Translate(_filtered.Count).ToString();
-            if (_hidden > 0) shown += "  " + "MDT_HiddenSuffix".Translate(_hidden);
+            if (_hidden > 0) shown += " " + "MDT_HiddenSuffix".Translate(_hidden);
             UILabel(new Rect(x, y, w, 18f), shown, Palette.TextFaint, TextAnchor.MiddleLeft);
             y += 18f + 12f;
 
@@ -237,13 +239,16 @@ namespace ModernDevTools
             // ── mods-changed, pinned to the bottom of the column.
             if (_modsVisible)
             {
+                // Amber capsule pill with centred content - the suite's soft-banner shape.
                 Rect mc = new Rect(x, r.yMax - 14f - GroupRowH, w, GroupRowH);
-                Spatial.Surface(mc, Color.Lerp(Palette.GroupBG, Palette.Warn, 0.18f));
                 bool over = Mouse.IsOver(mc);
-                Spatial.Dot(new Rect(mc.x + 12f, mc.center.y - 4f, 8f, 8f), Palette.Warn);
-                UILabel(new Rect(mc.x + 28f, mc.y, mc.width - 36f, mc.height),
-                        "MDT_ModsChangedBtn".Translate(ModChange.Report.Count),
-                        over ? Palette.Stat : Palette.Warn, TextAnchor.MiddleLeft);
+                Spatial.Pill(mc, new Color(Palette.Warn.r, Palette.Warn.g, Palette.Warn.b, over ? 0.22f : 0.14f));
+                Text.Font = GameFont.Small;
+                string mcLabel = "MDT_ModsChangedBtn".Translate(ModChange.Report.Count);
+                float mlw = Mathf.Min(TextMetrics.Size(mcLabel).x, mc.width - 44f);
+                float bx = mc.center.x - (mlw + 16f) / 2f;
+                Spatial.Dot(new Rect(bx, mc.center.y - 4f, 8f, 8f), Palette.Warn);
+                Palette.LabelFit(new Rect(bx + 16f, mc.y, mlw + 6f, mc.height), mcLabel, Palette.Warn);
                 TooltipHandler.TipRegion(mc, ModChangeTooltip());
                 if (Widgets.ButtonInvisible(mc) && !Find.WindowStack.IsOpen<Dialog_ModChanges>())
                     Find.WindowStack.Add(new Dialog_ModChanges());
@@ -252,8 +257,27 @@ namespace ModernDevTools
 
         private static float SidebarHeader(float x, float y, float w, string label)
         {
-            UILabel(new Rect(x + 4f, y, w - 8f, HeaderH), label, Palette.TextFaint, TextAnchor.MiddleLeft);
+            UILabel(new Rect(x + 4f, y, w - 8f, HeaderH), Micro(label), Palette.TextFaint, TextAnchor.MiddleLeft);
             return y + HeaderH;
+        }
+
+        // Uppercased micro-header cache. The suite's signature metadata label (CARE / OUTFIT /
+        // UNASSIGNED in the sibling tabs) is uppercase, and this deliberately supersedes the earlier
+        // sentence-case-only call FOR SECTION HEADERS ONLY. ToUpperInvariant is an identity for
+        // unicased scripts, and its worst case elsewhere (Turkish dotted i) is cosmetic in a header;
+        // content strings are never uppercased. Cached because translated headers are stable and the
+        // draw runs several passes a frame.
+        private static readonly Dictionary<string, string> _microCache = new Dictionary<string, string>();
+
+        private static string Micro(string label)
+        {
+            if (label.NullOrEmpty()) return "";
+            if (!_microCache.TryGetValue(label, out string up))
+            {
+                up = label.ToUpperInvariant();
+                _microCache[label] = up;
+            }
+            return up;
         }
 
         /// <summary>One type filter: colour dot, label, count. The whole row toggles it; an off filter
@@ -313,11 +337,13 @@ namespace ModernDevTools
             float copyW = BtnW("MDT_CopyAll".Translate());
             Rect searchR = new Rect(r.x, y, r.width - clearW - copyW - Gap * 2f, BarH);
             DrawSearch(searchR);
-            if (TintButton(new Rect(searchR.xMax + Gap, y, copyW, BarH), "MDT_CopyAll".Translate(),
+            if (PillButton(new Rect(searchR.xMax + Gap, y, copyW, BarH), "MDT_CopyAll".Translate(),
                            "MDT_CopyAllTip".Translate(), Palette.Accent))
                 Copy(BuildAllMessages());
-            if (TintButton(new Rect(searchR.xMax + Gap + copyW + Gap, y, clearW, BarH), "MDT_Clear".Translate(),
-                           "MDT_ClearTip".Translate(), Palette.Bad))
+            // Softened red on the destructive pill (the suite's danger-text treatment; full Bad is
+            // reserved for status - the error dot and the impact banner - never for a control label).
+            if (PillButton(new Rect(searchR.xMax + Gap + copyW + Gap, y, clearW, BarH), "MDT_Clear".Translate(),
+                           "MDT_ClearTip".Translate(), Color.Lerp(Palette.Bad, Palette.Bright, 0.35f)))
             {
                 Log.Clear();
                 LogState.ClearSelection();
@@ -359,29 +385,46 @@ namespace ModernDevTools
             float h = Mathf.Max(textH, 24f) + 18f;
 
             Rect card = new Rect(r.x, r.y, r.width, h);
-            Spatial.Surface(card, Color.Lerp(Palette.GroupBG, Palette.Accent, 0.16f));
+            Spatial.Surface(card, new Color(Palette.Accent.r, Palette.Accent.g, Palette.Accent.b, 0.10f));
 
             Rect badge = new Rect(card.x + 12f, card.y + (h - 18f) / 2f, 18f, 18f);
             Spatial.Dot(badge, Palette.Accent);
-            UILabel(badge, "i", Palette.BG, TextAnchor.MiddleCenter);
+            UILabel(badge, "i", Palette.Ink, TextAnchor.MiddleCenter);
 
             GUI.color = Palette.Stat;
             Text.Anchor = TextAnchor.UpperLeft;
             Widgets.Label(new Rect(card.x + 38f, card.y + 9f, textW, textH), text);
             GUI.color = Color.white;
 
-            if (PlainButton(new Rect(card.xMax - 12f - btnW, card.y + (h - 24f) / 2f, btnW, 24f),
-                            "MDT_CompatDismiss".Translate()))
-                LogWindowCompat.DismissHint();
+            // Frosted capsule on the tinted strip (white at low alpha, not a grouped fill).
+            Rect dr = new Rect(card.xMax - 12f - btnW, card.y + (h - 24f) / 2f, btnW, 24f);
+            bool dOver = Mouse.IsOver(dr);
+            Spatial.Pill(dr, new Color(1f, 1f, 1f, dOver ? 0.14f : 0.08f));
+            UILabel(dr, "MDT_CompatDismiss".Translate(), Palette.Stat, TextAnchor.MiddleCenter);
+            if (Widgets.ButtonInvisible(dr)) LogWindowCompat.DismissHint();
 
             return h + Gap;
         }
 
         private void DrawSearch(Rect r)
         {
-            Spatial.RowPlate(r, Palette.GroupBG);
+            // Suite search: rounded inset well + the vanilla magnifier, with a 1px accent ring while
+            // focused (two nested plates - the ring costs a second 9-slice only while focused).
+            bool focused = GUI.GetNameOfFocusedControl() == "MDT_Search";
+            if (focused)
+            {
+                Spatial.RowPlate(r, new Color(Palette.Accent.r, Palette.Accent.g, Palette.Accent.b, 0.55f));
+                Spatial.RowPlate(r.ContractedBy(1f), Palette.BGD);
+            }
+            else Spatial.RowPlate(r, Palette.BGD);
+
+            GUI.color = Palette.TextFaint;
+            GUI.DrawTexture(new Rect(r.x + 9f, r.center.y - 7f, 14f, 14f), Verse.TexButton.Search, ScaleMode.ScaleToFit);
+            GUI.color = Color.white;
+
+            Rect field = new Rect(r.x + 29f, r.y, r.width - 35f, r.height);
             string cur = LogState.Search ?? "";
-            string edited = Palette.SearchField(r, "MDT_Search", cur, "MDT_SearchPlaceholder".Translate());
+            string edited = Palette.SearchFieldFlat(field, "MDT_Search", cur, "MDT_SearchPlaceholder".Translate());
             if (edited != cur) LogState.Search = edited;
         }
 
@@ -389,8 +432,9 @@ namespace ModernDevTools
 
         private void DrawList(Rect rect)
         {
-            Spatial.Surface(rect, Palette.PanelBG);
-            Rect inner = rect.ContractedBy(4f);
+            // No backing plate (B1): the rows float on the window base and the list reads as the
+            // window's negative space - the same treatment the sibling tabs give their row areas.
+            Rect inner = rect.ContractedBy(2f);
 
             int n = _filtered.Count;
             float viewH = n * RowH;
@@ -427,16 +471,22 @@ namespace ModernDevTools
             // Only the SELECTED row gets a rounded plate: a 9-slice per row would be ~800 draw calls
             // a frame on a full list, for corners hidden behind text. Everything else is a hairline
             // separator, which is the iOS grouped-table rule anyway.
-            if (selected) Spatial.RowPlate(row.ContractedBy(1f), new Color(Palette.Accent.r, Palette.Accent.g, Palette.Accent.b, 0.17f));
+            if (selected)
+            {
+                // RowAlt plate inside a 1px accent ring: two nested 9-slices, affordable because at
+                // most ONE row in the whole list is ever selected.
+                Spatial.RowPlate(row.ContractedBy(1f), new Color(Palette.Accent.r, Palette.Accent.g, Palette.Accent.b, 0.55f));
+                Spatial.RowPlate(row.ContractedBy(2f), Palette.RowAlt);
+            }
             else
             {
                 if (index > 0) Spatial.Separator(row.x + 10f, row.y, row.width - 14f);
                 if (Mouse.IsOver(row)) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.035f));
             }
 
+            // Column order (B1): timestamp gutter first, then the type dot, then chip + text - the
+            // time reads as row metadata while the dot sits against the message it describes.
             float x = row.x + 10f;
-            Spatial.Dot(new Rect(x, row.center.y - 4f, 8f, 8f), TypeColor(msg.type));
-            x += 16f;
 
             // Timestamp column. Fixed width (measured once, memoised) so the message text of every row
             // starts on the same pixel - a ragged left edge on a 1000-row list is unreadable.
@@ -451,6 +501,9 @@ namespace ModernDevTools
                 }
             }
 
+            Spatial.Dot(new Rect(x, row.center.y - 4f, 8f, 8f), TypeColor(msg.type));
+            x += 16f;
+
             // Repeat chip. When the throttle held further repeats back we show them as "+N" rather than
             // silently understating the count - a hidden repeat count would defeat the whole point of
             // the log, and the throttle is only defensible if it is honest about what it suppressed.
@@ -462,7 +515,7 @@ namespace ModernDevTools
                 float rw = TextMetrics.Size(rep).x + 14f;
                 Rect chip = new Rect(x, row.y + (RowH - 17f) / 2f, rw, 17f);
                 Spatial.Badge(chip, rep,
-                    suppressed > 0 ? new Color(Palette.Warn.r, Palette.Warn.g, Palette.Warn.b, 0.20f) : Palette.BGD,
+                    suppressed > 0 ? new Color(Palette.Warn.r, Palette.Warn.g, Palette.Warn.b, 0.20f) : Palette.RowAlt,
                     suppressed > 0 ? Palette.Warn : Palette.TextDim);
                 if (suppressed > 0) TooltipHandler.TipRegion(chip, "MDT_SuppressedTip".Translate(suppressed));
                 x += rw + 8f;
@@ -482,7 +535,7 @@ namespace ModernDevTools
 
         private void DrawInspector(Rect rect)
         {
-            Spatial.Surface(rect, Palette.PanelBG);
+            Spatial.Surface(rect, Palette.SidebarBG);   // panel2, matching the sidebar (B1)
             Spatial.TopHighlight(rect);
             Rect inner = rect.ContractedBy(12f);
 
@@ -516,14 +569,6 @@ namespace ModernDevTools
             // Impact banner: severity + performance impact + known/unknown
             y = DrawImpactBanner(w, y, msg, a);
 
-            // Copy actions
-            float bw = (w - 12f) / 3f;
-            if (PlainButton(new Rect(0f, y, bw, 26f), "MDT_CopyMessage".Translate(), Palette.Accent)) Copy(msg.text);
-            if (PlainButton(new Rect(bw + 6f, y, bw, 26f), "MDT_CopyTrace".Translate(), Palette.Accent)) Copy(msg.StackTrace);
-            if (PlainButton(new Rect(2f * (bw + 6f), y, bw, 26f), "MDT_CopyReport".Translate(), Palette.Accent))
-                Copy(ReportBuilder.FullReport(msg, a));
-            y += 26f + 12f;
-
             // Type header
             string head = TypeLabel(msg.type);
             if (msg.repeats > 1) head += "   x" + msg.repeats;
@@ -552,7 +597,16 @@ namespace ModernDevTools
             GUI.color = Palette.Stat;
             Widgets.Label(new Rect(mwell.x + 12f, mwell.y + 9f, mwell.width - 24f, mth), mt);
             GUI.color = Color.white;
-            y += mwell.height + 14f;
+            y += mwell.height + 10f;
+
+            // Copy actions sit under the message they act on (B1 inspector order: impact, type,
+            // message, actions - the top-down "what / how bad / what to do" read of the mockup).
+            float bw = (w - 12f) / 3f;
+            if (PlainButton(new Rect(0f, y, bw, 26f), "MDT_CopyMessage".Translate(), Palette.Accent)) Copy(msg.text);
+            if (PlainButton(new Rect(bw + 6f, y, bw, 26f), "MDT_CopyTrace".Translate(), Palette.Accent)) Copy(msg.StackTrace);
+            if (PlainButton(new Rect(2f * (bw + 6f), y, bw, 26f), "MDT_CopyReport".Translate(), Palette.Accent))
+                Copy(ReportBuilder.FullReport(msg, a));
+            y += 26f + 14f;
 
             // Likely source
             y = Section(w, y, "MDT_SectionSource".Translate());
@@ -761,8 +815,13 @@ namespace ModernDevTools
             UILabel(new Rect(cx, cy, titleW, titleH), title, Palette.Bright, TextAnchor.MiddleLeft);
             if (d.Ignorable)
             {
+                // Small capsule chip, dim until hovered - the mockup's quiet Ignore affordance.
                 Rect igR = new Rect(card.xMax - 14f - 66f, cy + (titleH - 20f) / 2f, 66f, 20f);
-                if (PlainButton(igR, "MDT_Ignore".Translate(), Palette.TextDim, "MDT_IgnoreTip".Translate()))
+                bool igOver = Mouse.IsOver(igR);
+                Spatial.Pill(igR, igOver ? Color.Lerp(Palette.RowAlt, Palette.BGL, 0.5f) : Palette.RowAlt);
+                UILabel(igR, "MDT_Ignore".Translate(), igOver ? Palette.Stat : Palette.TextDim, TextAnchor.MiddleCenter);
+                TooltipHandler.TipRegion(igR, "MDT_IgnoreTip".Translate());
+                if (Widgets.ButtonInvisible(igR))
                     ModernDevToolsMod.IgnoreIssue(d.Source);
             }
             cy += titleH;
@@ -795,12 +854,11 @@ namespace ModernDevTools
 
         // --- shared bits ---
 
-        /// <summary>Uppercase-ish micro section header, iOS grouped-table style. The suite rule is
-        /// sentence case and ToUpper on a translated string is not safe in every language, so the
-        /// house rule wins and the separation comes from size + colour instead.</summary>
+        /// <summary>Uppercase micro section header - see <see cref="Micro"/> for why headers (and
+        /// only headers) are uppercased despite the sentence-case house rule.</summary>
         private float Section(float w, float y, string label)
         {
-            UILabel(new Rect(4f, y, w - 8f, HeaderH), label, Palette.TextFaint, TextAnchor.MiddleLeft);
+            UILabel(new Rect(4f, y, w - 8f, HeaderH), Micro(label), Palette.TextFaint, TextAnchor.MiddleLeft);
             return y + HeaderH + 4f;
         }
 
@@ -829,30 +887,38 @@ namespace ModernDevTools
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        /// <summary>Neutral grouped-fill button with tinted text (iOS "plain" button).</summary>
+        /// <summary>Neutral grouped-fill button with tinted text (the suite "plain" button).</summary>
         private static bool PlainButton(Rect r, string label, Color? tint = null, string tooltip = null)
         {
             bool over = Mouse.IsOver(r);
-            Spatial.RowPlate(r, over ? Color.Lerp(Palette.GroupBG, Palette.BGL, 0.6f) : Palette.GroupBG);
+            Spatial.RowPlate(r, over ? Palette.RowAlt : Palette.GroupBG);
             UILabel(r, label, tint ?? Palette.Stat, TextAnchor.MiddleCenter);
             if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
             return Widgets.ButtonInvisible(r);
         }
 
-        /// <summary>Accent-filled primary button (iOS "filled").</summary>
+        /// <summary>Accent-filled primary button. Ink text on the accent fill - the token the sibling
+        /// tabs use on every accent surface (Palette.BG was close, but it is a surface colour).</summary>
         private static bool FilledButton(Rect r, string label, string tooltip = null)
         {
             bool over = Mouse.IsOver(r);
             Spatial.RowPlate(r, over ? Color.Lerp(Palette.Accent, Color.white, 0.12f) : Palette.Accent);
-            UILabel(r, label, Palette.BG, TextAnchor.MiddleCenter);
+            UILabel(r, label, Palette.Ink, TextAnchor.MiddleCenter);
             if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
             return Widgets.ButtonInvisible(r);
         }
 
-        /// <summary>Grouped-fill button whose LABEL carries the tint - used for Copy all / Clear, where
-        /// the colour is the only thing distinguishing a bulk action from a destructive one.</summary>
-        private static bool TintButton(Rect r, string label, string tooltip, Color tint)
-            => PlainButton(r, label, tint, tooltip);
+        /// <summary>Capsule action pill (the suite's control shape for bar-level actions) whose LABEL
+        /// carries the tint - Copy all / Clear, where colour separates bulk from destructive.</summary>
+        private static bool PillButton(Rect r, string label, string tooltip, Color tint)
+        {
+            bool over = Mouse.IsOver(r);
+            Text.Font = GameFont.Small;
+            Spatial.Pill(r, over ? Palette.RowAlt : Palette.GroupBG);
+            UILabel(r, label, tint, TextAnchor.MiddleCenter);
+            if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
+            return Widgets.ButtonInvisible(r);
+        }
 
         private static float BtnW(string label)
         {

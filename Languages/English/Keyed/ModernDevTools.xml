@@ -32,6 +32,7 @@
   <MDT_ClearTip>Clear all log messages.</MDT_ClearTip>
   <MDT_CopyAll>Copy all</MDT_CopyAll>
   <MDT_CopyAllTip>Copy every message and stack trace to the clipboard.</MDT_CopyAllTip>
+  <MDT_TrayLabel>Add-ons</MDT_TrayLabel>
   <MDT_CopyMessage>Copy message</MDT_CopyMessage>
   <MDT_CopyTrace>Copy stack trace</MDT_CopyTrace>
   <MDT_CopyReport>Copy report</MDT_CopyReport>
@@ -40,7 +41,7 @@
   <MDT_ModulesTip>Manage analysis modules and ignored warnings.</MDT_ModulesTip>
   <MDT_Ignore>Ignore</MDT_Ignore>
   <MDT_IgnoreTip>Hide this harmless class of warnings from the log. Undo it from the Modules button.</MDT_IgnoreTip>
-  <MDT_HiddenSuffix>({0} hidden)</MDT_HiddenSuffix>
+  <MDT_HiddenSuffix>· {0} hidden</MDT_HiddenSuffix>
   <MDT_OpenModPage>Open the mod's page</MDT_OpenModPage>
 
   <!-- Message types -->

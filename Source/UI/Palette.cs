@@ -28,11 +28,17 @@ namespace ModernDevTools
         public static readonly Color RowAlt = FromHex(0x20242A);   // alternating row plate
         public static readonly Color StripGray = FromHex(0x5A6270);// neutral strip (info messages)
 
-        // iOS grouped-list chrome (added for the sidebar layout). These are NEUTRALS only - every
+        // Spatial chrome (added for the sidebar layout; hexes bridged to the suite standard in the
+        // B1 pass - the sidebar and inspector wear the suite's panel2, plates wear its panel, and the
+        // window itself sits on a near-black page so raised surfaces actually read as raised. The old
+        // values put the page at BG level and stacked LIGHTER panels on it, which inverted the
+        // contrast hierarchy of Modern Health Tab / Colonist Bar.) These are NEUTRALS only - every
         // semantic colour above is untouched, so the suite's hex-for-hex parity contract holds and
         // "same meaning = same pixel across the suite" still applies.
-        public static readonly Color SidebarBG = FromHex(0x1A1E23);  // raised nav column
-        public static readonly Color GroupBG = FromHex(0x1F242A);    // grouped-list plate
+        public static readonly Color PageBG = FromHex(0x0A0C10);     // window backdrop (suite page)
+        public static readonly Color SidebarBG = FromHex(0x12161A);  // nav column / inspector (panel2)
+        public static readonly Color GroupBG = FromHex(0x191D21);    // grouped-list plate (panel)
+        public static readonly Color Ink = FromHex(0x06121F);        // text ON an accent fill
         public static readonly Color SwitchOff = FromHex(0x3A4048);  // switch track, off
         public static readonly Color Sep = new Color(1f, 1f, 1f, 0.07f);      // hairline separator
         public static readonly Color TextFaint = new Color(0.62f, 0.65f, 0.70f, 0.55f);
@@ -496,11 +502,21 @@ namespace ModernDevTools
         /// </summary>
         public static string SearchField(Rect r, string controlName, string text, string placeholder = null)
         {
-            text = text ?? "";
             bool focused = GUI.GetNameOfFocusedControl() == controlName;
-
             Widgets.DrawBoxSolid(r, BGD);
             DrawBox(r, focused ? Accent : BGL, 1);
+            return SearchFieldFlat(r, controlName, text, placeholder);
+        }
+
+        /// <summary>
+        /// The text-entry core of <see cref="SearchField"/> with NO chrome of its own - the caller
+        /// draws the well (the log window puts it inside a rounded Spatial plate, which the square
+        /// box above would paint straight over). Placeholder shows while empty and unfocused.
+        /// </summary>
+        public static string SearchFieldFlat(Rect r, string controlName, string text, string placeholder = null)
+        {
+            text = text ?? "";
+            bool focused = GUI.GetNameOfFocusedControl() == controlName;
 
             Text.Font = GameFont.Small;
             GUI.SetNextControlName(controlName);

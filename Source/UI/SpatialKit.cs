@@ -122,10 +122,13 @@ namespace ModernDevTools
             Widgets.DrawBoxSolid(new Rect(x, y, w, 1f), Palette.Sep);
         }
 
-        /// <summary>iOS switch. Green when on, neutral track when off; the knob is a single quad.</summary>
+        /// <summary>iOS-shaped switch in suite colours: the ACCENT carries "on" (the suite marks
+        /// interactive state with the accent; green is reserved for good/health semantics). This also
+        /// matches the settings-page toggles, which were already accent - the green here was the one
+        /// switch in the mod that disagreed.</summary>
         public static void Switch(Rect r, bool on)
         {
-            Pill(r, on ? Palette.Good : Palette.SwitchOff);
+            Pill(r, on ? Palette.Accent : Palette.SwitchOff);
             float d = Mathf.Max(4f, r.height - 4f);
             Dot(new Rect(on ? r.xMax - 2f - d : r.x + 2f, r.y + 2f, d, d), Color.white);
         }

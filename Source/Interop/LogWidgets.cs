@@ -39,9 +39,10 @@ namespace ModernDevTools
     /// own tray, alongside anything registered natively through ModernDevToolsAPI.
     ///
     /// ON APPEARANCE. Hosted widgets draw themselves with vanilla WidgetRow controls, so they do not
-    /// wear the suite's flat chrome. Rather than fight that, the tray is a recessed well: the foreign
-    /// styling reads as a deliberate, contained boundary instead of as inconsistency leaking into the
-    /// suite. Nothing that existed before changes appearance.
+    /// wear the suite's flat chrome. Rather than fight that, the tray is a clearly bounded container -
+    /// a raised rounded plate with an ADD-ONS micro-label (B1) - so the foreign styling reads as a
+    /// deliberate, contained boundary instead of as inconsistency leaking into the suite. The
+    /// ButtonText restyle prefix in HardeningPatches tones the buttons themselves while Drawing is true.
     /// </summary>
     public static class LogWidgets
     {
@@ -63,7 +64,7 @@ namespace ModernDevTools
         private static readonly List<Entry> _hugsCache = new List<Entry>();
         private static int _hugsSeenCount = -1;
 
-        public const float TrayHeight = 30f;
+        public const float TrayHeight = 34f;   // room for the micro-label + 24px hosted buttons
 
         /// <summary>
         /// True only while hosted widgets are drawing. HardeningPatches installs a prefix on
@@ -86,6 +87,9 @@ namespace ModernDevTools
         // flip: a hosted widget that throws is removed on the spot (see DrawList).
         private static int _anyFrame = -1;
         private static bool _anyCached;
+
+        // Tray micro-label cache (see Draw).
+        private static string _trayLabelSrc, _trayLabelUp;
 
         /// <summary>True when anything would draw in the tray (so the window can reserve space).</summary>
         public static bool Any
@@ -189,12 +193,25 @@ namespace ModernDevTools
             RefreshHugsLib();
             if (_native.Count == 0 && _hugsCache.Count == 0) return;
 
-            Palette.DrawWell(area);
-            Rect inner = area.ContractedBy(4f);
+            Spatial.Surface(area, Palette.GroupBG);
+            Rect inner = area.ContractedBy(5f);
 
             GameFont prevFont = Text.Font;
             Text.Font = GameFont.Small;
-            var left = new WidgetRow(inner.x, inner.y, UIDirection.RightThenUp, inner.width, 4f);
+
+            // ADD-ONS micro-label. Uppercased once and cached against the translated string, so a
+            // language switch refreshes it without paying an allocation per pass.
+            string src = "MDT_TrayLabel".Translate();
+            if (src != _trayLabelSrc) { _trayLabelSrc = src; _trayLabelUp = src.ToUpperInvariant(); }
+            float lw = Mathf.Ceil(TextMetrics.Size(_trayLabelUp).x);
+            TextAnchor prevAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            GUI.color = Palette.TextFaint;
+            Widgets.Label(new Rect(inner.x + 6f, inner.y, lw + 4f, inner.height), _trayLabelUp);
+            GUI.color = Color.white;
+            Text.Anchor = prevAnchor;
+
+            var left = new WidgetRow(inner.x + lw + 18f, inner.y, UIDirection.RightThenUp, inner.width, 4f);
             var right = new WidgetRow(inner.xMax, inner.y, UIDirection.LeftThenUp, inner.width, 4f);
 
             Drawing = true;
