@@ -142,7 +142,7 @@ namespace ModernDevTools
                 catch (Exception e)
                 {
                     LastError = e.Message;
-                    Log.Warning("[Modern Dev Tools] community data update failed: " + e.Message);
+                    Log.Warning("[Advanced Dev Tools] community data update failed: " + e.Message);
                 }
                 finally
                 {
@@ -245,7 +245,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.Warning("[Modern Dev Tools] bundled community snapshot load failed: " + e.Message);
+                Log.Warning("[Advanced Dev Tools] bundled community snapshot load failed: " + e.Message);
             }
         }
 
@@ -304,7 +304,7 @@ namespace ModernDevTools
                     if (score > 0) scored.Add(new KeyValuePair<RemoteIssue, int>(b, score));
                 }
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] community bug match failed: " + e.Message, 0x2E19C50); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] community bug match failed: " + e.Message, 0x2E19C50); }
 
             scored.Sort((a, b) => b.Value.CompareTo(a.Value));
             var final = new List<RemoteIssue>(scored.Count);
@@ -333,7 +333,7 @@ namespace ModernDevTools
         private static void TryLoadFile(string path, Action<string> parse)
         {
             try { if (File.Exists(path)) parse(StripBom(File.ReadAllText(path))); }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] failed reading " + Path.GetFileName(path) + ": " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] failed reading " + Path.GetFileName(path) + ": " + e.Message); }
         }
 
         private static byte[] Download(string url, bool binary)
@@ -368,7 +368,7 @@ namespace ModernDevTools
 
         private static void RunBg(Action a)
         {
-            var t = new Thread(() => { try { a(); } catch (Exception e) { Log.Warning("[Modern Dev Tools] community bg task failed: " + e.Message); } });
+            var t = new Thread(() => { try { a(); } catch (Exception e) { Log.Warning("[Advanced Dev Tools] community bg task failed: " + e.Message); } });
             t.IsBackground = true;
             t.Start();
         }

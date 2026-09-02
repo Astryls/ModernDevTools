@@ -29,7 +29,7 @@ namespace ModernDevTools
                 var fi = AccessTools.Field(typeof(Dialog_Debug), "roots");
                 if (fi != null) return AccessTools.StaticFieldRefAccess<Dictionary<DebugTabMenuDef, DebugActionNode>>(fi);
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] could not bind Dialog_Debug.roots: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] could not bind Dialog_Debug.roots: " + e.Message); }
             return null;
         }
 
@@ -48,7 +48,7 @@ namespace ModernDevTools
                 var roots = RootsRef != null ? RootsRef() : null;
                 if (roots != null && tab != null && roots.TryGetValue(tab, out var n)) return n;
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] RootOf failed: " + e.Message, 0x2E19C01); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] RootOf failed: " + e.Message, 0x2E19C01); }
             return null;
         }
 
@@ -226,7 +226,7 @@ namespace ModernDevTools
         public static void TogglePin(DebugActionNode node)
         {
             try { Dialog_DevPalette.ToggleAction(PathOf(node)); }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] toggle pin failed: " + e.Message, 0x2E19C02); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] toggle pin failed: " + e.Message, 0x2E19C02); }
         }
 
         // --- thing icon grid detection (Spawn thing / stack / try place / mod spawn menus) ---
@@ -284,7 +284,7 @@ namespace ModernDevTools
         {
             string path = PathOf(node);
             Broken.Add(path);
-            Log.ErrorOnce("[Modern Dev Tools] debug action '" + path + "' threw while " + phase + ": " + e, path.GetHashCode() ^ 0x2E19C0);
+            Log.ErrorOnce("[Advanced Dev Tools] debug action '" + path + "' threw while " + phase + ": " + e, path.GetHashCode() ^ 0x2E19C0);
         }
     }
 }

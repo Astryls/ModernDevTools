@@ -105,7 +105,7 @@ namespace ModernDevTools
                     if (!ModernDevToolsMod.IsModuleEnabled(def)) continue;
                     if (def.workerClass == null)
                     {
-                        Log.Warning("[Modern Dev Tools] ErrorModuleDef " + def.defName + " has no workerClass, skipping.");
+                        Log.Warning("[Advanced Dev Tools] ErrorModuleDef " + def.defName + " has no workerClass, skipping.");
                         continue;
                     }
                     try
@@ -116,13 +116,13 @@ namespace ModernDevTools
                     }
                     catch (Exception e)
                     {
-                        Log.Warning("[Modern Dev Tools] Could not instantiate module " + def.defName + ": " + e.Message);
+                        Log.Warning("[Advanced Dev Tools] Could not instantiate module " + def.defName + ": " + e.Message);
                     }
                 }
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] Failed to build module list: " + e.Message, 0x2E19B10);
+                Log.WarningOnce("[Advanced Dev Tools] Failed to build module list: " + e.Message, 0x2E19B10);
             }
             list.AddRange(_apiModules);
             _modules = list;

@@ -7,7 +7,7 @@ namespace ModernDevTools
     /// <summary>
     /// Dev-only debug actions that emit test log entries, so the modern debug log (attribution, the
     /// impact banner, the community report card, filters and culling) can be exercised on demand without
-    /// waiting for a real error. They appear under the "Modern Dev Tools" category in the Actions tab of
+    /// waiting for a real error. They appear under the "Advanced Dev Tools" category in the Actions tab of
     /// the dev-actions window (and can be pinned to the palette), from the main menu and in-game.
     ///
     /// The static constructor registers the category's sort order. RimWorld's DebugActionCategories only
@@ -21,8 +21,8 @@ namespace ModernDevTools
     [StaticConstructorOnStartup]
     public static class DebugActions_Testing
     {
-        private const string Category = "Modern Dev Tools";
-        private const string Prefix = "[Modern Dev Tools test] ";
+        private const string Category = "Advanced Dev Tools";
+        private const string Prefix = "[Advanced Dev Tools test] ";
         // Shown in every game state. Note: the flags are AND-combined in IsAllowedInCurrentGameState, so
         // Entry | Playing means "in Entry AND Playing at once" = never - use Invalid (no restriction) for
         // "anywhere". These actions were previously invisible in the list and only usable via the palette.
@@ -36,7 +36,7 @@ namespace ModernDevTools
                 if (DebugActionCategories.categoryOrders != null && !DebugActionCategories.categoryOrders.ContainsKey(Category))
                     DebugActionCategories.categoryOrders[Category] = 50;
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] could not register debug category order: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] could not register debug category order: " + e.Message); }
         }
 
         [DebugAction(Category, "Log test message", allowedGameStates = Anywhere, displayPriority = 900)]
@@ -82,7 +82,7 @@ namespace ModernDevTools
         private static void ThrowTestException()
         {
             // A real exception with a stack trace that runs through this mod's own types, so the stack-trace
-            // attribution should name Modern Dev Tools and the report signature is derived from real frames.
+            // attribution should name Advanced Dev Tools and the report signature is derived from real frames.
             try { ThrowInner(0); }
             catch (Exception e) { Log.Error(Prefix + "caught test exception:\n" + e); }
         }

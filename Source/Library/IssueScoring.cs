@@ -144,7 +144,7 @@ namespace ModernDevTools
                 try { list.Add(new Regex(pat, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)); }
                 catch (Exception e)
                 {
-                    Log.WarningOnce("[Modern Dev Tools] bad regex in " + (ownerId ?? "?") + ": " + e.Message,
+                    Log.WarningOnce("[Advanced Dev Tools] bad regex in " + (ownerId ?? "?") + ": " + e.Message,
                                           (ownerId ?? "").GetHashCode() ^ 0x2E19E30);
                 }
             }

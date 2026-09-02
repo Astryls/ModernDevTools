@@ -27,13 +27,13 @@ namespace ModernDevTools
             {
                 if (!t.IsDefined(typeof(HarmonyPatch), false)) continue;
                 try { harmony.CreateClassProcessor(t).Patch(); }
-                catch (Exception e) { Log.Warning("[Modern Dev Tools] skipped patch class " + t.Name + ": " + e.Message); }
+                catch (Exception e) { Log.Warning("[Advanced Dev Tools] skipped patch class " + t.Name + ": " + e.Message); }
             }
 
             // Hardening patches are installed on demand (they default to off); hand Harmony over so
             // HardeningPatches can apply/remove them as the settings change.
             try { HardeningPatches.Init(harmony); }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] hardening init failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] hardening init failed: " + e.Message); }
 
             TryShowUpdateNotes();
             try { CommunityData.LoadCache(); } catch { }
@@ -74,7 +74,7 @@ namespace ModernDevTools
                     try { Find.WindowStack?.Add(new Dialog_UpdateNotes(prev)); } catch { }
                 });
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] update notes check failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] update notes check failed: " + e.Message); }
         }
     }
 
@@ -106,7 +106,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.ErrorOnce("[Modern Dev Tools] auto-open redirect failed: " + e, 0x2E19A20);
+                Log.ErrorOnce("[Advanced Dev Tools] auto-open redirect failed: " + e, 0x2E19A20);
                 return true; // fail open to vanilla auto-open
             }
         }
@@ -126,7 +126,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.ErrorOnce("[Modern Dev Tools] toggle redirect failed: " + e, 0x2E19A21);
+                Log.ErrorOnce("[Advanced Dev Tools] toggle redirect failed: " + e, 0x2E19A21);
                 return true; // fail open to vanilla toggle
             }
         }
@@ -154,7 +154,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.ErrorOnce("[Modern Dev Tools] select-last redirect failed: " + e, 0x2E19A22);
+                Log.ErrorOnce("[Advanced Dev Tools] select-last redirect failed: " + e, 0x2E19A22);
                 return true;
             }
         }
@@ -167,7 +167,7 @@ namespace ModernDevTools
         static bool Prefix()
         {
             try { Window_ModernDevActions.OpenOrSwitch(DebugTabMenuDefOf.Actions); return false; }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] actions redirect failed: " + e, 0x2E19A23); return true; }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] actions redirect failed: " + e, 0x2E19A23); return true; }
         }
     }
 
@@ -177,7 +177,7 @@ namespace ModernDevTools
         static bool Prefix()
         {
             try { Window_ModernDevActions.OpenOrSwitch(DebugTabMenuDefOf.Settings); return false; }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] settings redirect failed: " + e, 0x2E19A24); return true; }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] settings redirect failed: " + e, 0x2E19A24); return true; }
         }
     }
 
@@ -187,7 +187,7 @@ namespace ModernDevTools
         static bool Prefix()
         {
             try { Window_ModernDevActions.OpenOrSwitch(DebugTabMenuDefOf.Output); return false; }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] output redirect failed: " + e, 0x2E19A25); return true; }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] output redirect failed: " + e, 0x2E19A25); return true; }
         }
     }
 
@@ -209,7 +209,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.ErrorOnce("[Modern Dev Tools] submenu enter redirect failed: " + e, 0x2E19A27);
+                Log.ErrorOnce("[Advanced Dev Tools] submenu enter redirect failed: " + e, 0x2E19A27);
                 return true;
             }
         }
@@ -232,7 +232,7 @@ namespace ModernDevTools
                 else ws.TryRemove(typeof(Window_ModernDevPalette), false);
                 return false;
             }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] palette redirect failed: " + e, 0x2E19A26); return true; }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] palette redirect failed: " + e, 0x2E19A26); return true; }
         }
     }
 

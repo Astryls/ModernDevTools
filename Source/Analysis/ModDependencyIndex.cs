@@ -100,7 +100,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.Warning("[Modern Dev Tools] dependency scan failed: " + e.Message);
+                Log.Warning("[Advanced Dev Tools] dependency scan failed: " + e.Message);
             }
             _byPid = byPid;
             _all = all;

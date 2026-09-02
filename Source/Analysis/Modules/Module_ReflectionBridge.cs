@@ -79,7 +79,7 @@ namespace ModernDevTools
             ReflectionBridgeExtension ext = Ext;
             if (ext == null || ext.typeName.NullOrEmpty())
             {
-                Log.WarningOnce("[Modern Dev Tools] " + (def?.defName ?? "a reflection bridge") +
+                Log.WarningOnce("[Advanced Dev Tools] " + (def?.defName ?? "a reflection bridge") +
                                 " has no ReflectionBridgeExtension (or no typeName); it will do nothing.",
                                 (def?.defName ?? "bridge").GetHashCode() ^ 0x2E19E40);
                 return;
@@ -100,7 +100,7 @@ namespace ModernDevTools
                 bool wantImplicated = !ext.implicatedModMethod.NullOrEmpty();
                 if ((wantDescribe && _describe == null) || (wantImplicated && _implicated == null))
                 {
-                    Log.WarningOnce("[Modern Dev Tools] " + ext.typeName + " was found but its methods did not match " +
+                    Log.WarningOnce("[Advanced Dev Tools] " + ext.typeName + " was found but its methods did not match " +
                                     "the expected contract (string, string), so " + (def?.defName ?? "this bridge") +
                                     " is disabled. describe=" + (_describe != null) + " implicated=" + (_implicated != null),
                                     ext.typeName.GetHashCode() ^ 0x2E19E41);
@@ -112,7 +112,7 @@ namespace ModernDevTools
             {
                 _describe = null;
                 _implicated = null;
-                Log.WarningOnce("[Modern Dev Tools] reflection bridge probe failed for " +
+                Log.WarningOnce("[Advanced Dev Tools] reflection bridge probe failed for " +
                                 (def?.defName ?? ext.typeName) + ": " + e.Message,
                                 (def?.defName ?? "bridge").GetHashCode() ^ 0x2E19E42);
             }

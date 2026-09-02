@@ -119,7 +119,7 @@ namespace ModernDevTools
                         _nodeCachePrefIdx.Add(i);
                     }
                 }
-                catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette resolve failed: " + e.Message, 0x2E19C20); }
+                catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] palette resolve failed: " + e.Message, 0x2E19C20); }
             }
 
             if (prefIndicesOut != null)
@@ -210,7 +210,7 @@ namespace ModernDevTools
         public override void DoWindowContents(Rect inRect)
         {
             try { Draw(inRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] dev palette draw failed: " + e, 0x2E19C21); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] dev palette draw failed: " + e, 0x2E19C21); }
             finally { Palette.ResetGuiState(); }
         }
 
@@ -231,8 +231,7 @@ namespace ModernDevTools
                  Mathf.Abs(DesiredWidth(nodes) - _lastWidth) > 1f))
                 SetInitialSizeAndPosition();
 
-            Widgets.DrawBoxSolid(inRect, Palette.BG);
-            Palette.DrawBox(inRect, Palette.BGL, 1);
+            Palette.DialogBG(inRect);
             Rect content = inRect.ContractedBy(8f);
 
             Text.Font = GameFont.Small;
@@ -415,7 +414,7 @@ namespace ModernDevTools
                 Prefs.Save();
                 _pendingResizeFrame = Time.frameCount;
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette reorder failed: " + e.Message, 0x2E19C22); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] palette reorder failed: " + e.Message, 0x2E19C22); }
         }
 
         /// <summary>Drop indicator + the ghost row riding the cursor. Drawn after every row so it floats

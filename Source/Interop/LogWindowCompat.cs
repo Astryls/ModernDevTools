@@ -19,13 +19,13 @@ namespace ModernDevTools
     ///   * Archotech Logs (kongkim.ArchotechLogs) - postfixes EditWindow_Log.DoWindowContents to add
     ///     its Diagnostics / Export / colour-mode buttons and a repeat-spam banner.
     ///
-    /// Before this type existed, Modern Dev Tools' prefixes returned false unconditionally, so
+    /// Before this type existed, Advanced Dev Tools' prefixes returned false unconditionally, so
     /// EditWindow_Log was never constructed and all of the above silently vanished with no error.
     /// Now the ownership is explicit, user-switchable, and always leaves an escape hatch.
     /// </summary>
     public enum LogWindowMode
     {
-        /// <summary>Modern Dev Tools answers the hotkey, the dev toolbar and auto-open (default).
+        /// <summary>Advanced Dev Tools answers the hotkey, the dev toolbar and auto-open (default).
         /// The vanilla window stays reachable through the "Vanilla log" button.</summary>
         Modern,
         /// <summary>Stand down completely: every log redirect returns to vanilla, so the vanilla
@@ -98,7 +98,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.Warning("[Modern Dev Tools] log-window compat scan failed: " + e.Message);
+                Log.Warning("[Advanced Dev Tools] log-window compat scan failed: " + e.Message);
             }
         }
 
@@ -150,7 +150,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.Warning("[Modern Dev Tools] could not open the vanilla log window: " + e.Message);
+                Log.Warning("[Advanced Dev Tools] could not open the vanilla log window: " + e.Message);
             }
         }
 

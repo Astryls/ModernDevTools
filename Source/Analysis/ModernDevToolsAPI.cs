@@ -26,7 +26,7 @@ namespace ModernDevTools
     /// ================================ PUBLIC API - FROZEN CONTRACT ================================
     ///
     /// Everything in this type is a stable contract for other mods. It is safe to bind by REFLECTION
-    /// so you need no assembly reference and no dependency on Modern Dev Tools being installed:
+    /// so you need no assembly reference and no dependency on Advanced Dev Tools being installed:
     ///
     ///     var api = AccessTools.TypeByName("ModernDevTools.ModernDevToolsAPI");
     ///     api?.GetMethod("RegisterModule")?.Invoke(null, new object[] { myModule });
@@ -104,7 +104,7 @@ namespace ModernDevTools
                 try { ((Action<LogAnalysis>)d)(analysis); }
                 catch (Exception e)
                 {
-                    Log.ErrorOnce("[Modern Dev Tools] an AnalysisCompleted handler threw: " + e,
+                    Log.ErrorOnce("[Advanced Dev Tools] an AnalysisCompleted handler threw: " + e,
                                   d.Method?.Name?.GetHashCode() ?? 0x2E19E20);
                 }
             }
@@ -116,7 +116,7 @@ namespace ModernDevTools
         // lose their UI when it never opens. These members let a mod see who owns it, reach ours, or ask
         // us to stand down - instead of having to guess.
 
-        /// <summary>True while Modern Dev Tools answers the log hotkey, dev toolbar button and auto-open.
+        /// <summary>True while Advanced Dev Tools answers the log hotkey, dev toolbar button and auto-open.
         /// When false the vanilla window behaves exactly as if this mod were not installed.</summary>
         public static bool ModernOwnsLogWindow => LogWindowCompat.ModernOwnsLog;
 
@@ -126,7 +126,7 @@ namespace ModernDevTools
         public static void OpenModernLog() => Window_ModernLog.OpenIfNeeded();
 
         /// <summary>
-        /// Ask Modern Dev Tools to hand the debug log back to vanilla, permanently (it is written to
+        /// Ask Advanced Dev Tools to hand the debug log back to vanilla, permanently (it is written to
         /// settings and the player can flip it back). Intended for a mod that must own the log window
         /// itself; prefer RegisterLogWidget if you only need to add controls.
         /// </summary>
@@ -136,7 +136,7 @@ namespace ModernDevTools
             if (s == null || s.yieldLogWindow) return;
             s.yieldLogWindow = true;
             ModernDevToolsMod.Instance?.WriteSettings();
-            Log.Message("[Modern Dev Tools] another mod requested the log window; standing down to the vanilla log.");
+            Log.Message("[Advanced Dev Tools] another mod requested the log window; standing down to the vanilla log.");
         }
     }
 
@@ -176,7 +176,7 @@ namespace ModernDevTools
                     }
                     catch (Exception e)
                     {
-                        Log.WarningOnce("[Modern Dev Tools] knowledge source '" + SafeLabel(s) + "' threw: " + e.Message,
+                        Log.WarningOnce("[Advanced Dev Tools] knowledge source '" + SafeLabel(s) + "' threw: " + e.Message,
                                         s.GetType().GetHashCode() ^ 0x2E19E21);
                     }
                 }

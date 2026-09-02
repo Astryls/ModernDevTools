@@ -77,7 +77,7 @@ namespace ModernDevTools
             catch (Exception e)
             {
                 Clear();
-                Log.Warning("[Modern Dev Tools] mod-change diff failed: " + e.Message);
+                Log.Warning("[Advanced Dev Tools] mod-change diff failed: " + e.Message);
             }
         }
 
@@ -90,7 +90,7 @@ namespace ModernDevTools
             catch (Exception e)
             {
                 Pending = false;
-                Log.WarningOnce("[Modern Dev Tools] mod-change recompute failed: " + e.Message, 0x2E19E03);
+                Log.WarningOnce("[Advanced Dev Tools] mod-change recompute failed: " + e.Message, 0x2E19E03);
             }
         }
 
@@ -162,7 +162,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.Warning("[Modern Dev Tools] mod snapshot failed: " + e.Message);
+                Log.Warning("[Advanced Dev Tools] mod snapshot failed: " + e.Message);
             }
             return d;
         }
@@ -288,7 +288,7 @@ namespace ModernDevTools
                 ModFingerprint.Begin();               // no-op if it already ran at startup
                 ModChange.Arm(saved, savedVersion, savedLegacy);
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] mod-change init failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] mod-change init failed: " + e.Message); }
         }
     }
 
@@ -314,8 +314,7 @@ namespace ModernDevTools
         {
             try
             {
-                Widgets.DrawBoxSolid(inRect, Palette.BG);
-                Palette.DrawBox(inRect, Palette.BGL, 1);
+                Palette.DialogBG(inRect);
                 Rect content = inRect.ContractedBy(14f);
 
                 Text.Font = GameFont.Medium;
@@ -376,7 +375,7 @@ namespace ModernDevTools
                     GUI.color = Color.white;
                 }
             }
-            catch (Exception ex) { Log.ErrorOnce("[Modern Dev Tools] mod-changes draw failed: " + ex, 0x2E19C40); }
+            catch (Exception ex) { Log.ErrorOnce("[Advanced Dev Tools] mod-changes draw failed: " + ex, 0x2E19C40); }
             finally { Palette.ResetGuiState(); }
         }
 

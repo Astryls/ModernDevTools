@@ -52,14 +52,13 @@ namespace ModernDevTools
         public override void DoWindowContents(Rect inRect)
         {
             try { Draw(inRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] report dialog draw failed: " + e, 0x2E19C60); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] report dialog draw failed: " + e, 0x2E19C60); }
             finally { Palette.ResetGuiState(); }
         }
 
         private void Draw(Rect inRect)
         {
-            Widgets.DrawBoxSolid(inRect, Palette.BG);
-            Palette.DrawBox(inRect, Palette.BGL, 1);
+            Palette.DialogBG(inRect);
             Rect c = inRect.ContractedBy(14f);
             float y = c.y;
 

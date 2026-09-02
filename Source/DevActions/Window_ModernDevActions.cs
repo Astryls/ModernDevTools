@@ -68,7 +68,7 @@ namespace ModernDevTools
                     _restorePalette = true;
                 }
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette hide failed: " + e.Message, 0x2E19C30); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] palette hide failed: " + e.Message, 0x2E19C30); }
         }
 
         public override void PostClose()
@@ -82,7 +82,7 @@ namespace ModernDevTools
                     if (ws != null && !ws.IsOpen<Window_ModernDevPalette>()) ws.Add(new Window_ModernDevPalette());
                 }
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] palette restore failed: " + e.Message, 0x2E19C31); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] palette restore failed: " + e.Message, 0x2E19C31); }
         }
 
         public override Vector2 InitialSize =>
@@ -164,14 +164,13 @@ namespace ModernDevTools
         public override void DoWindowContents(Rect inRect)
         {
             try { DrawAll(inRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] dev window draw failed: " + e, 0x2E19C10); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] dev window draw failed: " + e, 0x2E19C10); }
             finally { Palette.ResetGuiState(); }
         }
 
         private void DrawAll(Rect inRect)
         {
-            Widgets.DrawBoxSolid(inRect, Palette.BG);
-            Palette.DrawBox(inRect, Palette.BGL, 1);
+            Palette.DialogBG(inRect);
             Rect content = inRect.ContractedBy(Pad);
             float y = content.y;
 

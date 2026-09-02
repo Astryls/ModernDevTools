@@ -66,7 +66,7 @@ namespace ModernDevTools
                 }
                 if (!url.NullOrEmpty()) { t.Channel = ReportChannel.Site; t.PageUrl = url; }
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] culprit target resolve failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] culprit target resolve failed: " + e.Message); }
             return t;
         }
 
@@ -90,7 +90,7 @@ namespace ModernDevTools
                     Messages.Message("MDT_ReportPasteToPage".Translate(target.ModName ?? ""), MessageTypeDefOf.TaskCompletion, false);
                 }
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] report-to-culprit failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] report-to-culprit failed: " + e.Message); }
         }
 
         public static string IssueTitle(LogMessage msg, LogAnalysis a, bool isFix) =>
@@ -151,7 +151,7 @@ namespace ModernDevTools
                 Open(q);
                 Messages.Message("MDT_ReportOpened".Translate(), MessageTypeDefOf.TaskCompletion, false);
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] report build failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] report build failed: " + e.Message); }
         }
 
         // --- submit a fix (mod author / helper, structured to the schema) ---
@@ -180,7 +180,7 @@ namespace ModernDevTools
                 Open(q);
                 Messages.Message("MDT_FixFormOpened".Translate(), MessageTypeDefOf.TaskCompletion, false);
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] fix form build failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] fix form build failed: " + e.Message); }
         }
 
         // --- signature: stable across machines, folds exception type + normalized top frame TYPES ---
@@ -226,7 +226,7 @@ namespace ModernDevTools
         public static string FullReport(LogMessage msg, LogAnalysis a, string sig)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Modern Dev Tools report");
+            sb.AppendLine("Advanced Dev Tools report");
             sb.AppendLine("Signature: #" + sig);
             sb.AppendLine("RimWorld: " + SafeVersion());
             // Always included when the engine has it, regardless of the display setting - "when did this

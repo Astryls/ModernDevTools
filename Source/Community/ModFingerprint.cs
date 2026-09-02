@@ -92,7 +92,7 @@ namespace ModernDevTools
             catch (Exception e)
             {
                 _running = false;
-                Log.WarningOnce("[Modern Dev Tools] fingerprint scan could not start: " + e.Message, 0x2E19E01);
+                Log.WarningOnce("[Advanced Dev Tools] fingerprint scan could not start: " + e.Message, 0x2E19E01);
             }
         }
 
@@ -126,7 +126,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] fingerprint scan failed: " + e.Message, 0x2E19E02);
+                Log.WarningOnce("[Advanced Dev Tools] fingerprint scan failed: " + e.Message, 0x2E19E02);
             }
             finally
             {

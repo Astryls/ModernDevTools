@@ -65,7 +65,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] index prewarm failed: " + e.Message, 0x2E19B04);
+                Log.WarningOnce("[Advanced Dev Tools] index prewarm failed: " + e.Message, 0x2E19B04);
             }
         }
 
@@ -90,7 +90,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] Failed to index installed mods: " + e.Message, 0x2E19B01);
+                Log.WarningOnce("[Advanced Dev Tools] Failed to index installed mods: " + e.Message, 0x2E19B01);
             }
 
             try
@@ -105,7 +105,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] Failed to map assemblies to mods: " + e.Message, 0x2E19B02);
+                Log.WarningOnce("[Advanced Dev Tools] Failed to map assemblies to mods: " + e.Message, 0x2E19B02);
             }
 
             return idx;
@@ -347,7 +347,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] Failed to index namespace roots: " + e.Message, 0x2E19B03);
+                Log.WarningOnce("[Advanced Dev Tools] Failed to index namespace roots: " + e.Message, 0x2E19B03);
             }
             // Keep only roots owned by a single mod - a root shared by two mods (forks, shared library
             // namespace) is ambiguous and would give false certainty, so we drop it.

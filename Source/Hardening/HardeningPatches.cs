@@ -98,7 +98,7 @@ namespace ModernDevTools
             catch (Exception e)
             {
                 _broken = true;
-                Log.Error("[Modern Dev Tools] hardening patch sync failed; hardening disabled for this session: " + e);
+                Log.Error("[Advanced Dev Tools] hardening patch sync failed; hardening disabled for this session: " + e);
             }
         }
 
@@ -163,7 +163,7 @@ namespace ModernDevTools
                 if (t.Original == null || t.Patch == null)
                 {
                     // A missing target is survivable - skip it rather than disabling the whole feature.
-                    Log.WarningOnce("[Modern Dev Tools] hardening target missing; skipping one patch.", 0x2E19D40);
+                    Log.WarningOnce("[Advanced Dev Tools] hardening target missing; skipping one patch.", 0x2E19D40);
                     continue;
                 }
                 if (install)
@@ -233,7 +233,10 @@ namespace ModernDevTools
         public static bool ButtonText_TrayStylePrefix(Rect rect, string label, bool drawBackground,
                                                      bool doMouseoverSound, bool active, ref bool __result)
         {
-            if (!LogWidgets.Drawing || !drawBackground) return true;
+            // Vanilla skin: stand down entirely - the tray buttons SHOULD look vanilla, and
+            // Palette.GrayButton itself delegates to Widgets.ButtonText in that skin, so running
+            // here would recurse straight back into this prefix.
+            if (!Palette.ModernSkin || !LogWidgets.Drawing || !drawBackground) return true;
             try
             {
                 if (doMouseoverSound) MouseoverSounds.DoRegion(rect);
@@ -266,6 +269,7 @@ namespace ModernDevTools
             HardeningPatches.SyncIfNeeded();
             LogThrottle.DrainSummaries();
             ModChange.TickPending();
+            Palette.SyncSkin();   // deferred skin toggle: applied between frames, never mid-OnGUI
         }
     }
 }

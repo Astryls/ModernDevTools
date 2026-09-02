@@ -28,7 +28,7 @@ namespace ModernDevTools
                 Action<LogMessage> handler = SelectionChanged;
                 if (handler == null) return;
                 try { handler(value); }
-                catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] a selection-changed handler threw: " + e.Message, 0x2E19A60); }
+                catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] a selection-changed handler threw: " + e.Message, 0x2E19A60); }
             }
         }
 
@@ -64,7 +64,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] Could not bind EditWindow_Log.canAutoOpen: " + e.Message, 0x2E19A01);
+                Log.WarningOnce("[Advanced Dev Tools] Could not bind EditWindow_Log.canAutoOpen: " + e.Message, 0x2E19A01);
             }
             return null;
         }

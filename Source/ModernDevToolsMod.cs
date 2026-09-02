@@ -44,6 +44,11 @@ namespace ModernDevTools
         // "this has been spamming since startup". Off for anyone who wants the narrow list back.
         public bool showTimestamps = true;
 
+        // Opt-in Modern suite skin. Default OFF: this is a QoL mod and by default it wears
+        // RimWorld's own visual language; the dark rounded suite look is for players who run the
+        // rest of the Modern suite. All branching lives in Palette/Spatial (the style layer).
+        public bool modernSkin = false;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -59,6 +64,7 @@ namespace ModernDevTools
             Scribe_Values.Look(ref throttleRepeatingLogs, "throttleRepeatingLogs", false);
             Scribe_Values.Look(ref detectModChanges, "detectModChanges", true);
             Scribe_Values.Look(ref showTimestamps, "showTimestamps", true);
+            Scribe_Values.Look(ref modernSkin, "modernSkin", false);
             if (moduleEnabled == null) moduleEnabled = new Dictionary<string, bool>();
             if (ignoredIssues == null) ignoredIssues = new HashSet<string>();
         }
@@ -75,7 +81,7 @@ namespace ModernDevTools
         /// <summary>Prefix on every log line this mod emits itself. Module_StackTrace uses it to tell
         /// "we REPORTED this error" from "we CAUSED it" - see IsSelfReport there. Keep every internal
         /// Log.* call starting with this exact string.</summary>
-        public const string LogPrefix = "[Modern Dev Tools]";
+        public const string LogPrefix = "[Advanced Dev Tools]";
 
         public static ModernDevToolsMod Instance;
         public static ModernDevToolsSettings Settings;
@@ -85,6 +91,9 @@ namespace ModernDevTools
         {
             Instance = this;
             Settings = GetSettings<ModernDevToolsSettings>();
+            // Apply the player's skin before anything draws. Safe this early: ApplySkin is pure
+            // color math (it never touches Verse.Widgets, whose static ctor loads textures).
+            Palette.ApplySkin(Settings.modernSkin);
         }
 
         public static bool IsModuleEnabled(ErrorModuleDef def)
@@ -147,7 +156,7 @@ namespace ModernDevTools
             return key;
         }
 
-        public override string SettingsCategory() => "Modern Dev Tools";
+        public override string SettingsCategory() => "Advanced Dev Tools";
 
         public override void DoSettingsWindowContents(Rect inRect) => SettingsPage.Draw(inRect);
     }

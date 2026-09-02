@@ -32,7 +32,7 @@ namespace ModernDevTools
             if (w == null) return;
             try
             {
-                Log.ErrorOnce("[Modern Dev Tools] hardening caught a UI exception in " + w.GetType() + " (" + phase + "): " + ex,
+                Log.ErrorOnce("[Advanced Dev Tools] hardening caught a UI exception in " + w.GetType() + " (" + phase + "): " + ex,
                     w.GetType().GetHashCode() ^ 0x77);
                 Count(w);
             }
@@ -80,7 +80,7 @@ namespace ModernDevTools
                         if (ws != null && ws.IsOpen(w))
                         {
                             ws.TryRemove(w, false);
-                            Log.Warning("[Modern Dev Tools] closed a window that kept erroring: " + w.GetType());
+                            Log.Warning("[Advanced Dev Tools] closed a window that kept erroring: " + w.GetType());
                             Messages.Message("MDT_WindowClosed".Translate(w.GetType().Name), MessageTypeDefOf.NegativeEvent, false);
                         }
                     }

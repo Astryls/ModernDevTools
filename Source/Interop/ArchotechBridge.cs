@@ -65,17 +65,17 @@ namespace ModernDevTools
                 // Report per window, and only for the one that actually failed - the previous wording
                 // claimed "its buttons are not hosted" even when one of the two bound fine.
                 if (_infoType != null && _infoCtor == null)
-                    Log.WarningOnce("[Modern Dev Tools] Archotech Logs' diagnostics window constructor did not match the " +
+                    Log.WarningOnce("[Advanced Dev Tools] Archotech Logs' diagnostics window constructor did not match the " +
                                     "expected shape, so that button is not hosted. Use \"Vanilla log\" to reach it.", 0x2E19E50);
                 if (_exportType != null && _exportCtor == null)
-                    Log.WarningOnce("[Modern Dev Tools] Archotech Logs' export window constructor did not match the " +
+                    Log.WarningOnce("[Advanced Dev Tools] Archotech Logs' export window constructor did not match the " +
                                     "expected shape, so that button is not hosted. Use \"Vanilla log\" to reach it.", 0x2E19E53);
             }
             catch (Exception e)
             {
                 _infoCtor = null;
                 _exportCtor = null;
-                Log.WarningOnce("[Modern Dev Tools] Archotech Logs bridge probe failed: " + e.Message, 0x2E19E51);
+                Log.WarningOnce("[Advanced Dev Tools] Archotech Logs bridge probe failed: " + e.Message, 0x2E19E51);
             }
         }
 
@@ -167,7 +167,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.ErrorOnce("[Modern Dev Tools] could not open an Archotech Logs window: " + e, 0x2E19E52);
+                Log.ErrorOnce("[Advanced Dev Tools] could not open an Archotech Logs window: " + e, 0x2E19E52);
             }
         }
 
@@ -204,7 +204,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.Warning("[Modern Dev Tools] Archotech Logs bridge registration failed: " + e.Message);
+                Log.Warning("[Advanced Dev Tools] Archotech Logs bridge registration failed: " + e.Message);
             }
         }
     }

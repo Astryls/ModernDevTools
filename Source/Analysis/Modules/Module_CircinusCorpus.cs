@@ -40,7 +40,7 @@ namespace ModernDevTools
                 // goes quietly dormant is the failure mode this whole mod exists to catch, and
                 // debugging "why is the corpus card missing" from silence is miserable.
                 if (_describe == null || _implicated == null)
-                    Log.WarningOnce("[Modern Dev Tools] " + ApiType + " found but its methods did not match the " +
+                    Log.WarningOnce("[Advanced Dev Tools] " + ApiType + " found but its methods did not match the " +
                                     "expected contract - corpus prevalence disabled. Describe=" + (_describe != null) +
                                     " ImplicatedMod=" + (_implicated != null), 0x2E19E01);
             }
@@ -49,7 +49,7 @@ namespace ModernDevTools
                 // Null every binding, not just one: a half-probed bridge is worse than no bridge.
                 _describe = null;
                 _implicated = null;
-                Log.WarningOnce("[Modern Dev Tools] corpus probe failed: " + e.Message, 0x2E19E02);
+                Log.WarningOnce("[Advanced Dev Tools] corpus probe failed: " + e.Message, 0x2E19E02);
             }
         }
 

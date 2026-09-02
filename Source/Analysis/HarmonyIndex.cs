@@ -61,7 +61,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] Harmony index build failed: " + e.Message, 0x2E19D01);
+                Log.WarningOnce("[Advanced Dev Tools] Harmony index build failed: " + e.Message, 0x2E19D01);
             }
 
             var result = new Dictionary<string, string[]>(map.Count, StringComparer.Ordinal);

@@ -7,7 +7,7 @@ using Verse;
 namespace ModernDevTools
 {
     /// <summary>
-    /// The full mod-settings page (Options -> Mod settings -> Modern Dev Tools). Its own distinct
+    /// The full mod-settings page (Options -> Mod settings -> Advanced Dev Tools). Its own distinct
     /// layout - a single scrolling column of suite-styled cards - but it shares the Palette visual
     /// language (and SourceTag/CommunityStatus) with the quick-access Dialog_Modules window.
     ///
@@ -40,14 +40,13 @@ namespace ModernDevTools
         public static void Draw(Rect inRect)
         {
             try { DrawInner(inRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] settings page draw failed: " + e, 0x2E19A50); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] settings page draw failed: " + e, 0x2E19A50); }
             finally { Palette.ResetGuiState(); }
         }
 
         private static void DrawInner(Rect inRect)
         {
-            Widgets.DrawBoxSolid(inRect, Palette.BG);
-            Palette.DrawBox(inRect, Palette.BGL, 1);
+            Palette.PageSurface(inRect);   // modern: BG plate + border; vanilla: a menu section
 
             Rect body = inRect.ContractedBy(14f);
             float contentW = body.width - 16f;   // reserve the scrollbar gutter unconditionally
@@ -68,6 +67,7 @@ namespace ModernDevTools
 
         private static void DrawContent(float width, ref float y)
         {
+            DrawAppearanceCard(width, ref y);
             DrawLogWindowCard(width, ref y);
             DrawThrottleCard(width, ref y);
             DrawGeneralCard(width, ref y);
@@ -91,6 +91,36 @@ namespace ModernDevTools
         {
             Palette.SectionHeader(new Rect(inner.x, inner.y, inner.width, HeaderH), label);
             return inner.y + HeaderH + HeaderGap;
+        }
+
+        // --- Appearance (skin) ---
+
+        /// <summary>
+        /// The skin switch. Vanilla (default) wears RimWorld's own visual language; the Modern
+        /// suite skin is the opt-in dark/rounded look. The toggle only RECORDS the change
+        /// (Palette.RequestSkin); it is applied from the Root.Update postfix between frames, so
+        /// the control set of this very page never mutates between two OnGUI passes - the page
+        /// simply redraws in the new skin next frame, which doubles as a live preview.
+        /// </summary>
+        private static void DrawAppearanceCard(float width, ref float y)
+        {
+            float iw = width - CardPad * 2f;
+            string desc = "MDT_ModernSkinDesc".Translate();
+            float rowH = Palette.ToggleRowHeight(desc, iw);
+
+            Rect card = BeginCard(width, y, rowH, out Rect inner);
+            float iy = DrawHeader(inner, "MDT_SectionAppearance".Translate());
+
+            bool v = S.modernSkin;
+            bool nv = Palette.ToggleRow(new Rect(inner.x, iy, inner.width, rowH), "MDT_ModernSkin".Translate(), v, desc);
+            if (nv != v)
+            {
+                S.modernSkin = nv;
+                Save();
+                Palette.RequestSkin(nv);
+            }
+
+            y += card.height + CardGap;
         }
 
         // --- Log spam throttle ---

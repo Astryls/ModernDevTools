@@ -10,7 +10,7 @@ namespace ModernDevTools
     /// Flat search index for the modern dev-actions window. It walks the tab with DebugTree.BuiltChildren,
     /// which reads only ALREADY-materialized nodes and never fires a lazy childGetter - so the giant spawn/
     /// thing grids are left collapsed (indexed as single drillable folders) while every discrete action,
-    /// including mod-added ones like the "Modern Dev Tools" test actions, is captured. Because it touches
+    /// including mod-added ones like the "Advanced Dev Tools" test actions, is captured. Because it touches
     /// no childGetter, the whole build is cheap and runs synchronously on first search: no freeze, and no
     /// per-keystroke work beyond a substring filter over cached, pre-lowercased labels.
     ///
@@ -103,7 +103,7 @@ namespace ModernDevTools
                     foreach (DebugActionNode child in DebugTree.BuiltChildren(n)) queue.Enqueue(child);
                 }
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] search index build failed: " + e.Message, 0x2E19C34); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] search index build failed: " + e.Message, 0x2E19C34); }
             return list;
         }
     }

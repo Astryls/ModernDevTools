@@ -30,7 +30,7 @@ namespace ModernDevTools
     /// THE PROBLEM THIS SOLVES. HugsLib ships the community's standard extension point for the debug
     /// log - LogWindowExtensions.AddLogWindowWidget - and renders it from a prefix on
     /// EditWindow_Log.DoMessagesListing. HugsLib registers "Share logs", "Files" and "Copy" through it,
-    /// and any other mod may register more. Because Modern Dev Tools stops the vanilla window from ever
+    /// and any other mod may register more. Because Advanced Dev Tools stops the vanilla window from ever
     /// opening, every one of those buttons silently disappeared: no error, no warning, and the player
     /// concludes HugsLib is broken. Losing "Share logs" in particular breaks the single most common
     /// RimWorld support workflow.
@@ -89,7 +89,6 @@ namespace ModernDevTools
         private static bool _anyCached;
 
         // Tray micro-label cache (see Draw).
-        private static string _trayLabelSrc, _trayLabelUp;
 
         /// <summary>True when anything would draw in the tray (so the window can reserve space).</summary>
         public static bool Any
@@ -128,7 +127,7 @@ namespace ModernDevTools
                 {
                     _hugsBroken = true;
                     Log.WarningOnce(
-                        "[Modern Dev Tools] HugsLib is present but LogWindowExtensions did not match the expected " +
+                        "[Advanced Dev Tools] HugsLib is present but LogWindowExtensions did not match the expected " +
                         "shape, so its log-window buttons cannot be hosted. Use the \"Vanilla log\" button to reach " +
                         "them. widgets=" + (_hugsWidgetsField != null) + " Drawer=" + (_hugsDrawerField != null) +
                         " Alignment=" + (_hugsAlignField != null), 0x2E19E10);
@@ -137,7 +136,7 @@ namespace ModernDevTools
             catch (Exception e)
             {
                 _hugsBroken = true;
-                Log.WarningOnce("[Modern Dev Tools] HugsLib log-widget probe failed: " + e.Message, 0x2E19E11);
+                Log.WarningOnce("[Advanced Dev Tools] HugsLib log-widget probe failed: " + e.Message, 0x2E19E11);
             }
         }
 
@@ -180,7 +179,7 @@ namespace ModernDevTools
             {
                 _hugsBroken = true;
                 _hugsCache.Clear();
-                Log.WarningOnce("[Modern Dev Tools] could not read HugsLib's log widgets: " + e.Message, 0x2E19E12);
+                Log.WarningOnce("[Advanced Dev Tools] could not read HugsLib's log widgets: " + e.Message, 0x2E19E12);
             }
         }
 
@@ -199,15 +198,14 @@ namespace ModernDevTools
             GameFont prevFont = Text.Font;
             Text.Font = GameFont.Small;
 
-            // ADD-ONS micro-label. Uppercased once and cached against the translated string, so a
-            // language switch refreshes it without paying an allocation per pass.
-            string src = "MDT_TrayLabel".Translate();
-            if (src != _trayLabelSrc) { _trayLabelSrc = src; _trayLabelUp = src.ToUpperInvariant(); }
-            float lw = Mathf.Ceil(TextMetrics.Size(_trayLabelUp).x);
+            // Tray micro-label. Palette.Micro owns the skin branch (uppercase is Modern grammar;
+            // vanilla keeps sentence case) and caches the uppercased form per translated string.
+            string trayLabel = Palette.Micro("MDT_TrayLabel".Translate());
+            float lw = Mathf.Ceil(TextMetrics.Size(trayLabel).x);
             TextAnchor prevAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = Palette.TextFaint;
-            Widgets.Label(new Rect(inner.x + 6f, inner.y, lw + 4f, inner.height), _trayLabelUp);
+            Widgets.Label(new Rect(inner.x + 6f, inner.y, lw + 4f, inner.height), trayLabel);
             GUI.color = Color.white;
             Text.Anchor = prevAnchor;
 
@@ -242,7 +240,7 @@ namespace ModernDevTools
                     // Same policy as HugsLib: a widget that throws is dropped rather than allowed to
                     // break the window every frame. Ours is one of the few places a third-party draw
                     // call runs, so it must never escape.
-                    Log.ErrorOnce("[Modern Dev Tools] log add-on '" + e.Id + "' threw and was removed: " + ex,
+                    Log.ErrorOnce("[Advanced Dev Tools] log add-on '" + e.Id + "' threw and was removed: " + ex,
                                   (e.Id ?? "").GetHashCode() ^ 0x2E19E13);
                     if (removeFrom != null) { removeFrom.RemoveAt(i); i--; }
                     else { entries.RemoveAt(i); i--; }

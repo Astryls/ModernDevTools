@@ -20,7 +20,7 @@ namespace ModernDevTools
     /// always-on (no internet, no opt-in), and rank ABOVE the community repo - which is the fallback
     /// when a mod ships no file, or its file does not match the error.
     ///
-    /// Scanned once at startup; the file being present does not require Modern Dev Tools as a dependency,
+    /// Scanned once at startup; the file being present does not require Advanced Dev Tools as a dependency,
     /// so shipping one is safe for players who do not have this mod.
     /// </summary>
     [StaticConstructorOnStartup]
@@ -63,14 +63,14 @@ namespace ModernDevTools
                                 list.Add(ri);
                             }
                             if (issues.Count > 0)
-                                Log.Message("[Modern Dev Tools] loaded " + issues.Count + " shipped known issue(s) from " + mcp.Name + ".");
+                                Log.Message("[Advanced Dev Tools] loaded " + issues.Count + " shipped known issue(s) from " + mcp.Name + ".");
                         }
-                        catch (Exception e) { Log.Warning("[Modern Dev Tools] failed reading shipped known-issues for " + mcp.Name + ": " + e.Message); }
+                        catch (Exception e) { Log.Warning("[Advanced Dev Tools] failed reading shipped known-issues for " + mcp.Name + ": " + e.Message); }
                         break;   // one file per mod
                     }
                 }
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] shipped known-issue scan failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] shipped known-issue scan failed: " + e.Message); }
             _all = list;
         }
 

@@ -17,7 +17,7 @@ namespace ModernDevTools
         public static Exception GuardMapUi(string surface, Exception ex)
         {
             if (ex == null || !MapUiEnabled) return ex; // off: behave like vanilla (rethrow)
-            try { Log.ErrorOnce("[Modern Dev Tools] hardening caught a UI exception in " + surface + ": " + ex, surface.GetHashCode() ^ 0x2E19D0); }
+            try { Log.ErrorOnce("[Advanced Dev Tools] hardening caught a UI exception in " + surface + ": " + ex, surface.GetHashCode() ^ 0x2E19D0); }
             catch { }
             return null; // suppress so the rest of the UI keeps drawing
         }

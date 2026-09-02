@@ -4,7 +4,7 @@ using Verse;
 
 namespace ModernDevTools
 {
-    /// <summary>Shown once when the player updates Modern Dev Tools to a new version (or on first install).</summary>
+    /// <summary>Shown once when the player updates Advanced Dev Tools to a new version (or on first install).</summary>
     public class Dialog_UpdateNotes : Window
     {
         private readonly string _prev;
@@ -28,14 +28,13 @@ namespace ModernDevTools
         public override void DoWindowContents(Rect inRect)
         {
             try { Draw(inRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] update notes draw failed: " + e, 0x2E19C30); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] update notes draw failed: " + e, 0x2E19C30); }
             finally { Palette.ResetGuiState(); }
         }
 
         private void Draw(Rect inRect)
         {
-            Widgets.DrawBoxSolid(inRect, Palette.BG);
-            Palette.DrawBox(inRect, Palette.BGL, 1);
+            Palette.DialogBG(inRect);
             Rect content = inRect.ContractedBy(16f);
 
             Text.Font = GameFont.Medium;

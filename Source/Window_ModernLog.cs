@@ -111,16 +111,16 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.ErrorOnce("[Modern Dev Tools] window draw failed: " + e, 0x2E19A30);
+                Log.ErrorOnce("[Advanced Dev Tools] window draw failed: " + e, 0x2E19A30);
             }
             finally { Palette.ResetGuiState(); }
         }
 
         private void DrawAll(Rect inRect)
         {
-            // Near-black page under raised panel2 surfaces - the suite's contrast hierarchy. (The
-            // old base was Palette.BG, which put the window at the same level as its own panels.)
-            Spatial.Surface(inRect, Palette.PageBG);
+            // Modern: near-black page under raised panel2 surfaces (the suite's contrast
+            // hierarchy). Vanilla: the engine's own window fill + border. One call, both skins.
+            Palette.WindowBG(inRect);
 
             Rect content = inRect.ContractedBy(Pad);
             RebuildFiltered();
@@ -140,15 +140,15 @@ namespace ModernDevTools
             Rect inspector = new Rect(middle.xMax + Gap, content.y, inspW, content.height);
 
             try { DrawSidebar(sidebar); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] sidebar draw failed: " + e, 0x2E19A34); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] sidebar draw failed: " + e, 0x2E19A34); }
 
             try { DrawMiddle(middle); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] list column draw failed: " + e, 0x2E19A31); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] list column draw failed: " + e, 0x2E19A31); }
 
             if (inspW > 0f)
             {
                 try { DrawInspector(inspector); }
-                catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] inspector draw failed: " + e, 0x2E19A32); }
+                catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] inspector draw failed: " + e, 0x2E19A32); }
             }
 
             if (Palette.CloseX(new Rect(inRect.xMax - 30f, inRect.y + 8f, 22f, 22f))) Close();
@@ -261,24 +261,9 @@ namespace ModernDevTools
             return y + HeaderH;
         }
 
-        // Uppercased micro-header cache. The suite's signature metadata label (CARE / OUTFIT /
-        // UNASSIGNED in the sibling tabs) is uppercase, and this deliberately supersedes the earlier
-        // sentence-case-only call FOR SECTION HEADERS ONLY. ToUpperInvariant is an identity for
-        // unicased scripts, and its worst case elsewhere (Turkish dotted i) is cosmetic in a header;
-        // content strings are never uppercased. Cached because translated headers are stable and the
-        // draw runs several passes a frame.
-        private static readonly Dictionary<string, string> _microCache = new Dictionary<string, string>();
-
-        private static string Micro(string label)
-        {
-            if (label.NullOrEmpty()) return "";
-            if (!_microCache.TryGetValue(label, out string up))
-            {
-                up = label.ToUpperInvariant();
-                _microCache[label] = up;
-            }
-            return up;
-        }
+        // Micro-headers live in the style layer now: uppercase is the Modern suite's signature and
+        // the vanilla skin keeps sentence case, so the skin branch belongs to Palette, not here.
+        private static string Micro(string label) => Palette.Micro(label);
 
         /// <summary>One type filter: colour dot, label, count. The whole row toggles it; an off filter
         /// dims rather than disappearing, so the count stays readable.</summary>
@@ -362,7 +347,7 @@ namespace ModernDevTools
             if (tray)
             {
                 try { LogWidgets.Draw(this, new Rect(r.x, listRect.yMax + Gap, r.width, LogWidgets.TrayHeight), LogState.Selected); }
-                catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] add-on tray draw failed: " + e, 0x2E19A33); }
+                catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] add-on tray draw failed: " + e, 0x2E19A33); }
             }
         }
 
@@ -658,7 +643,7 @@ namespace ModernDevTools
                 {
                     if (!module.HasSection) continue;
                     try { y = module.DrawSection(w, y, a.Context); }
-                    catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] module section '" + module.Label + "' failed: " + e.Message, module.GetType().GetHashCode() ^ 13); }
+                    catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] module section '" + module.Label + "' failed: " + e.Message, module.GetType().GetHashCode() ^ 13); }
                 }
             }
 
@@ -887,9 +872,18 @@ namespace ModernDevTools
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
+        // The window's three button shapes. Each vanilla branch is the engine's own ButtonText
+        // (tint/fill distinctions are Modern grammar; vanilla buttons are deliberately uniform).
+        // Control parity: ButtonText emits exactly one invisible button, same as each modern path.
+
         /// <summary>Neutral grouped-fill button with tinted text (the suite "plain" button).</summary>
         private static bool PlainButton(Rect r, string label, Color? tint = null, string tooltip = null)
         {
+            if (!Palette.ModernSkin)
+            {
+                if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
+                return Widgets.ButtonText(r, label);
+            }
             bool over = Mouse.IsOver(r);
             Spatial.RowPlate(r, over ? Palette.RowAlt : Palette.GroupBG);
             UILabel(r, label, tint ?? Palette.Stat, TextAnchor.MiddleCenter);
@@ -901,6 +895,11 @@ namespace ModernDevTools
         /// tabs use on every accent surface (Palette.BG was close, but it is a surface colour).</summary>
         private static bool FilledButton(Rect r, string label, string tooltip = null)
         {
+            if (!Palette.ModernSkin)
+            {
+                if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
+                return Widgets.ButtonText(r, label);
+            }
             bool over = Mouse.IsOver(r);
             Spatial.RowPlate(r, over ? Color.Lerp(Palette.Accent, Color.white, 0.12f) : Palette.Accent);
             UILabel(r, label, Palette.Ink, TextAnchor.MiddleCenter);
@@ -912,6 +911,11 @@ namespace ModernDevTools
         /// carries the tint - Copy all / Clear, where colour separates bulk from destructive.</summary>
         private static bool PillButton(Rect r, string label, string tooltip, Color tint)
         {
+            if (!Palette.ModernSkin)
+            {
+                if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
+                return Widgets.ButtonText(r, label);
+            }
             bool over = Mouse.IsOver(r);
             Text.Font = GameFont.Small;
             Spatial.Pill(r, over ? Palette.RowAlt : Palette.GroupBG);

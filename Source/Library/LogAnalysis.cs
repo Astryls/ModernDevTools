@@ -113,9 +113,9 @@ namespace ModernDevTools
             foreach (ErrorModule module in ErrorModuleRegistry.Modules)
             {
                 try { module.ContributeAttribution(ctx); }
-                catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] module '" + module.Label + "' attribution failed: " + e.Message, module.GetType().GetHashCode()); }
+                catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] module '" + module.Label + "' attribution failed: " + e.Message, module.GetType().GetHashCode()); }
                 try { module.Diagnose(ctx); }
-                catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] module '" + module.Label + "' diagnose failed: " + e.Message, module.GetType().GetHashCode() ^ 7); }
+                catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] module '" + module.Label + "' diagnose failed: " + e.Message, module.GetType().GetHashCode() ^ 7); }
             }
 
             var analysis = new LogAnalysis

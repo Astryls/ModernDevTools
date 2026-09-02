@@ -129,7 +129,7 @@ namespace ModernDevTools
             catch (Exception e)
             {
                 _broken = true;
-                try { Log.Error("[Modern Dev Tools] log throttle failed and has been disabled: " + e); } catch { }
+                try { Log.Error("[Advanced Dev Tools] log throttle failed and has been disabled: " + e); } catch { }
                 return true;   // fail open: never lose a log line because of us
             }
         }
@@ -183,7 +183,7 @@ namespace ModernDevTools
             catch { return; }
 
             if (suppressed <= 0) return;
-            try { Log.Warning("[Modern Dev Tools] " + "MDT_ThrottleSummary".Translate(suppressed, Threshold)); }
+            try { Log.Warning("[Advanced Dev Tools] " + "MDT_ThrottleSummary".Translate(suppressed, Threshold)); }
             catch { }
         }
     }

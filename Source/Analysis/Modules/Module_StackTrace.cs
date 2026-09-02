@@ -20,7 +20,7 @@ namespace ModernDevTools
         ///
         /// Observed live (test run #232): Vehicle Framework's SmashTools.DetachedMapComponentCache threw
         /// a KeyNotFoundException inside the colonist bar; HardeningPatches.MapBefore_Finalizer caught
-        /// and reported it. Stack attribution then named Modern Dev Tools at WeightStackBase (5), and
+        /// and reported it. Stack attribution then named Advanced Dev Tools at WeightStackBase (5), and
         /// because Vehicle Framework was only found via a file path (frameIndex -1, FirstIndex
         /// int.MaxValue) the weight tie broke on FirstIndex and WE RANKED FIRST - a diagnostic tool
         /// blaming itself for the bug it just caught for you.

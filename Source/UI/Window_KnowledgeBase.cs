@@ -8,7 +8,7 @@ using Verse;
 namespace ModernDevTools
 {
     /// <summary>
-    /// A global reference browser for everything Modern Dev Tools knows, independent of any selected
+    /// A global reference browser for everything Advanced Dev Tools knows, independent of any selected
     /// error. A left rail of source categories, a searchable content pane on the right, and every entry
     /// cited to where it came from (built-in library, community databases, a shipping mod, your own mod
     /// list, or the live Harmony registry). Opened from the debug log's "Knowledge base" button.
@@ -101,14 +101,13 @@ namespace ModernDevTools
         public override void DoWindowContents(Rect inRect)
         {
             try { DrawAll(inRect); }
-            catch (Exception e) { Log.ErrorOnce("[Modern Dev Tools] knowledge window draw failed: " + e, 0x2E19F00); }
+            catch (Exception e) { Log.ErrorOnce("[Advanced Dev Tools] knowledge window draw failed: " + e, 0x2E19F00); }
             finally { Palette.ResetGuiState(); }
         }
 
         private void DrawAll(Rect inRect)
         {
-            Widgets.DrawBoxSolid(inRect, Palette.BG);
-            Palette.DrawBox(inRect, Palette.BGL, 1);
+            Palette.DialogBG(inRect);
             Rect content = inRect.ContractedBy(Pad);
 
             // Title + close X
@@ -241,7 +240,7 @@ namespace ModernDevTools
                 try { yEnd = DrawTabContent(vw); }
                 catch (Exception e)
                 {
-                    Log.WarningOnce("[Modern Dev Tools] knowledge section draw failed: " + e.Message, 0x2E19F02);
+                    Log.WarningOnce("[Advanced Dev Tools] knowledge section draw failed: " + e.Message, 0x2E19F02);
                     yEnd = DrawNote(vw, 0f, "MDT_KbNoResults".Translate());
                 }
                 if (Event.current.type == EventType.Layout) _contentH = yEnd;
@@ -822,7 +821,7 @@ namespace ModernDevTools
                     }
                 }
             }
-            catch (Exception e) { Log.WarningOnce("[Modern Dev Tools] knowledge compat build failed: " + e.Message, 0x2E19F01); }
+            catch (Exception e) { Log.WarningOnce("[Advanced Dev Tools] knowledge compat build failed: " + e.Message, 0x2E19F01); }
             return d;
         }
 

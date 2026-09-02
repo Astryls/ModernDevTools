@@ -47,7 +47,7 @@ namespace ModernDevTools
                     }
                 }
             }
-            catch (Exception e) { Log.Warning("[Modern Dev Tools] About.xml incompatibility scan failed: " + e.Message); }
+            catch (Exception e) { Log.Warning("[Advanced Dev Tools] About.xml incompatibility scan failed: " + e.Message); }
             _pairs = pairs;
         }
 

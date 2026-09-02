@@ -72,7 +72,7 @@ namespace ModernDevTools
                 }
                 catch (Exception e)
                 {
-                    Log.WarningOnce("[Modern Dev Tools] Failed to build known-issue index: " + e.Message, 0x2E19A04);
+                    Log.WarningOnce("[Advanced Dev Tools] Failed to build known-issue index: " + e.Message, 0x2E19A04);
                 }
                 _all = built;   // publish only when complete
             }
@@ -82,7 +82,7 @@ namespace ModernDevTools
         {
             if (pattern.NullOrEmpty()) return null;
             try { return new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant); }
-            catch (Exception e) { Log.WarningOnce($"[Modern Dev Tools] Bad attributeRegex in {def.defName}: {e.Message}", def.defName.GetHashCode() ^ 0x11); return null; }
+            catch (Exception e) { Log.WarningOnce($"[Advanced Dev Tools] Bad attributeRegex in {def.defName}: {e.Message}", def.defName.GetHashCode() ^ 0x11); return null; }
         }
 
         private static Regex[] CompileList(KnownIssueDef def, List<string> patterns) =>
@@ -204,7 +204,7 @@ namespace ModernDevTools
             }
             catch (Exception e)
             {
-                Log.WarningOnce("[Modern Dev Tools] Known-issue match failed: " + e.Message, 0x2E19A05);
+                Log.WarningOnce("[Advanced Dev Tools] Known-issue match failed: " + e.Message, 0x2E19A05);
             }
 
             return scored

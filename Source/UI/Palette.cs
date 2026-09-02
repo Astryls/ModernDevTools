@@ -9,24 +9,40 @@ using Verse;
 namespace ModernDevTools
 {
     /// <summary>
-    /// Modern Suite shared visual language. Tokens are kept hex-for-hex in parity with
-    /// the sibling mods (Modern Needs/Health/Bio tabs). The accent is resolved from Modern
-    /// Notifications' Theme.Accent via cached reflection so one theme choice restyles the suite;
-    /// it falls back to a hardcoded blue when that mod is absent.
+    /// The mod's single style layer, now carrying TWO skins:
+    ///
+    ///  - VANILLA (default): RimWorld's own visual language - the engine's window/menu-section
+    ///    colors, square plates, vanilla buttons, checkboxes and scrollbars. The mod is a QoL tool
+    ///    and by default it should look like the game it ships in.
+    ///  - MODERN (opt-in setting): the Modern Suite language - dark spatial surfaces, rounded
+    ///    9-slices, switches, the flat scrollbar - hex-for-hex in parity with the sibling mods
+    ///    (Modern Needs/Health/Bio tabs). Only in this skin is the accent resolved from Modern
+    ///    Notifications' Theme.Accent (cached reflection); vanilla uses a fixed link blue.
+    ///
+    /// HOUSE RULE (dual-skin discipline): every skin branch lives HERE and in SpatialKit. Call
+    /// sites never test the flag - a control built from these helpers supports both skins by
+    /// construction. Both branches of every helper emit the SAME number of IMGUI controls, so a
+    /// skin change can never shift control ids; the change itself is still deferred to the
+    /// Root.Update postfix (SyncSkin) so the palette never mutates between two OnGUI passes of
+    /// one frame.
     /// </summary>
     [StaticConstructorOnStartup]
     public static class Palette
     {
-        // Base palette (see GLOBAL_RULES.md parity contract).
-        public static readonly Color BG = FromHex(0x15191D);       // window/base
-        public static readonly Color BGL = FromHex(0x2F3337);      // 1px borders
-        public static readonly Color BGD = FromHex(0x0E1013);      // wells / backdrops
-        public static readonly Color Stat = FromHex(0xE3E3E3);     // primary text
-        public static readonly Color Bright = FromHex(0xF5F7FA);   // emphasised text (suite parity)
-        public static readonly Color TextDim = new Color(0.62f, 0.65f, 0.70f);
-        public static readonly Color PanelBG = Color.Lerp(BG, BGL, 0.22f); // card/row fill ~#1B1F23
-        public static readonly Color RowAlt = FromHex(0x20242A);   // alternating row plate
-        public static readonly Color StripGray = FromHex(0x5A6270);// neutral strip (info messages)
+        // Tokens are MUTABLE: ApplySkin swaps the whole set. Declarations carry the Modern values
+        // (ApplyModern must keep these hexes - the suite parity contract); the Mod constructor
+        // applies the player's real skin before any UI draws. Nothing in the mod caches a palette
+        // color into a static or bakes one into a texture (Spatial tints white art at draw time),
+        // which is what makes the live toggle safe.
+        public static Color BG = FromHex(0x15191D);       // window/base
+        public static Color BGL = FromHex(0x2F3337);      // 1px borders
+        public static Color BGD = FromHex(0x0E1013);      // wells / backdrops
+        public static Color Stat = FromHex(0xE3E3E3);     // primary text
+        public static Color Bright = FromHex(0xF5F7FA);   // emphasised text (suite parity)
+        public static Color TextDim = new Color(0.62f, 0.65f, 0.70f);
+        public static Color PanelBG = Color.Lerp(FromHex(0x15191D), FromHex(0x2F3337), 0.22f); // card/row fill ~#1B1F23
+        public static Color RowAlt = FromHex(0x20242A);   // alternating row plate
+        public static Color StripGray = FromHex(0x5A6270);// neutral strip (info messages)
 
         // Spatial chrome (added for the sidebar layout; hexes bridged to the suite standard in the
         // B1 pass - the sidebar and inspector wear the suite's panel2, plates wear its panel, and the
@@ -35,20 +51,113 @@ namespace ModernDevTools
         // contrast hierarchy of Modern Health Tab / Colonist Bar.) These are NEUTRALS only - every
         // semantic colour above is untouched, so the suite's hex-for-hex parity contract holds and
         // "same meaning = same pixel across the suite" still applies.
-        public static readonly Color PageBG = FromHex(0x0A0C10);     // window backdrop (suite page)
-        public static readonly Color SidebarBG = FromHex(0x12161A);  // nav column / inspector (panel2)
-        public static readonly Color GroupBG = FromHex(0x191D21);    // grouped-list plate (panel)
-        public static readonly Color Ink = FromHex(0x06121F);        // text ON an accent fill
-        public static readonly Color SwitchOff = FromHex(0x3A4048);  // switch track, off
-        public static readonly Color Sep = new Color(1f, 1f, 1f, 0.07f);      // hairline separator
-        public static readonly Color TextFaint = new Color(0.62f, 0.65f, 0.70f, 0.55f);
+        public static Color PageBG = FromHex(0x0A0C10);     // window backdrop (suite page)
+        public static Color SidebarBG = FromHex(0x12161A);  // nav column / inspector (panel2)
+        public static Color GroupBG = FromHex(0x191D21);    // grouped-list plate (panel)
+        public static Color Ink = FromHex(0x06121F);        // text ON an accent fill
+        public static Color SwitchOff = FromHex(0x3A4048);  // switch track, off
+        public static Color Sep = new Color(1f, 1f, 1f, 0.07f);      // hairline separator
+        public static Color TextFaint = new Color(0.62f, 0.65f, 0.70f, 0.55f);
 
         // One status ramp everywhere. Same meaning = same pixel across the suite.
-        public static readonly Color Good = new Color(0.40f, 0.85f, 0.40f);
-        public static readonly Color Warn = new Color(0.95f, 0.65f, 0.20f);
-        public static readonly Color Bad = new Color(0.90f, 0.35f, 0.35f);
+        public static Color Good = new Color(0.40f, 0.85f, 0.40f);
+        public static Color Warn = new Color(0.95f, 0.65f, 0.20f);
+        public static Color Bad = new Color(0.90f, 0.35f, 0.35f);
 
         private static readonly Color AccentFallback = new Color(0.45f, 0.75f, 1f);
+
+        // --- skin machinery ---------------------------------------------------------------------
+
+        /// <summary>True while the opt-in Modern suite skin is active. Defaults to true only so it
+        /// agrees with the field initializers above; the Mod constructor applies the player's real
+        /// setting (vanilla by default) before anything draws.</summary>
+        public static bool ModernSkin { get; private set; } = true;
+
+        private static bool _skinPending;
+        private static bool _skinPendingValue;
+
+        /// <summary>Record a skin change without applying it. The settings toggle calls this;
+        /// <see cref="SyncSkin"/> applies it from the Root.Update postfix, i.e. never between two
+        /// OnGUI passes of the same frame.</summary>
+        public static void RequestSkin(bool modern)
+        {
+            _skinPendingValue = modern;
+            _skinPending = true;
+        }
+
+        public static void SyncSkin()
+        {
+            if (!_skinPending) return;
+            _skinPending = false;
+            ApplySkin(_skinPendingValue);
+        }
+
+        /// <summary>Swap the whole token set. Safe at Mod-constructor time: both branches are pure
+        /// color math and never touch Verse.Widgets (whose static constructor loads textures).</summary>
+        public static void ApplySkin(bool modern)
+        {
+            ModernSkin = modern;
+            if (modern) ApplyModern();
+            else ApplyVanilla();
+        }
+
+        /// <summary>The Modern Suite set - these hexes are the parity contract with the sibling
+        /// mods and must match the field initializers above.</summary>
+        private static void ApplyModern()
+        {
+            BG = FromHex(0x15191D);
+            BGL = FromHex(0x2F3337);
+            BGD = FromHex(0x0E1013);
+            Stat = FromHex(0xE3E3E3);
+            Bright = FromHex(0xF5F7FA);
+            TextDim = new Color(0.62f, 0.65f, 0.70f);
+            PanelBG = Color.Lerp(BG, BGL, 0.22f);
+            RowAlt = FromHex(0x20242A);
+            StripGray = FromHex(0x5A6270);
+            PageBG = FromHex(0x0A0C10);
+            SidebarBG = FromHex(0x12161A);
+            GroupBG = FromHex(0x191D21);
+            Ink = FromHex(0x06121F);
+            SwitchOff = FromHex(0x3A4048);
+            Sep = new Color(1f, 1f, 1f, 0.07f);
+            TextFaint = new Color(0.62f, 0.65f, 0.70f, 0.55f);
+            Good = new Color(0.40f, 0.85f, 0.40f);
+            Warn = new Color(0.95f, 0.65f, 0.20f);
+            Bad = new Color(0.90f, 0.35f, 0.35f);
+        }
+
+        /// <summary>
+        /// The vanilla set, anchored to the engine's own constants (hardcoded rather than read off
+        /// Verse.Widgets so ApplySkin can run in the Mod constructor without tripping Widgets'
+        /// texture-loading static constructor; verified against decompiled 1.6 source):
+        ///   window fill  (21,25,29)  #15191D   Widgets.WindowBGFillColor
+        ///   section fill (42,43,44)  #2A2B2C   Widgets.MenuSectionBGFillColor
+        ///   section edge (135,135,135) #878787 Widgets.MenuSectionBGBorderColor
+        ///   separator    0.3 gray              Widgets.SeparatorLineColor
+        /// Severity colors move to the vanilla log's own language: yellow warnings, red errors.
+        /// </summary>
+        private static void ApplyVanilla()
+        {
+            BG = FromHex(0x15191D);                              // vanilla window fill
+            PageBG = FromHex(0x15191D);
+            SidebarBG = FromHex(0x2A2B2C);                       // vanilla menu section
+            GroupBG = Color.Lerp(FromHex(0x2A2B2C), Color.white, 0.05f);
+            RowAlt = Color.Lerp(FromHex(0x2A2B2C), Color.white, 0.11f);
+            PanelBG = FromHex(0x2A2B2C);
+            BGL = FromHex(0x878787);                             // vanilla section border
+            BGD = FromHex(0x0E1013);                             // recessed text wells
+            Stat = new Color(0.92f, 0.92f, 0.92f);
+            Bright = Color.white;
+            TextDim = new Color(0.66f, 0.66f, 0.66f);
+            TextFaint = new Color(0.66f, 0.66f, 0.66f, 0.60f);
+            Ink = FromHex(0x06121F);
+            SwitchOff = FromHex(0x3A4048);
+            Sep = new Color(0.3f, 0.3f, 0.3f);                   // vanilla ListSeparator line
+            StripGray = FromHex(0x5A6270);
+            Good = new Color(0.40f, 0.85f, 0.40f);
+            Warn = new Color(0.95f, 0.85f, 0.25f);               // vanilla log yellow
+            Bad = new Color(1f, 0.36f, 0.32f);                   // vanilla log red
+        }
 
         // --- Theme.Accent bridge (cached reflection on ModernNotifications) ---
         private static bool _accentResolved;
@@ -71,6 +180,9 @@ namespace ModernDevTools
 
         private static Color ResolveAccent()
         {
+            // Vanilla skin: a fixed link blue, and NO reflection into Modern Notifications - the
+            // suite theming bridge is part of the Modern skin, not of the mod.
+            if (!ModernSkin) return AccentFallback;
             try
             {
                 if (!_accentResolved)
@@ -108,8 +220,61 @@ namespace ModernDevTools
 
         // --- Draw helpers ---
 
-        /// <summary>Solid opaque card: PanelBG fill + 1px BGL border.</summary>
-        public static void DrawCard(Rect r) => DrawPlate(r, PanelBG, BGL);
+        /// <summary>Backdrop of a floating window that owns its own chrome (doWindowBackground is
+        /// false everywhere in this mod). Modern: the suite's near-black page as a rounded surface.
+        /// Vanilla: the engine's own window fill + border, which is exactly what the player's other
+        /// windows wear.</summary>
+        public static void WindowBG(Rect r)
+        {
+            if (ModernSkin) { Spatial.Surface(r, PageBG); return; }
+            Widgets.DrawWindowBackground(r);
+        }
+
+        /// <summary>Backdrop of the mod's floating dialogs (dev actions, palette, knowledge base,
+        /// modules, reports…). Modern: the flat BG plate + BGL border those windows shipped with.
+        /// Vanilla: the engine's window fill + border.</summary>
+        public static void DialogBG(Rect r)
+        {
+            if (!ModernSkin) { Widgets.DrawWindowBackground(r); return; }
+            Widgets.DrawBoxSolid(r, BG);
+            DrawBox(r, BGL, 1);
+        }
+
+        /// <summary>Backdrop of a page drawn INSIDE a host window (the mod-settings page). Modern:
+        /// BG plate + border. Vanilla: a standard menu section.</summary>
+        public static void PageSurface(Rect r)
+        {
+            if (!ModernSkin) { Widgets.DrawMenuSection(r); return; }
+            Widgets.DrawBoxSolid(r, BG);
+            DrawBox(r, BGL, 1);
+        }
+
+        // Uppercased micro-header cache. The Modern suite's signature metadata label is uppercase;
+        // the vanilla skin keeps sentence case (vanilla never uppercases headers). ToUpperInvariant
+        // is an identity for unicased scripts and its worst case (Turkish dotted i) is cosmetic in
+        // a header; content strings are never routed through here. Cached because translated
+        // headers are stable and draws run several passes a frame.
+        private static readonly Dictionary<string, string> _microCache = new Dictionary<string, string>();
+
+        public static string Micro(string label)
+        {
+            if (label.NullOrEmpty()) return "";
+            if (!ModernSkin) return label;
+            if (!_microCache.TryGetValue(label, out string up))
+            {
+                up = label.ToUpperInvariant();
+                _microCache[label] = up;
+            }
+            return up;
+        }
+
+        /// <summary>Solid opaque card: PanelBG fill + 1px BGL border (vanilla: a true menu section,
+        /// drawn with the engine's own atlas).</summary>
+        public static void DrawCard(Rect r)
+        {
+            if (!ModernSkin) { Widgets.DrawMenuSection(r); return; }
+            DrawPlate(r, PanelBG, BGL);
+        }
 
         /// <summary>Recessed well: BGD fill + 1px BGL border.</summary>
         public static void DrawWell(Rect r) => DrawPlate(r, BGD, BGL);
@@ -160,24 +325,39 @@ namespace ModernDevTools
             Widgets.DrawBoxSolid(new Rect(rowRect.x, rowRect.y, width, rowRect.height), color);
         }
 
-        /// <summary>Sentence-case Small header label + a 1px BGL divider along the bottom edge.</summary>
+        /// <summary>Sentence-case Small header label + a 1px divider along the bottom edge. In the
+        /// vanilla skin this wears Widgets.ListSeparator's exact colors (0.8 label / 0.3 line).</summary>
         public static void SectionHeader(Rect r, string label)
         {
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.LowerLeft;
             bool prevWrap = Text.WordWrap;
             Text.WordWrap = false;
-            GUI.color = Stat;
+            GUI.color = ModernSkin ? Stat : new Color(0.8f, 0.8f, 0.8f);
             Widgets.Label(new Rect(r.x, r.y, r.width, r.height), label);
             GUI.color = Color.white;
             Text.WordWrap = prevWrap;
             Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.DrawBoxSolid(new Rect(r.x, r.yMax - 1f, r.width, 1f), BGL);
+            Widgets.DrawBoxSolid(new Rect(r.x, r.yMax - 1f, r.width, 1f),
+                ModernSkin ? BGL : new Color(0.3f, 0.3f, 0.3f));
         }
 
-        /// <summary>Flat gray suite button (never the tan vanilla ButtonText). Returns true on left-click.</summary>
+        /// <summary>The mod's one text button. Modern: the suite's flat gray plate. Vanilla: the
+        /// engine's own ButtonText atlas. Control parity holds in both skins and both states -
+        /// enabled emits exactly one invisible button, disabled emits none (ButtonTextWorker with
+        /// active:false draws but registers no control, same as our disabled path).</summary>
         public static bool GrayButton(Rect r, string label, string tooltip = null, bool enabled = true)
         {
+            if (!ModernSkin)
+            {
+                if (!tooltip.NullOrEmpty()) TooltipHandler.TipRegion(r, tooltip);
+                Color prevC = GUI.color;
+                if (!enabled) GUI.color = new Color(1f, 1f, 1f, 0.55f);
+                bool clicked = Widgets.ButtonText(r, label, drawBackground: true, doMouseoverSound: true, active: enabled);
+                GUI.color = prevC;
+                return clicked;
+            }
+
             bool over = enabled && Mouse.IsOver(r);
             Color fill = !enabled ? PanelBG : (over ? Color.Lerp(BGL, Accent, 0.14f) : BGL);
             Widgets.DrawBoxSolid(r, fill);
@@ -205,6 +385,12 @@ namespace ModernDevTools
         /// </summary>
         public static void DrawCheck(Rect r, bool on)
         {
+            if (!ModernSkin)
+            {
+                float s = Mathf.Min(r.width, r.height);
+                Widgets.CheckboxDraw(r.center.x - s * 0.5f, r.center.y - s * 0.5f, on, false, s);
+                return;
+            }
             Widgets.DrawBoxSolid(r, on ? Accent : BGD);
             DrawBox(r, on ? Accent : BGL, 1);
             if (!on) return;
@@ -216,9 +402,16 @@ namespace ModernDevTools
             Widgets.DrawLine(b, c, BGD, 2f);
         }
 
-        /// <summary>A small on/off switch (draw-only; the caller handles the click on its row/rect).</summary>
+        /// <summary>A small on/off switch (draw-only; the caller handles the click on its row/rect).
+        /// Vanilla skin: the engine's checkbox art, right-aligned in the same rect.</summary>
         public static void DrawToggle(Rect r, bool on)
         {
+            if (!ModernSkin)
+            {
+                float s = Mathf.Min(24f, r.height + 2f);
+                Widgets.CheckboxDraw(r.xMax - s, r.center.y - s * 0.5f, on, false, s);
+                return;
+            }
             Widgets.DrawBoxSolid(r, on ? Accent : BGL);
             DrawBox(r, new Color(0f, 0f, 0f, 0.35f), 1);
             var knob = new Rect(on ? r.xMax - 16f : r.x + 2f, r.y + 2f, 14f, 14f);
@@ -280,7 +473,9 @@ namespace ModernDevTools
         public static bool ModuleRow(Rect row, string label, string sourceTag, string tooltip, bool available, bool enabled)
         {
             Widgets.DrawBoxSolid(row, PanelBG);
-            if (enabled) StateStrip(row, Accent, 3f);
+            // The accent state strip is Modern-suite grammar; vanilla conveys the state with the
+            // checkbox alone.
+            if (enabled && ModernSkin) StateStrip(row, Accent, 3f);
             DrawBox(row, BGL, 1);
             if (available && Mouse.IsOver(row)) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.04f));
 
@@ -295,9 +490,12 @@ namespace ModernDevTools
             return available && Widgets.ButtonInvisible(toggleR);
         }
 
-        /// <summary>Themed close button (an X drawn from two lines; no glyph). Returns true on click.</summary>
+        /// <summary>Themed close button. Vanilla skin: the engine's own close-X art (one ButtonImage,
+        /// same single control as the modern path's ButtonInvisible). Returns true on click.</summary>
         public static bool CloseX(Rect r)
         {
+            if (!ModernSkin) return Widgets.ButtonImage(r.ContractedBy(2f), TexButton.CloseXSmall);
+
             Color c = Mouse.IsOver(r) ? Stat : TextDim;
             if (MdtTex.Close != null)
             {
@@ -418,6 +616,15 @@ namespace ModernDevTools
 
         public static void BeginScroll(Rect outRect, ref Vector2 scroll, Rect viewRect)
         {
+            // Vanilla skin keeps vanilla scrollbars. A null stack entry keeps Begin/End symmetric
+            // (EndScroll always pops) without touching GUI.skin at all.
+            if (!ModernSkin)
+            {
+                _skinStack.Add(null);
+                Widgets.BeginScrollView(outRect, ref scroll, viewRect);
+                return;
+            }
+
             InitScroll();
             _skinStack.Add(new[]
             {
@@ -443,6 +650,7 @@ namespace ModernDevTools
             if (n == 0) return;
             GUIStyle[] saved = _skinStack[n - 1];
             _skinStack.RemoveAt(n - 1);
+            if (saved == null) return;   // vanilla-skin scroll: GUI.skin was never touched
             GUI.skin.verticalScrollbar = saved[0];
             GUI.skin.verticalScrollbarThumb = saved[1];
             GUI.skin.verticalScrollbarUpButton = saved[2];

@@ -52,6 +52,11 @@ namespace ModernDevTools
         }
 
         // ── draw ────────────────────────────────────────────────────────────────
+        // Every public shape branches on the skin (the dual-skin house rule: branches live in the
+        // style layer, never at call sites). Vanilla = square fills; panels additionally wear the
+        // engine's menu-section border when the fill is opaque, so nested groups read the way
+        // vanilla's own section-in-section screens do. Translucent tints (banners, hover films,
+        // chips) stay borderless in both skins.
 
         private static void Atlas(Rect r, Color c, Texture2D tex)
         {
@@ -62,22 +67,48 @@ namespace ModernDevTools
             GUI.color = prev;
         }
 
-        /// <summary>Raised island / large card (22px corners).</summary>
-        public static void Capsule(Rect r, Color c) { Ensure(); Atlas(r, c, _capsule); }
+        private static void SquarePanel(Rect r, Color c)
+        {
+            if (r.width < 2f || r.height < 2f) return;
+            Widgets.DrawBoxSolid(r, c);
+            if (c.a >= 0.995f) Palette.DrawBox(r, Palette.BGL, 1);
+        }
 
-        /// <summary>Panel surface, sidebar, grouped-list plate (18px corners).</summary>
-        public static void Surface(Rect r, Color c) { Ensure(); Atlas(r, c, _surface); }
+        /// <summary>Raised island / large card (22px corners; vanilla: bordered square panel).</summary>
+        public static void Capsule(Rect r, Color c)
+        {
+            if (!Palette.ModernSkin) { SquarePanel(r, c); return; }
+            Ensure(); Atlas(r, c, _capsule);
+        }
 
-        /// <summary>Row plate / small control (10px corners).</summary>
-        public static void RowPlate(Rect r, Color c) { Ensure(); Atlas(r, c, _row); }
+        /// <summary>Panel surface, sidebar, grouped-list plate (18px corners; vanilla: bordered
+        /// square panel).</summary>
+        public static void Surface(Rect r, Color c)
+        {
+            if (!Palette.ModernSkin) { SquarePanel(r, c); return; }
+            Ensure(); Atlas(r, c, _surface);
+        }
 
-        /// <summary>Fully rounded capsule. DrawAtlas clamps the corner to half the rect, so the 22px
-        /// atlas produces a true pill on anything up to 44px tall.</summary>
-        public static void Pill(Rect r, Color c) { Ensure(); Atlas(r, c, _capsule); }
+        /// <summary>Row plate / small control (10px corners; vanilla: plain square fill).</summary>
+        public static void RowPlate(Rect r, Color c)
+        {
+            if (!Palette.ModernSkin) { if (r.width >= 2f && r.height >= 2f) Widgets.DrawBoxSolid(r, c); return; }
+            Ensure(); Atlas(r, c, _row);
+        }
 
-        /// <summary>Filled circle - ONE draw call, so this is what rows and markers use.</summary>
+        /// <summary>Fully rounded capsule (vanilla: plain square fill). DrawAtlas clamps the corner
+        /// to half the rect, so the 22px atlas produces a true pill on anything up to 44px tall.</summary>
+        public static void Pill(Rect r, Color c)
+        {
+            if (!Palette.ModernSkin) { if (r.width >= 2f && r.height >= 2f) Widgets.DrawBoxSolid(r, c); return; }
+            Ensure(); Atlas(r, c, _capsule);
+        }
+
+        /// <summary>Filled circle - ONE draw call, so this is what rows and markers use. Vanilla:
+        /// a square chip (vanilla never draws circles; a small square reads native).</summary>
         public static void Dot(Rect r, Color c)
         {
+            if (!Palette.ModernSkin) { Widgets.DrawBoxSolid(r, c); return; }
             Ensure();
             if (_disc == null) return;
             Color prev = GUI.color;
@@ -91,6 +122,7 @@ namespace ModernDevTools
         /// the suite's elevation is always plain black alpha.</summary>
         public static void Elevate(Rect r, Rect clamp, float spread = 16f, float alpha = 0.5f)
         {
+            if (!Palette.ModernSkin) return;   // vanilla has no soft shadows
             if (Event.current.type != EventType.Repaint) return;
             Ensure();
             Rect s = new Rect(r.x - spread, r.y - spread + spread * 0.42f,
@@ -109,6 +141,7 @@ namespace ModernDevTools
         /// filled recessed one. Inset past the corner arc so it cannot poke out.</summary>
         public static void TopHighlight(Rect r, float radius = 18f, float alpha = 0.055f)
         {
+            if (!Palette.ModernSkin) return;   // elevation grammar is Modern-only
             if (r.width <= radius * 2f) return;
             Widgets.DrawBoxSolid(new Rect(r.x + radius, r.y, r.width - radius * 2f, 1f),
                 new Color(1f, 1f, 1f, alpha));
@@ -128,6 +161,14 @@ namespace ModernDevTools
         /// switch in the mod that disagreed.</summary>
         public static void Switch(Rect r, bool on)
         {
+            if (!Palette.ModernSkin)
+            {
+                // Vanilla skin: the engine's own checkbox art, right-aligned in the switch's rect
+                // (draw-only, like the modern branch - the caller owns the click on its row).
+                float s = Mathf.Min(24f, r.height + 2f);
+                Widgets.CheckboxDraw(r.xMax - s, r.center.y - s * 0.5f, on, false, s);
+                return;
+            }
             Pill(r, on ? Palette.Accent : Palette.SwitchOff);
             float d = Mathf.Max(4f, r.height - 4f);
             Dot(new Rect(on ? r.xMax - 2f - d : r.x + 2f, r.y + 2f, d, d), Color.white);
