@@ -1,0 +1,49 @@
+{
+  "destFolder": "82eaf0465bab",
+  "name": "Advanced Dev Tools",
+  "packageId": "astryl.ModernDevTools",
+  "structure": {
+    "rootContentDirs": [
+      "Assemblies",
+      "Defs",
+      "Languages",
+      "Patches",
+      "Textures"
+    ],
+    "versionedRoots": [],
+    "hasLoadFolders": false,
+    "hasSource": true,
+    "hasCsproj": true,
+    "hasAssemblies": true,
+    "empty": false
+  },
+  "findings": [
+    {
+      "rule": "missing-dependency",
+      "tone": "warn",
+      "file": "About/About.xml",
+      "message": "Declares 1 hard dependency not in this workspace: \"Harmony\". RimWorld refuses to run the mod until it is installed."
+    }
+  ],
+  "dependencies": [
+    {
+      "packageId": "brrainz.harmony",
+      "displayName": "Harmony",
+      "state": "absent"
+    }
+  ],
+  "defCount": 61,
+  "defTypes": [
+    {
+      "defType": "ModernDevTools.KnownIssueDef",
+      "count": 48
+    },
+    {
+      "defType": "ModernDevTools.ErrorModuleDef",
+      "count": 13
+    }
+  ],
+  "csFiles": 60,
+  "elapsedMs": 277,
+  "error": null
+}
